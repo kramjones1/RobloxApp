@@ -1,0 +1,3 @@
+[build]
+  command = "npx expo export --platform web && xcopy /E /I /Y static\\godot dist\\godot\\"
+  publish = "dist"

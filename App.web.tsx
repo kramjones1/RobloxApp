@@ -155,7 +155,7 @@ export default function WebApp() {
       {state === 'searching' && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
           <p style={{ color: '#aaa', fontSize: 18 }}>{log}</p>
-          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); setState('idle'); }} style={{ ...sBtn, marginTop: 20, background: '#666' }}>Cancel</button>
+          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{ ...sBtn, marginTop: 20, background: '#666' }}>Cancel</button>
         </div>
       )}
 

@@ -23,7 +23,7 @@ export default function WebApp() {
       const msg = JSON.parse(e.data);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': startCall(ws); break;
+        case 'matched': startCall(ws, msg.role); break;
         case 'partner_left': cleanup(); addLog('Partner left'); break;
         case 'sdp': handleSDP(ws, msg); break;
         case 'ice': handleICE(msg); break;
@@ -33,7 +33,7 @@ export default function WebApp() {
     return () => { ws.close(); lsRef.current?.getTracks().forEach((t: any) => t.stop()); };
   }, []);
 
-  async function startCall(ws: WebSocket) {
+  async function startCall(ws: WebSocket, role?: string) {
     addLog('Starting call...');
     setState('connecting');
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
@@ -44,9 +44,14 @@ export default function WebApp() {
     };
     const stream = lsRef.current;
     if (stream) stream.getTracks().forEach((t: any) => pc.addTrack(t, stream));
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
+    if (role === 'offer') {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
+      addLog('Sent offer');
+    } else {
+      addLog('Waiting for offer...');
+    }
     setState('connected');
   }
 

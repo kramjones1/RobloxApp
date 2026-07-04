@@ -22,15 +22,22 @@
       },
       "package": "com.anito1431.RobloxApp",
       "versionCode": 1,
-      "permissions": []
+      "permissions": ["CAMERA", "RECORD_AUDIO", "INTERNET", "MODIFY_AUDIO_SETTINGS"]
     },
+    "plugins": ["react-native-webrtc"],
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/ef1a0b90-91e8-4c68-90cb-bb0dc01e8af2"
     },
     "extra": {
       "eas": {
         "projectId": "ef1a0b90-91e8-4c68-90cb-bb0dc01e8af2"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

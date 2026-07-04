@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, getSession, onAuthChange, getChatProfile } from './supabaseClient';
+import { signUp, signIn, signOut, getSession, onAuthChange, getChatProfile, getConversations } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
+import MessagesPage from './pages/MessagesPage';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
@@ -36,12 +37,7 @@ export default function WebApp() {
   const pcRef = useRef<any>(null);
   const lsRef = useRef<any>(null);
   const wsRef = useRef<WebSocket>(null);
-  const dcRef = useRef<any>(null);
-  const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
-  const [showChat, setShowChat] = useState(false);
-  const [partnerProfile, setPartnerProfile] = useState<{ name: string; bio: string } | null>(null);
-  const [myProfile, setMyProfile] = useState<{ name: string; bio: string; share_name: boolean; share_bio: boolean } | null>(null);
-  const [chatInput, setChatInput] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
@@ -49,22 +45,17 @@ export default function WebApp() {
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
-    if (u) {
-      getChatProfile().then(({ profile }) => {
-        if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, share_name: profile.share_name, share_bio: profile.share_bio });
-      });
-    }
-    return onAuthChange(u2 => {
-      setUser(u2);
-      if (u2) {
-        getChatProfile().then(({ profile }) => {
-          if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, share_name: profile.share_name, share_bio: profile.share_bio });
-        });
-      } else {
-        setMyProfile(null);
-      }
-    });
+    return onAuthChange(u2 => setUser(u2));
   }, []);
+
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return; }
+    const iv = setInterval(async () => {
+      const { conversations } = await getConversations();
+      if (conversations) setUnreadCount(conversations.reduce((sum: number, c: any) => sum + (c.unread || 0), 0));
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [user]);
 
   useEffect(() => {
     if (user && page === 'auth') setPage('home');
@@ -121,9 +112,6 @@ export default function WebApp() {
   async function startCall(ws: WebSocket, role?: string) {
     addLog('Starting call...');
     setState('connecting');
-    setChatMessages([]);
-    setPartnerProfile(null);
-    setShowChat(false);
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -140,42 +128,6 @@ export default function WebApp() {
     };
     pc.oniceconnectionstatechange = () => { addLog('ICE: ' + pc.iceConnectionState); };
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') addLog('Connected!'); };
-
-    function onDcMessage(e: any) {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === 'msg') {
-          setChatMessages(prev => [...prev, { me: false, text: data.text }]);
-        } else if (data.type === 'profile') {
-          setPartnerProfile({ name: data.name, bio: data.bio });
-        }
-      } catch {}
-    }
-
-    if (role === 'offer') {
-      const dc = pc.createDataChannel('chat');
-      dcRef.current = dc;
-      dc.onopen = () => {
-        addLog('Chat ready');
-        if (myProfile?.share_name || myProfile?.share_bio) {
-          dc.send(JSON.stringify({ type: 'profile', name: myProfile.share_name ? myProfile.name : '', bio: myProfile.share_bio ? myProfile.bio : '' }));
-        }
-      };
-      dc.onmessage = onDcMessage;
-    } else {
-      pc.ondatachannel = (e) => {
-        const dc = e.channel;
-        dcRef.current = dc;
-        dc.onopen = () => {
-          addLog('Chat ready');
-          if (myProfile?.share_name || myProfile?.share_bio) {
-            dc.send(JSON.stringify({ type: 'profile', name: myProfile.share_name ? myProfile.name : '', bio: myProfile.share_bio ? myProfile.bio : '' }));
-          }
-        };
-        dc.onmessage = onDcMessage;
-      };
-    }
-
     const stream = lsRef.current;
     if (stream) {
       stream.getTracks().forEach((t: any) => {
@@ -261,19 +213,11 @@ export default function WebApp() {
 
   function cleanup() {
     lsRef.current?.getTracks().forEach((t: any) => t.stop());
-    lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
+    lsRef.current = null; pcRef.current?.close(); pcRef.current = null;
     setState('idle'); setNoAudio(false);
   }
 
   function skip() { cleanup(); setPartnerId(''); wsRef.current?.send(JSON.stringify({ type: 'next' })); }
-
-  function sendChat() {
-    const text = chatInput.trim();
-    if (!text || !dcRef.current) return;
-    dcRef.current.send(JSON.stringify({ type: 'msg', text }));
-    setChatMessages(prev => [...prev, { me: true, text }]);
-    setChatInput('');
-  }
 
   const wsColor = wsStatus === 'connected' ? '#4caf50' : wsStatus === 'connecting' ? '#ff9800' : '#f44336';
 
@@ -311,9 +255,8 @@ export default function WebApp() {
   if (page === 'privacy') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+<Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <PrivacyPage />
-        <Footer setPage={setPage} />
       </div>
     );
   }
@@ -321,7 +264,7 @@ export default function WebApp() {
   if (page === 'terms') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <TermsPage />
         <Footer setPage={setPage} />
       </div>
@@ -331,9 +274,18 @@ export default function WebApp() {
   if (page === 'profile') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <ProfilePage onNav={setPage as any} user={user} />
         <Footer setPage={setPage} />
+      </div>
+    );
+  }
+
+  if (page === 'messages') {
+    return (
+      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <MessagesPage />
       </div>
     );
   }
@@ -380,7 +332,7 @@ export default function WebApp() {
   if (page === 'home') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <LandingPage onStart={() => {
           setPage('chat');
           setTimeout(findStranger, 100);
@@ -400,29 +352,6 @@ export default function WebApp() {
         <span style={{ color: '#aaa', fontSize: 11 }}>{wsStatus}</span>
         {noAudio && <span style={{ color: '#ff9800', fontSize: 11, marginLeft: 4 }}>Mic off</span>}
       </div>
-
-      {showChat && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.85)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-            <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>
-              Chat {partnerProfile?.name ? `- ${partnerProfile.name}` : ''}
-            </span>
-            <button onClick={() => setShowChat(false)} style={{ background: 'none', border: 'none', color: '#888', fontSize: 18, cursor: 'pointer', fontFamily: 'inherit' }}>✕</button>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {chatMessages.length === 0 && <p style={{ color: '#666', textAlign: 'center', fontSize: 13, marginTop: 40 }}>No messages yet</p>}
-            {chatMessages.map((m, i) => (
-              <div key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', background: m.me ? 'linear-gradient(135deg, #6c63ff, #2a6eff)' : 'rgba(255,255,255,0.08)', borderRadius: 12, padding: '8px 14px', maxWidth: '80%' }}>
-                <p style={{ color: '#fff', fontSize: 14, margin: 0, wordBreak: 'break-word' }}>{m.text}</p>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendChat()} placeholder="Type a message..." style={{ flex: 1, background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', padding: '10px 14px', borderRadius: 10, fontSize: 14, outline: 'none', fontFamily: 'inherit' }} />
-            <button onClick={sendChat} style={{ background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>Send</button>
-          </div>
-        </div>
-      )}
 
       {state === 'idle' && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
@@ -456,11 +385,11 @@ export default function WebApp() {
         <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 6 }}>
           <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>{log}</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
-            <button onClick={() => setShowChat(!showChat)} style={{
-              ...sBtn, width: 'auto', padding: '8px 16px', background: showChat ? '#2a6eff' : 'rgba(255,255,255,0.08)',
+            <button onClick={reportUser} style={{
+              ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
               boxShadow: 'none', fontSize: 12,
             }}>
-              Chat
+              {reportSent ? 'Reported' : 'Report'}
             </button>
             <button onClick={skip} style={{
               ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',

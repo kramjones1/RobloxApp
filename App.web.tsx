@@ -16,27 +16,21 @@ export default function WebApp() {
 
   useEffect(() => {
     addLog('Connecting...');
-    try {
-      const ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
-      ws.onopen = () => addLog('Connected to server');
-      ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        addLog('Signal: ' + msg.type);
-        switch (msg.type) {
-          case 'connected': setId(msg.id); break;
-          case 'matched': startCall(ws); break;
-          case 'partner_left': cleanup(); addLog('Partner left'); break;
-          case 'sdp': handleSDP(ws, msg); break;
-          case 'ice': handleICE(msg); break;
-        }
-      };
-      ws.onerror = () => addLog('Connection error');
-      ws.onclose = () => addLog('Disconnected');
-    } catch (e: any) {
-      addLog('Failed: ' + e.message);
-    }
-    return () => { wsRef.current?.close(); lsRef.current?.getTracks().forEach((t: any) => t.stop()); };
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+    ws.onopen = () => addLog('Connected');
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      switch (msg.type) {
+        case 'connected': setId(msg.id); break;
+        case 'matched': startCall(ws); break;
+        case 'partner_left': cleanup(); addLog('Partner left'); break;
+        case 'sdp': handleSDP(ws, msg); break;
+        case 'ice': handleICE(msg); break;
+      }
+    };
+    ws.onerror = () => addLog('Connection error');
+    return () => { ws.close(); lsRef.current?.getTracks().forEach((t: any) => t.stop()); };
   }, []);
 
   async function startCall(ws: WebSocket) {
@@ -46,7 +40,6 @@ export default function WebApp() {
     pcRef.current = pc;
     pc.onicecandidate = (e) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
     pc.ontrack = (e) => {
-      addLog('Remote video received');
       if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0];
     };
     const stream = lsRef.current;
@@ -55,7 +48,6 @@ export default function WebApp() {
     await pc.setLocalDescription(offer);
     ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
     setState('connected');
-    addLog('Waiting for partner...');
   }
 
   async function handleSDP(ws: WebSocket, msg: any) {
@@ -76,13 +68,18 @@ export default function WebApp() {
   async function findStranger() {
     try {
       addLog('Requesting camera...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } catch (_) {
+        addLog('Audio unavailable, video only...');
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
       addLog('Camera OK');
       lsRef.current = stream;
       if (localRef.current) localRef.current.srcObject = stream;
       setState('searching');
       wsRef.current?.send(JSON.stringify({ type: 'find' }));
-      addLog('Searching for partner...');
     } catch (e: any) {
       addLog('Camera error: ' + e.message);
     }
@@ -99,6 +96,7 @@ export default function WebApp() {
   const sBtn: React.CSSProperties = {
     background: '#2a6eff', color: '#fff', border: 'none',
     padding: '14px 40px', borderRadius: 8, fontSize: 16, cursor: 'pointer',
+    fontFamily: 'system-ui, sans-serif',
   };
 
   return (
@@ -110,7 +108,7 @@ export default function WebApp() {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
           <h1 style={{ color: '#fff', fontSize: 36, margin: 0 }}>Talk</h1>
           <p style={{ color: '#888', marginBottom: 20 }}>Random video chat</p>
-          <button id="startBtn" onClick={findStranger} style={sBtn}>Start Chatting</button>
+          <button onClick={findStranger} style={sBtn}>Start Chatting</button>
           <p style={{ color: '#aaa', fontSize: 14, marginTop: 20, textAlign: 'center' }}>{log}</p>
         </div>
       )}

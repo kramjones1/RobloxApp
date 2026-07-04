@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { signUp, signIn, signOut, getSession, onAuthChange } from './supabaseClient';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import LandingPage from './pages/LandingPage';
+import PrivacyPage from './pages/PrivacyPage';
+import TermsPage from './pages/TermsPage';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
 export default function WebApp() {
+  const [page, setPage] = useState('home');
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -14,8 +20,10 @@ export default function WebApp() {
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
-  const [log, setLog] = useState('Initializing...');
+  const [log, setLog] = useState('');
   const [wsStatus, setWsStatus] = useState('connecting');
+  const [partnerId, setPartnerId] = useState('');
+  const [reportSent, setReportSent] = useState(false);
   const localRef = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<any>(null);
@@ -25,10 +33,15 @@ export default function WebApp() {
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
   useEffect(() => {
-    setUser(getSession());
+    const u = getSession();
+    setUser(u);
     setAuthLoading(false);
-    return onAuthChange(u => setUser(u));
+    return onAuthChange(u2 => setUser(u2));
   }, []);
+
+  useEffect(() => {
+    if (user && page === 'auth') setPage('home');
+  }, [user, page]);
 
   useEffect(() => {
     if (!user) return;
@@ -45,13 +58,14 @@ export default function WebApp() {
     const { error } = await fn(email, password);
     setSubmitting(false);
     if (error) setAuthMsg(error);
-    else if (authMode === 'register') setAuthMsg('Check your email for confirmation link!');
+    else setPage('home');
   }
 
   async function handleLogout() {
     signOut();
     wsRef.current?.close();
     cleanup();
+    setPage('home');
   }
 
   function connect() {
@@ -64,8 +78,10 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': startCall(ws, msg.role); break;
-        case 'partner_left': cleanup(); addLog('Partner left'); break;
+        case 'matched': setPartnerId(msg.partner); setReportSent(false); startCall(ws, msg.role); break;
+        case 'partner_left': cleanup(); addLog('Partner left'); setPartnerId(''); break;
+        case 'reported': addLog('You have been reported'); break;
+        case 'report_ack': addLog('Report submitted'); break;
         case 'sdp': handleSDP(ws, msg); break;
         case 'ice': handleICE(msg); break;
       }
@@ -81,7 +97,6 @@ export default function WebApp() {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
       ],
     });
     pcRef.current = pc;
@@ -146,10 +161,17 @@ export default function WebApp() {
         await new Promise(r => setTimeout(r, 2000));
       }
       wsRef.current?.send(JSON.stringify({ type: 'find' }));
-      addLog('Sent find, waiting for partner...');
+      addLog('Searching for partner...');
     } catch (e: any) {
       addLog('Error: ' + e.message);
     }
+  }
+
+  function reportUser() {
+    if (!partnerId || reportSent) return;
+    wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId }));
+    setReportSent(true);
+    addLog('Report sent. Thank you.');
   }
 
   function cleanup() {
@@ -158,63 +180,113 @@ export default function WebApp() {
     setState('idle');
   }
 
-  function skip() { cleanup(); wsRef.current?.send(JSON.stringify({ type: 'next' })); }
+  function skip() { cleanup(); setPartnerId(''); wsRef.current?.send(JSON.stringify({ type: 'next' })); }
 
   const wsColor = wsStatus === 'connected' ? '#4caf50' : wsStatus === 'connecting' ? '#ff9800' : '#f44336';
+
   const sBtn: React.CSSProperties = {
-    background: '#2a6eff', color: '#fff', border: 'none',
-    padding: '14px 40px', borderRadius: 8, fontSize: 16, cursor: 'pointer',
+    background: 'linear-gradient(135deg, #6c63ff, #2a6eff)',
+    color: '#fff', border: 'none',
+    padding: '14px 40px', borderRadius: 50, fontSize: 16, fontWeight: 600, cursor: 'pointer',
     fontFamily: 'system-ui, sans-serif', width: '100%', maxWidth: 320,
+    boxShadow: '0 4px 20px rgba(108,99,255,0.3)',
+    transition: 'transform 0.2s, box-shadow 0.2s',
   };
   const input: React.CSSProperties = {
-    background: '#1a1a1a', color: '#fff', border: '1px solid #333',
-    padding: '12px 16px', borderRadius: 8, fontSize: 16, width: '100%', maxWidth: 320,
+    background: 'rgba(255,255,255,0.06)',
+    color: '#fff', border: '1px solid rgba(255,255,255,0.12)',
+    padding: '12px 16px', borderRadius: 10, fontSize: 16, width: '100%', maxWidth: 320,
     outline: 'none', fontFamily: 'system-ui, sans-serif', boxSizing: 'border-box',
+    transition: 'border-color 0.2s',
   };
 
   if (authLoading) {
     return (
-      <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</p>
+      <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif' }}>
+        <p style={{ color: '#888' }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (page === 'privacy') {
+    return (
+      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <PrivacyPage />
+        <Footer setPage={setPage} />
+      </div>
+    );
+  }
+
+  if (page === 'terms') {
+    return (
+      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <TermsPage />
+        <Footer setPage={setPage} />
+      </div>
+    );
+  }
+
+  if (page === 'auth') {
+    return (
+      <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif' }}>
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)', padding: '100px 20px 60px' }}>
+          <h1 style={{ color: '#fff', fontSize: 32, margin: 0, marginBottom: 8 }}>Talk</h1>
+          <p style={{ color: '#888', marginBottom: 28 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
+          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%', maxWidth: 360 }}>
+            <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+            <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+            <button type="submit" disabled={submitting} style={{...sBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+          </form>
+          {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+          <p style={{ color: '#666', fontSize: 14, marginTop: 20, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
+            {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <h1 style={{ color: '#fff', fontSize: 32, margin: 0, marginBottom: 8 }}>Talk</h1>
-        <p style={{ color: '#888', marginBottom: 28 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
-        <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%', maxWidth: 360, padding: '0 20px' }}>
-          <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-          <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-          <button type="submit" disabled={submitting} style={{...sBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
-        </form>
-        {authMsg && <p style={{ color: '#ff9800', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 320 }}>{authMsg}</p>}
-        <p style={{ color: '#666', fontSize: 14, marginTop: 20, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
-          {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-        </p>
+      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <LandingPage onStart={() => setPage('auth')} />
+        <Footer setPage={setPage} />
+      </div>
+    );
+  }
+
+  if (page === 'home') {
+    return (
+      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <LandingPage onStart={() => {
+          setPage('chat');
+          setTimeout(findStranger, 100);
+        }} />
+        <Footer setPage={setPage} />
       </div>
     );
   }
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
-      <video ref={remoteRef} autoPlay playsInline style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
-      <video ref={localRef} autoPlay playsInline muted style={{ position: 'absolute', top: 40, right: 10, width: 120, height: 160, borderRadius: 8, zIndex: 10, border: '2px solid #333', objectFit: 'cover', background: '#111' }} />
+      <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
 
-      <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 30, background: wsColor, color: '#fff', padding: '4px 12px', borderRadius: 4, fontSize: 12 }}>
-        {wsStatus}
-      </div>
+      <video ref={remoteRef} autoPlay playsInline style={{ position: 'absolute', top: 60, width: '100%', height: 'calc(100% - 60px)', objectFit: 'cover', background: '#111' }} />
+      <video ref={localRef} autoPlay playsInline muted style={{ position: 'absolute', top: 80, right: 10, width: 120, height: 160, borderRadius: 12, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
 
-      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 30, display: 'flex', gap: 8, alignItems: 'center' }}>
-        <span style={{ color: '#888', fontSize: 12 }}>{user.email}</span>
-        <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #555', color: '#aaa', borderRadius: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Logout</button>
+      <div style={{ position: 'absolute', top: 75, left: 14, zIndex: 30, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: wsColor, display: 'inline-block' }} />
+        <span style={{ color: '#aaa', fontSize: 11 }}>{wsStatus}</span>
       </div>
 
       {state === 'idle' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-          <h1 style={{ color: '#fff', fontSize: 36, margin: 0 }}>Talk</h1>
+        <div style={{ position: 'absolute', inset: 0, top: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
+          <h1 style={{ color: '#fff', fontSize: 36, margin: 0, fontWeight: 700 }}>Talk</h1>
           <p style={{ color: '#888', marginBottom: 20 }}>Random video chat</p>
           <button onClick={findStranger} style={sBtn}>Start Chatting</button>
           <p style={{ color: '#aaa', fontSize: 14, marginTop: 20, textAlign: 'center', maxWidth: '80%' }}>{log}</p>
@@ -222,20 +294,35 @@ export default function WebApp() {
       )}
 
       {state === 'searching' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-          <p style={{ color: '#aaa', fontSize: 18 }}>{log}</p>
-          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{ ...sBtn, marginTop: 20, background: '#666' }}>Cancel</button>
+        <div style={{ position: 'absolute', inset: 0, top: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
+          <div style={{ width: 40, height: 40, border: '3px solid #333', borderTopColor: '#6c63ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 20 }} />
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          <p style={{ color: '#aaa', fontSize: 18 }}>{log || 'Searching...'}</p>
+          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{ ...sBtn, marginTop: 20, background: '#555', boxShadow: 'none' }}>Cancel</button>
         </div>
       )}
 
       {state === 'connected' && (
-        <div style={{ position: 'absolute', bottom: 60, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20 }}>
-          <p style={{ color: '#aaa', fontSize: 14 }}>{log}</p>
-          <button onClick={skip} style={{ ...sBtn, background: '#d32f2f', marginTop: 10 }}>Next →</button>
+        <div style={{ position: 'absolute', bottom: 40, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 10 }}>
+          <p style={{ color: '#aaa', fontSize: 14, margin: 0 }}>{log}</p>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button onClick={reportUser} style={{
+              ...sBtn, width: 'auto', padding: '12px 24px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
+              boxShadow: 'none', fontSize: 14,
+            }}>
+              {reportSent ? 'Reported' : 'Report'}
+            </button>
+            <button onClick={skip} style={{
+              ...sBtn, width: 'auto', padding: '12px 24px', background: '#d32f2f',
+              boxShadow: 'none', fontSize: 14,
+            }}>
+              Next →
+            </button>
+          </div>
         </div>
       )}
 
-      <p style={{ position: 'absolute', bottom: 0, left: 0, right: 0, color: '#555', fontSize: 11, textAlign: 'center', padding: 8, margin: 0, zIndex: 20 }}>ID: {id}</p>
+      <p style={{ position: 'absolute', bottom: 0, left: 0, right: 0, color: '#555', fontSize: 11, textAlign: 'center', padding: 8, margin: 0, zIndex: 20, fontFamily: 'system-ui, sans-serif' }}>ID: {id}</p>
     </div>
   );
 }

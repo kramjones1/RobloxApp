@@ -30,8 +30,13 @@ jobs:
           EAS_NO_VCS: 1
           EAS_SKIP_AUTO_FINGERPRINT: 1
 
+      - name: Find APK output
+        run: find . -name "*.apk" -o -name "*.aab" 2>/dev/null || echo "No APK/AAB found in workspace"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: LiveMe-APK
-          path: ./*.apk
+          path: |
+            **/*.apk
+            **/*.aab

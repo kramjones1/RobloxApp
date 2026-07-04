@@ -36,11 +36,23 @@ export default function WebApp() {
   async function startCall(ws: WebSocket, role?: string) {
     addLog('Starting call...');
     setState('connecting');
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+      ],
+    });
     pcRef.current = pc;
     pc.onicecandidate = (e) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
     pc.ontrack = (e) => {
       if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0];
+    };
+    pc.oniceconnectionstatechange = () => {
+      addLog('ICE: ' + pc.iceConnectionState);
+    };
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') addLog('Connected!');
     };
     const stream = lsRef.current;
     if (stream) stream.getTracks().forEach((t: any) => pc.addTrack(t, stream));

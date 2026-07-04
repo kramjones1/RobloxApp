@@ -98,13 +98,11 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
         <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>
       <div style={styles.userSection}>
-        {user ? (
+        {user && (
           <>
             <span className="nav-email" style={styles.email}>{user.email}</span>
             <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
           </>
-        ) : (
-          <button style={styles.logoutBtn} onClick={() => setPage('auth')}>Sign In</button>
         )}
       </div>
     </nav>

@@ -9,7 +9,7 @@ import TermsPage from './pages/TermsPage';
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@media(min-width:500px){.nav-email{display:inline!important}}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@media(min-width:500px){.nav-email{display:inline!important}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}.hero-left{text-align:center}@media(min-width:800px){.hero-left{text-align:left}}';
 document.head.appendChild(style);
 
 export default function WebApp() {
@@ -244,45 +244,42 @@ export default function WebApp() {
     );
   }
 
-  if (page === 'auth') {
+  if (!user) {
     return (
-      <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)', padding: '100px 20px 60px' }}>
-          <h1 style={{ color: '#fff', fontSize: 32, margin: 0, marginBottom: 8 }}>LiveMe</h1>
-          <p style={{ color: '#888', marginBottom: 28 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
-          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%', maxWidth: 360 }}>
+      <>
+        {/* Mobile: clean auth form only (shown on < 700px) */}
+        <div className="mobile-auth" style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+          <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
+          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
             <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
             <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-            <button type="submit" disabled={submitting} style={{...sBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+            <button type="submit" disabled={submitting} style={{...sBtn, maxWidth: '100%', padding: '12px', opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
           </form>
-          {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
-          <p style={{ color: '#666', fontSize: 14, marginTop: 20, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
+          {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+          <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
             {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
           </p>
         </div>
-      </div>
-    );
-  }
 
-  if (!user) {
-    return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
-        <LandingPage
-          onStart={() => setPage('auth')}
-          authMode={authMode}
-          authMsg={authMsg}
-          submitting={submitting}
-          email={email}
-          password={password}
-          onEmailChange={setEmail}
-          onPasswordChange={setPassword}
-          onSubmit={handleAuth}
-          onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
-        />
-        <Footer setPage={setPage} />
-      </div>
+        {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
+        <div className="desktop-layout" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+          <LandingPage
+            onStart={() => {}}
+            authMode={authMode}
+            authMsg={authMsg}
+            submitting={submitting}
+            email={email}
+            password={password}
+            onEmailChange={setEmail}
+            onPasswordChange={setPassword}
+            onSubmit={handleAuth}
+            onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
+          />
+          <Footer setPage={setPage} />
+        </div>
+      </>
     );
   }
 

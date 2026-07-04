@@ -23,13 +23,12 @@ const s = {
     gap: 20,
   },
   heroLeft: {
-    flex: '1 1 100%',
-    maxWidth: 500,
+    flex: '1 1 400px',
+    maxWidth: 600,
     padding: '20px 0',
-    textAlign: 'center' as const,
   },
   heroTitle: {
-    fontSize: 'clamp(40px, 10vw, 80px)',
+    fontSize: 'clamp(40px, 6vw, 80px)',
     fontWeight: 800,
     margin: 0,
     letterSpacing: '-3px',
@@ -40,7 +39,7 @@ const s = {
   },
   heroTagline: {
     color: '#999',
-    fontSize: 'clamp(16px, 3.5vw, 22px)',
+    fontSize: 'clamp(16px, 2vw, 22px)',
     marginTop: 8,
     fontWeight: 400,
   },
@@ -58,8 +57,8 @@ const s = {
     boxShadow: '0 4px 24px rgba(108,99,255,0.3)',
   },
   heroRight: {
-    flex: '1 1 100%',
-    maxWidth: 400,
+    flex: '1 1 360px',
+    maxWidth: 420,
     padding: '10px 0 30px',
     display: 'flex',
     justifyContent: 'center',
@@ -173,10 +172,10 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
     <>
       <section style={{ ...s.section, ...s.hero }}>
         <div style={s.heroInner}>
-          <div style={s.heroLeft}>
+          <div className="hero-left" style={s.heroLeft}>
             <h1 style={s.heroTitle}>LiveMe</h1>
             <p style={s.heroTagline}>Random video chat. Meet new people.</p>
-            <button style={s.cta} onClick={onStart}>Start Chatting</button>
+            {!showAuth && <button style={s.cta} onClick={onStart}>Start Chatting</button>}
           </div>
           {showAuth && (
             <div style={s.heroRight}>

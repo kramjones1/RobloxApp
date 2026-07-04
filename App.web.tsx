@@ -1,45 +1,60 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
-let ws: WebSocket;
 
 export default function WebApp() {
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
   const localRef = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
-
-  let pc: RTCPeerConnection;
-  let localStream: MediaStream;
+  const pcRef = useRef<any>(null);
+  const lsRef = useRef<any>(null);
+  const wsRef = useRef<WebSocket>();
 
   useEffect(() => {
-    ws = new WebSocket(WS_URL);
+    const ws = new WebSocket(WS_URL);
+    wsRef.current = ws;
+
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': startCall(); break;
+        case 'matched': startCall(ws); break;
         case 'partner_left': cleanup(); break;
-        case 'sdp': handleSDP(msg); break;
+        case 'sdp': handleSDP(ws, msg); break;
         case 'ice': handleICE(msg); break;
       }
     };
-    return () => { ws?.close(); localStream?.getTracks().forEach((t) => t.stop()); };
+
+    return () => { ws.close(); lsRef.current?.getTracks().forEach((t: any) => t.stop()); };
   }, []);
 
-  async function startCall() {
+  async function startCall(ws: WebSocket) {
     setState('connecting');
-    pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    pc.onicecandidate = (e) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
-    pc.ontrack = (e) => { if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0]; };
-    localStream?.getTracks().forEach((t) => pc.addTrack(t, localStream));
+    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    pcRef.current = pc;
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+    };
+    pc.ontrack = (e) => {
+      if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0];
+    };
+
+    const stream = lsRef.current;
+    if (stream) {
+      stream.getTracks().forEach((t: any) => pc.addTrack(t, stream));
+    }
+
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
     setState('connected');
   }
 
-  async function handleSDP(msg: any) {
+  async function handleSDP(ws: WebSocket, msg: any) {
+    const pc = pcRef.current;
+    if (!pc) return;
     await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
     if (msg.sdp.type === 'offer') {
       const answer = await pc.createAnswer();
@@ -49,25 +64,31 @@ export default function WebApp() {
   }
 
   async function handleICE(msg: any) {
-    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch (_) {}
+    try { await pcRef.current?.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch (_) {}
   }
 
   async function findStranger() {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      if (localRef.current) localRef.current.srcObject = localStream;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      lsRef.current = stream;
+      if (localRef.current) localRef.current.srcObject = stream;
       setState('searching');
-      ws.send(JSON.stringify({ type: 'find' }));
+      wsRef.current?.send(JSON.stringify({ type: 'find' }));
     } catch (_) { alert('Camera access required'); }
   }
 
   function cleanup() {
-    localStream?.getTracks().forEach((t) => t.stop());
-    pc?.close();
+    lsRef.current?.getTracks().forEach((t: any) => t.stop());
+    lsRef.current = null;
+    pcRef.current?.close();
+    pcRef.current = null;
     setState('idle');
   }
 
-  function skip() { cleanup(); ws.send(JSON.stringify({ type: 'next' })); }
+  function skip() {
+    cleanup();
+    wsRef.current?.send(JSON.stringify({ type: 'next' }));
+  }
 
   const btnStyle: React.CSSProperties = {
     backgroundColor: '#2a6eff', color: '#fff', border: 'none',
@@ -91,7 +112,7 @@ export default function WebApp() {
       {state === 'searching' && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
           <p style={{ color: '#aaa', fontSize: 18 }}>Looking for someone...</p>
-          <button onClick={() => { ws.send(JSON.stringify({ type: 'leave' })); setState('idle'); }} style={{ ...btnStyle, marginTop: 20 }}>Cancel</button>
+          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); setState('idle'); }} style={{ ...btnStyle, marginTop: 20 }}>Cancel</button>
         </div>
       )}
 

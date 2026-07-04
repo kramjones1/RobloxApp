@@ -5,7 +5,6 @@ interface NavbarProps {
   setPage: (p: string) => void;
   user: any;
   onLogout: () => void;
-  unreadCount?: number;
 }
 
 const styles = {
@@ -89,16 +88,13 @@ const styles = {
   },
 };
 
-export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0 }: NavbarProps) {
+export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
   return (
     <nav style={styles.nav}>
         <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
       <div style={styles.links}>
         <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}><span className="nav-label">Home</span><span className="nav-icon">⌂</span></button>
         <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}><span className="nav-label">Profile</span><span className="nav-icon">👤</span></button>
-        <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>
-          <span className="nav-label">Messages</span><span className="nav-icon">💬</span>{unreadCount ? <span style={{ background: '#6c63ff', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 600, marginLeft: 6 }}>{unreadCount}</span> : null}
-        </button>
         <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}><span className="nav-label">Privacy</span><span className="nav-icon">🔒</span></button>
         <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}><span className="nav-label">Terms</span><span className="nav-icon">📄</span></button>
       </div>

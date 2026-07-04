@@ -93,21 +93,3 @@ ALTER TABLE chat_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "profiles select" ON chat_profiles FOR SELECT TO authenticated USING (true);
 CREATE POLICY "own chat profile insert" ON chat_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "own chat profile update" ON chat_profiles FOR UPDATE USING (auth.uid() = user_id);
-
--- Messages for standalone chat
-CREATE TABLE messages (
-  id BIGSERIAL PRIMARY KEY,
-  sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  receiver_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  read_at TIMESTAMPTZ
-);
-
-CREATE INDEX idx_messages_sender ON messages(sender_id);
-CREATE INDEX idx_messages_receiver ON messages(receiver_id);
-
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "messages select" ON messages FOR SELECT TO authenticated USING (auth.uid() = sender_id OR auth.uid() = receiver_id);
-CREATE POLICY "messages insert" ON messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = sender_id);

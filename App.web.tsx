@@ -1,17 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, getSession, onAuthChange, getChatProfile, getConversations } from './supabaseClient';
+import { signUp, signIn, signOut, getSession, onAuthChange, getChatProfile } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
-import MessagesPage from './pages/MessagesPage';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@media(min-width:500px){.nav-email{display:inline!important}.nav-label{display:inline!important}.nav-icon{display:none!important}}@media(max-width:499px){.nav-label{display:none!important}.nav-icon{display:inline!important}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}.hero-left{text-align:center}@media(min-width:800px){.hero-left{text-align:left}}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@media(min-width:500px){.nav-email{display:inline!important}.nav-label{display:inline!important}.nav-icon{display:none!important}}@media(max-width:499px){.nav-label{display:none!important}.nav-icon{display:inline!important}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}.hero-left{text-align:center}@media(min-width:800px){.hero-left{text-align:left}}';
 document.head.appendChild(style);
 
 export default function WebApp() {
@@ -37,7 +36,12 @@ export default function WebApp() {
   const pcRef = useRef<any>(null);
   const lsRef = useRef<any>(null);
   const wsRef = useRef<WebSocket>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const dcRef = useRef<any>(null);
+  const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
+  const [showChat, setShowChat] = useState(false);
+  const [partnerProfile, setPartnerProfile] = useState<{ name: string; bio: string } | null>(null);
+  const [myProfile, setMyProfile] = useState<{ name: string; bio: string } | null>(null);
+  const [chatInput, setChatInput] = useState('');
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
@@ -45,17 +49,13 @@ export default function WebApp() {
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
-    return onAuthChange(u2 => setUser(u2));
+    if (u) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio }); });
+    return onAuthChange(u2 => {
+      setUser(u2);
+      if (u2) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio }); });
+      else setMyProfile(null);
+    });
   }, []);
-
-  useEffect(() => {
-    if (!user) { setUnreadCount(0); return; }
-    const iv = setInterval(async () => {
-      const { conversations } = await getConversations();
-      if (conversations) setUnreadCount(conversations.reduce((sum: number, c: any) => sum + (c.unread || 0), 0));
-    }, 5000);
-    return () => clearInterval(iv);
-  }, [user]);
 
   useEffect(() => {
     if (user && page === 'auth') setPage('home');
@@ -128,6 +128,34 @@ export default function WebApp() {
     };
     pc.oniceconnectionstatechange = () => { addLog('ICE: ' + pc.iceConnectionState); };
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') addLog('Connected!'); };
+
+    function onDcMessage(e: any) {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'msg') {
+          const msg = { me: false, text: data.text };
+          setChatMessages(prev => [...prev, msg]);
+          setTimeout(() => setChatMessages(prev => prev.filter(m => m !== msg)), 5000);
+        } else if (data.type === 'profile') {
+          setPartnerProfile({ name: data.name, bio: data.bio });
+        }
+      } catch {}
+    }
+
+    if (role === 'offer') {
+      const dc = pc.createDataChannel('chat');
+      dcRef.current = dc;
+      dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio })); };
+      dc.onmessage = onDcMessage;
+    } else {
+      pc.ondatachannel = (e) => {
+        const dc = e.channel;
+        dcRef.current = dc;
+        dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio })); };
+        dc.onmessage = onDcMessage;
+      };
+    }
+
     const stream = lsRef.current;
     if (stream) {
       stream.getTracks().forEach((t: any) => {
@@ -174,15 +202,11 @@ export default function WebApp() {
     }
     try {
       addLog('Requesting camera...');
-      let stream: MediaProvider;
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } } });
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
-          audio: true,
-        });
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioStream.getAudioTracks().forEach(t => stream.addTrack(t));
       } catch {
-        addLog('Audio unavailable, trying video only...');
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
         setNoAudio(true);
       }
       addLog('Camera OK');
@@ -218,12 +242,29 @@ export default function WebApp() {
   }
 
   function cleanup() {
+    if (partnerId && partnerProfile) {
+      try {
+        const recent = JSON.parse(localStorage.getItem('recent_live') || '[]');
+        recent.unshift({ id: partnerId, name: partnerProfile.name, bio: partnerProfile.bio, time: Date.now() });
+        localStorage.setItem('recent_live', JSON.stringify(recent.slice(0, 20)));
+      } catch {}
+    }
     lsRef.current?.getTracks().forEach((t: any) => t.stop());
-    lsRef.current = null; pcRef.current?.close(); pcRef.current = null;
-    setState('idle'); setNoAudio(false);
+    lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
+    setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); setPartnerId('');
   }
 
   function skip() { cleanup(); setPartnerId(''); wsRef.current?.send(JSON.stringify({ type: 'next' })); }
+
+  function sendChat() {
+    const text = chatInput.trim();
+    if (!text || !dcRef.current) return;
+    dcRef.current.send(JSON.stringify({ type: 'msg', text }));
+    const msg = { me: true, text };
+    setChatMessages(prev => [...prev, msg]);
+    setTimeout(() => setChatMessages(prev => prev.filter(m => m !== msg)), 5000);
+    setChatInput('');
+  }
 
   const wsColor = wsStatus === 'connected' ? '#4caf50' : wsStatus === 'connecting' ? '#ff9800' : '#f44336';
 
@@ -261,7 +302,7 @@ export default function WebApp() {
   if (page === 'privacy') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-<Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <PrivacyPage />
       </div>
     );
@@ -270,7 +311,7 @@ export default function WebApp() {
   if (page === 'terms') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <TermsPage />
         <Footer setPage={setPage} />
       </div>
@@ -280,18 +321,9 @@ export default function WebApp() {
   if (page === 'profile') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <ProfilePage onNav={setPage as any} user={user} />
         <Footer setPage={setPage} />
-      </div>
-    );
-  }
-
-  if (page === 'messages') {
-    return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
-        <MessagesPage />
       </div>
     );
   }
@@ -338,7 +370,7 @@ export default function WebApp() {
   if (page === 'home') {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <LandingPage onStart={() => {
           setPage('chat');
           setTimeout(findStranger, 100);
@@ -394,6 +426,12 @@ export default function WebApp() {
         <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 6 }}>
           <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>{log}</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
+            <button onClick={() => setShowChat(!showChat)} style={{
+              ...sBtn, width: 'auto', padding: '8px 16px', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
+              boxShadow: 'none', fontSize: 12,
+            }}>
+              Chat
+            </button>
             <button onClick={reportUser} style={{
               ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
               boxShadow: 'none', fontSize: 12,
@@ -413,6 +451,33 @@ export default function WebApp() {
               Leave
             </button>
           </div>
+        </div>
+      )}
+
+      {showChat && state === 'connected' && (
+        <div style={{ position: 'absolute', bottom: 90, right: 14, width: 280, maxHeight: 300, background: 'rgba(20,20,20,0.95)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', zIndex: 25, display: 'flex', flexDirection: 'column' }}>
+          {partnerProfile && (
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                {(partnerProfile.name || 'A')[0].toUpperCase()}
+              </div>
+              <div>
+                <p style={{ color: '#fff', fontSize: 12, fontWeight: 600, margin: 0 }}>{partnerProfile.name}</p>
+                <p style={{ color: '#888', fontSize: 10, margin: 0 }}>{partnerProfile.bio}</p>
+              </div>
+            </div>
+          )}
+          <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 4, minHeight: 80 }}>
+            {chatMessages.map((m, i) => (
+              <div key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', background: m.me ? '#6c63ff' : 'rgba(255,255,255,0.08)', padding: '6px 10px', borderRadius: 12, maxWidth: '80%', fontSize: 12, color: '#fff', wordBreak: 'break-word', animation: 'fadeIn 0.2s' }}>
+                {m.text}
+              </div>
+            ))}
+          </div>
+          <form onSubmit={(e) => { e.preventDefault(); sendChat(); }} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type a message..." maxLength={200} style={{ flex: 1, background: 'transparent', border: 'none', padding: '8px 10px', color: '#fff', fontSize: 12, outline: 'none' }} />
+            <button type="submit" style={{ background: 'transparent', border: 'none', color: '#6c63ff', padding: '8px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Send</button>
+          </form>
         </div>
       )}
 

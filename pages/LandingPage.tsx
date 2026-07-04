@@ -187,11 +187,11 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
                   <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
                     {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                   </button>
+                  {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>{authMsg}</p>}
+                  <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onToggleAuth}>
+                    {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+                  </p>
                 </form>
-                {authMsg && <p style={{ color: '#ff9800', fontSize: 13, marginTop: 10, textAlign: 'center', wordBreak: 'break-word' }}>{authMsg}</p>}
-                <p style={s.toggle} onClick={onToggleAuth}>
-                  {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-                </p>
               </div>
             </div>
           )}

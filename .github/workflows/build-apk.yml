@@ -4,6 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    paths:
+      - app.json
+      - App.tsx
+      - android/**
+      - ios/**
+      - package.json
+      - .github/workflows/build-apk.yml
 
 permissions:
   contents: write

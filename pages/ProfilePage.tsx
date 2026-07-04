@@ -46,9 +46,10 @@ export default function ProfilePage({ onNav, user }: Props) {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!displayName || displayName.length < 1) { setMsg('Display name is required'); return; }
     setSaving(true);
     setMsg('');
-    const { error } = await upsertChatProfile({ display_name: displayName || 'Anonymous', bio, avatar_url: '', share_name: shareName, share_bio: shareBio });
+    const { error } = await upsertChatProfile({ display_name: displayName, bio, avatar_url: '', share_name: shareName, share_bio: shareBio });
     setSaving(false);
     if (error) setMsg(error);
     else setMsg('Saved!');
@@ -62,7 +63,7 @@ export default function ProfilePage({ onNav, user }: Props) {
         <p style={s.title}>Profile Settings</p>
         <form onSubmit={handleSave}>
           <label style={s.label}>Display Name</label>
-          <input style={s.input} value={displayName} onChange={e => setDisplayName(e.target.value)} maxLength={30} />
+          <input style={s.input} value={displayName} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
 
           <label style={s.label}>Bio</label>
           <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} />

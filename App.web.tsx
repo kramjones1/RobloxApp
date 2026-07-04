@@ -76,8 +76,7 @@ export default function WebApp() {
     const { error } = await fn(email, password);
     setSubmitting(false);
     if (error) setAuthMsg(error);
-    else if (window.innerWidth < 700) { setPage('chat'); setTimeout(findStranger, 200); }
-    else setPage('home');
+    else setPage('profile');
   }
 
   async function handleLogout() {
@@ -196,6 +195,8 @@ export default function WebApp() {
   async function findStranger() {
     setCamError('');
     setNoAudio(false);
+    const { profile } = await getChatProfile();
+    if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
       lsRef.current = null;

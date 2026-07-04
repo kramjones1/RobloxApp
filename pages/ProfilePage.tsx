@@ -9,13 +9,13 @@ interface Props {
 }
 
 const s = {
-  page: { minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', paddingTop: 60 },
-  cover: { height: 280, background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', position: 'relative' as const },
+  page: { minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', paddingTop: 60, overflowY: 'auto' as const },
+  cover: { height: 200, background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', position: 'relative' as const },
   coverInner: { maxWidth: 960, margin: '0 auto', position: 'relative' as const, height: '100%' },
-  avatarWrap: { position: 'absolute' as const, bottom: -50, left: 24, display: 'flex', alignItems: 'flex-end', gap: 16 },
-  avatar: { width: 120, height: 120, borderRadius: '50%', border: '4px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 40, color: '#fff', fontWeight: 700, boxShadow: '0 2px 12px rgba(0,0,0,0.4)' },
-  name: { fontSize: 26, fontWeight: 700, color: '#fff', margin: 0, paddingBottom: 10 },
-  body: { maxWidth: 960, margin: '0 auto', padding: '60px 24px 40px', display: 'flex', gap: 24 },
+  avatarWrap: { position: 'absolute' as const, bottom: -50, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 },
+  avatar: { width: 100, height: 100, borderRadius: '50%', border: '4px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, color: '#fff', fontWeight: 700, boxShadow: '0 2px 12px rgba(0,0,0,0.4)' },
+  name: { fontSize: 22, fontWeight: 700, color: '#fff', margin: 0, textAlign: 'center' as const },
+  body: { maxWidth: 960, margin: '0 auto', padding: '70px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 16 },
   leftCol: { flex: 1 },
   rightCol: { width: 320, flexShrink: 0 },
   card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, marginBottom: 20 },
@@ -87,55 +87,51 @@ export default function ProfilePage({ onNav, user }: Props) {
       </div>
 
       <div style={s.body}>
-        <div style={s.leftCol}>
-          <div style={s.card}>
-            <h2 style={s.cardTitle}>About</h2>
-            <form onSubmit={handleSave}>
-              <label style={s.label}>Display Name</label>
-              <input style={s.input} value={displayName} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
+        <div style={s.card}>
+          <h2 style={s.cardTitle}>About</h2>
+          <form onSubmit={handleSave}>
+            <label style={s.label}>Display Name</label>
+            <input style={s.input} value={displayName} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
 
-              <label style={s.label}>Bio</label>
-              <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} placeholder="Tell people about yourself..." />
+            <label style={s.label}>Bio</label>
+            <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} placeholder="Tell people about yourself..." />
 
-              <div style={s.toggleRow}>
-                <span style={s.toggleLabel}>Show name to partner</span>
-                <button type="button" style={{ ...s.toggleBtn, background: shareName ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareName(!shareName)}>
-                  {shareName ? 'ON' : 'OFF'}
-                </button>
-              </div>
+            <div style={s.toggleRow}>
+              <span style={s.toggleLabel}>Show name to partner</span>
+              <button type="button" style={{ ...s.toggleBtn, background: shareName ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareName(!shareName)}>
+                {shareName ? 'ON' : 'OFF'}
+              </button>
+            </div>
 
-              <div style={s.toggleRow}>
-                <span style={s.toggleLabel}>Show bio to partner</span>
-                <button type="button" style={{ ...s.toggleBtn, background: shareBio ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareBio(!shareBio)}>
-                  {shareBio ? 'ON' : 'OFF'}
-                </button>
-              </div>
+            <div style={s.toggleRow}>
+              <span style={s.toggleLabel}>Show bio to partner</span>
+              <button type="button" style={{ ...s.toggleBtn, background: shareBio ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareBio(!shareBio)}>
+                {shareBio ? 'ON' : 'OFF'}
+              </button>
+            </div>
 
-              <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
-            </form>
-            {msg && <p style={{ ...s.msg, color: msg === 'Saved!' ? '#4caf50' : '#f44336' }}>{msg}</p>}
-          </div>
+            <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+          </form>
+          {msg && <p style={{ ...s.msg, color: msg === 'Saved!' ? '#4caf50' : '#f44336' }}>{msg}</p>}
         </div>
 
-        <div style={s.rightCol}>
-          <div style={s.card}>
-            <h2 style={s.cardTitle}>Recent Live</h2>
-            {recent.length === 0 ? (
-              <p style={{ color: '#666', fontSize: 13 }}>No recent interactions yet. Start chatting to meet people!</p>
-            ) : recent.map((r, i) => (
-              <div key={i} style={s.friendCard}>
-                <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>
-                <div>
-                  <p style={s.friendName}>{r.name || 'Unknown'}</p>
-                  <p style={s.friendBio}>{r.bio || ''}</p>
-                  <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
-                </div>
+        <div style={s.card}>
+          <h2 style={s.cardTitle}>Recent Live</h2>
+          {recent.length === 0 ? (
+            <p style={{ color: '#666', fontSize: 13 }}>No recent interactions yet. Start chatting to meet people!</p>
+          ) : recent.map((r, i) => (
+            <div key={i} style={s.friendCard}>
+              <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>
+              <div>
+                <p style={s.friendName}>{r.name || 'Unknown'}</p>
+                <p style={s.friendBio}>{r.bio || ''}</p>
+                <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
               </div>
-            ))}
-            {recent.length > 0 && (
-              <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={() => { localStorage.removeItem('recent_live'); setRecent([]); }}>Clear history</p>
-            )}
-          </div>
+            </div>
+          ))}
+          {recent.length > 0 && (
+            <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={() => { localStorage.removeItem('recent_live'); setRecent([]); }}>Clear history</p>
+          )}
         </div>
       </div>
     </div>

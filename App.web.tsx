@@ -28,6 +28,7 @@ export default function WebApp() {
   const [wsStatus, setWsStatus] = useState('connecting');
   const [partnerId, setPartnerId] = useState('');
   const [reportSent, setReportSent] = useState(false);
+  const [camError, setCamError] = useState('');
   const localRef = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<any>(null);
@@ -146,6 +147,7 @@ export default function WebApp() {
   }
 
   async function findStranger() {
+    setCamError('');
     try {
       addLog('Requesting camera...');
       let stream;
@@ -170,7 +172,14 @@ export default function WebApp() {
       wsRef.current?.send(JSON.stringify({ type: 'find' }));
       addLog('Searching for partner...');
     } catch (e: any) {
-      addLog('Error: ' + e.message);
+      const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
+      const notFound = e.name === 'NotFoundError';
+      const inUse = e.message?.includes('already in use') || e.message?.includes('Could not start');
+      if (denied) setCamError('Camera permission denied. Please allow camera access in your browser settings and try again.');
+      else if (notFound) setCamError('No camera found on this device.');
+      else if (inUse) setCamError('Camera is in use by another app or tab. Close it and try again.');
+      else setCamError(e.message || 'Could not access camera.');
+      addLog('Error: ' + (e.message || e.name));
     }
   }
 
@@ -304,7 +313,13 @@ export default function WebApp() {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
           <p style={{ color: '#888', marginBottom: 20 }}>Preview</p>
           <button onClick={findStranger} style={sBtn}>Start Chatting</button>
-          <p style={{ color: '#aaa', fontSize: 14, marginTop: 20, textAlign: 'center', maxWidth: '80%' }}>{log}</p>
+          {camError && (
+            <div style={{ marginTop: 16, padding: '12px 20px', background: 'rgba(244,67,54,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
+              <p style={{ color: '#f44336', fontSize: 13, margin: 0, lineHeight: 1.4 }}>{camError}</p>
+              <p style={{ color: '#888', fontSize: 11, marginTop: 8, cursor: 'pointer' }} onClick={() => setCamError('')}>Dismiss</p>
+            </div>
+          )}
+          <p style={{ color: '#aaa', fontSize: 14, marginTop: camError ? 8 : 20, textAlign: 'center', maxWidth: '80%' }}>{log}</p>
         </div>
       )}
 

@@ -94,6 +94,7 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
         <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
       <div style={styles.links}>
         <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
+        <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}>Profile</button>
         <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
         <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>

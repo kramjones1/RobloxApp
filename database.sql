@@ -76,3 +76,20 @@ CREATE POLICY "own inventory update" ON player_inventory FOR UPDATE USING (auth.
 
 CREATE POLICY "items all" ON items FOR SELECT TO authenticated USING (true);
 CREATE POLICY "enemies all" ON enemies FOR SELECT TO authenticated USING (true);
+
+-- Chat profiles for LiveMe video chat app
+CREATE TABLE chat_profiles (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  display_name TEXT NOT NULL DEFAULT 'Anonymous',
+  bio TEXT NOT NULL DEFAULT '',
+  avatar_url TEXT NOT NULL DEFAULT '',
+  share_name BOOLEAN NOT NULL DEFAULT false,
+  share_bio BOOLEAN NOT NULL DEFAULT false,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE chat_profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "own chat profile select" ON chat_profiles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "own chat profile insert" ON chat_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "own chat profile update" ON chat_profiles FOR UPDATE USING (auth.uid() = user_id);

@@ -97,3 +97,50 @@ export function onAuthChange(fn: Listener) {
   listeners.push(fn);
   return () => { const i = listeners.indexOf(fn); if (i >= 0) listeners.splice(i, 1); };
 }
+
+export interface ChatProfile {
+  display_name: string;
+  bio: string;
+  avatar_url: string;
+  share_name: boolean;
+  share_bio: boolean;
+}
+
+export async function getChatProfile(): Promise<{ profile?: ChatProfile; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const data = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${user.id}&select=*`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (data.error) return { error: data.error };
+    if (Array.isArray(data) && data.length > 0) {
+      const p = data[0];
+      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, share_name: p.share_name, share_bio: p.share_bio } };
+    }
+    return { profile: { display_name: 'Anonymous', bio: '', avatar_url: '', share_name: false, share_bio: false } };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function upsertChatProfile(profile: ChatProfile): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ user_id: user.id, ...profile, updated_at: new Date().toISOString() }),
+    });
+    if (res?.error) return { error: res.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}

@@ -18,7 +18,7 @@ function readFileAsDataURL(file: File): Promise<string> {
 }
 
 const s = {
-  page: { minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', paddingTop: 60, overflowY: 'auto' as const },
+  page: { background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', paddingTop: 60 },
   wrap: { maxWidth: 600, margin: '0 auto', padding: '24px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 20 },
   coverWrap: { position: 'relative' as const, width: '100%', height: 180, borderRadius: 14, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },

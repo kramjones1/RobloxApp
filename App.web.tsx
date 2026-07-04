@@ -321,7 +321,7 @@ export default function WebApp() {
 
   if (page === 'profile') {
     return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+      <div style={{ background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <ProfilePage onNav={setPage as any} user={user} />
         <Footer setPage={setPage} />

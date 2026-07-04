@@ -211,9 +211,16 @@ export default function WebApp() {
   const input: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
     color: '#fff', border: '1px solid rgba(255,255,255,0.12)',
-    padding: '12px 16px', borderRadius: 10, fontSize: 16, width: '100%', maxWidth: 320,
+    padding: '12px 16px', borderRadius: 10, fontSize: 16, width: '100%',
     outline: 'none', fontFamily: 'system-ui, sans-serif', boxSizing: 'border-box',
     transition: 'border-color 0.2s',
+  };
+  const mobileBtn: React.CSSProperties = {
+    background: 'linear-gradient(135deg, #6c63ff, #2a6eff)',
+    color: '#fff', border: 'none',
+    padding: '12px', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer',
+    fontFamily: 'system-ui, sans-serif', width: '100%',
+    boxShadow: '0 4px 20px rgba(108,99,255,0.3)',
   };
 
   if (authLoading) {
@@ -254,7 +261,7 @@ export default function WebApp() {
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
             <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
             <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-            <button type="submit" disabled={submitting} style={{...sBtn, maxWidth: '100%', padding: '12px', opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+            <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
           </form>
           {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
           <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>

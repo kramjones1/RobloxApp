@@ -11,7 +11,7 @@ import MessagesPage from './pages/MessagesPage';
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@media(min-width:500px){.nav-email{display:inline!important}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}.hero-left{text-align:center}@media(min-width:800px){.hero-left{text-align:left}}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@media(min-width:500px){.nav-email{display:inline!important}.nav-label{display:inline!important}.nav-icon{display:none!important}}@media(max-width:499px){.nav-label{display:none!important}.nav-icon{display:inline!important}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}.hero-left{text-align:center}@media(min-width:800px){.hero-left{text-align:left}}';
 document.head.appendChild(style);
 
 export default function WebApp() {

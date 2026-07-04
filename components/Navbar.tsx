@@ -94,13 +94,13 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0 
     <nav style={styles.nav}>
         <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
       <div style={styles.links}>
-        <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
-        <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}>Profile</button>
+        <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}><span className="nav-label">Home</span><span className="nav-icon">⌂</span></button>
+        <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}><span className="nav-label">Profile</span><span className="nav-icon">👤</span></button>
         <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>
-          Messages{unreadCount ? <span style={{ background: '#6c63ff', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 600, marginLeft: 6 }}>{unreadCount}</span> : null}
+          <span className="nav-label">Messages</span><span className="nav-icon">💬</span>{unreadCount ? <span style={{ background: '#6c63ff', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 600, marginLeft: 6 }}>{unreadCount}</span> : null}
         </button>
-        <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
-        <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
+        <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}><span className="nav-label">Privacy</span><span className="nav-icon">🔒</span></button>
+        <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}><span className="nav-label">Terms</span><span className="nav-icon">📄</span></button>
       </div>
       {user && (
         <div style={styles.userSection}>

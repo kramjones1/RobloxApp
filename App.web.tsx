@@ -63,6 +63,7 @@ export default function WebApp() {
     const { error } = await fn(email, password);
     setSubmitting(false);
     if (error) setAuthMsg(error);
+    else if (window.innerWidth < 700) { setPage('chat'); setTimeout(findStranger, 200); }
     else setPage('home');
   }
 

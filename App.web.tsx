@@ -302,7 +302,7 @@ export default function WebApp() {
 
   if (page === 'privacy') {
     return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <PrivacyPage />
       </div>
@@ -311,7 +311,7 @@ export default function WebApp() {
 
   if (page === 'terms') {
     return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <TermsPage />
         <Footer setPage={setPage} />
@@ -321,7 +321,7 @@ export default function WebApp() {
 
   if (page === 'profile') {
     return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <ProfilePage onNav={setPage as any} user={user} />
         <Footer setPage={setPage} />
@@ -370,7 +370,7 @@ export default function WebApp() {
 
   if (page === 'home') {
     return (
-      <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <LandingPage onStart={() => {
           setPage('chat');

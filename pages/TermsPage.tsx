@@ -5,7 +5,7 @@ const s = {
     minHeight: '100vh',
     fontFamily: 'system-ui, sans-serif',
     background: '#0a0a0a',
-    padding: '100px 20px 60px',
+    padding: '40px 20px 60px',
     maxWidth: 800,
     margin: '0 auto',
   },

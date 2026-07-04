@@ -257,7 +257,18 @@ export default function WebApp() {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
-        <LandingPage onStart={() => setPage('auth')} />
+        <LandingPage
+          onStart={() => setPage('auth')}
+          authMode={authMode}
+          authMsg={authMsg}
+          submitting={submitting}
+          email={email}
+          password={password}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onSubmit={handleAuth}
+          onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
+        />
         <Footer setPage={setPage} />
       </div>
     );

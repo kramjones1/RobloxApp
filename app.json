@@ -24,7 +24,7 @@
       "versionCode": 1,
       "permissions": ["CAMERA", "RECORD_AUDIO", "INTERNET", "MODIFY_AUDIO_SETTINGS"]
     },
-    "plugins": ["react-native-webrtc"],
+    "plugins": ["@config-plugins/react-native-webrtc"],
     "web": {
       "favicon": "./assets/favicon.png"
     },

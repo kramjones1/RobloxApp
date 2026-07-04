@@ -1,15 +1,15 @@
 const SUPABASE_URL = 'https://btkcubibosbtpxcronnd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0a2N1Ymlib3NidHB4Y3Jvbm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzI1ODAsImV4cCI6MjA5ODYwODU4MH0.IqR7dJbZJm83c_XHz923GQrBWdf5GCaNDYMPg6z8kj0';
 
-async function fetchWithTimeout(url: string, opts: RequestInit, ms = 10000) {
-  const ctrl = new AbortController();
-  const id = setTimeout(() => ctrl.abort(), ms);
-  try {
-    const res = await fetch(url, { ...opts, signal: ctrl.signal });
-    return res;
-  } finally {
-    clearTimeout(id);
+async function supabaseFetch(url: string, opts: RequestInit) {
+  const res = await fetch(url, opts);
+  if (!res.ok) {
+    const txt = await res.text();
+    let json;
+    try { json = JSON.parse(txt); } catch { json = {}; }
+    return { error: json.error_description || json.msg || json.error || `HTTP ${res.status}: ${txt.slice(0, 100)}` };
   }
+  return await res.json();
 }
 
 export interface SupabaseUser {
@@ -42,13 +42,12 @@ function parseJwt(token: string): SupabaseUser | null {
 
 export async function signUp(email: string, password: string): Promise<{ error?: string }> {
   try {
-    const res = await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/signup`, {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
-    if (data.error) return { error: data.error_description || data.msg || data.error };
+    if (data.error) return { error: data.error };
     if (data.access_token) {
       setStoredSession(data.access_token);
       notify(parseJwt(data.access_token));
@@ -61,13 +60,12 @@ export async function signUp(email: string, password: string): Promise<{ error?:
 
 export async function signIn(email: string, password: string): Promise<{ error?: string }> {
   try {
-    const res = await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
-    if (data.error) return { error: data.error_description || data.msg || data.error };
+    if (data.error) return { error: data.error };
     if (data.access_token) {
       setStoredSession(data.access_token);
       notify(parseJwt(data.access_token));

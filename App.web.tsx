@@ -1,8 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { supabase } from './supabaseClient';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
 export default function WebApp() {
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authMsg, setAuthMsg] = useState('');
+
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
   const [log, setLog] = useState('Initializing...');
@@ -16,13 +24,40 @@ export default function WebApp() {
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
     connect();
     return () => { wsRef.current?.close(); lsRef.current?.getTracks().forEach((t: any) => t.stop()); };
-  }, []);
+  }, [user]);
+
+  async function handleAuth(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthMsg('');
+    if (password.length < 6) { setAuthMsg('Password must be at least 6 characters'); return; }
+    const fn = authMode === 'login' ? supabase.auth.signInWithPassword : supabase.auth.signUp;
+    const { error } = await fn({ email, password });
+    if (error) setAuthMsg(error.message);
+    else if (authMode === 'register') setAuthMsg('Check your email for confirmation link!');
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    wsRef.current?.close();
+    cleanup();
+  }
 
   function connect() {
     setWsStatus('connecting');
-    addLog('Connecting...');
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
     ws.onopen = () => { setWsStatus('connected'); addLog('Connected'); };
@@ -131,8 +166,39 @@ export default function WebApp() {
   const sBtn: React.CSSProperties = {
     background: '#2a6eff', color: '#fff', border: 'none',
     padding: '14px 40px', borderRadius: 8, fontSize: 16, cursor: 'pointer',
-    fontFamily: 'system-ui, sans-serif',
+    fontFamily: 'system-ui, sans-serif', width: '100%', maxWidth: 320,
   };
+  const input: React.CSSProperties = {
+    background: '#1a1a1a', color: '#fff', border: '1px solid #333',
+    padding: '12px 16px', borderRadius: 8, fontSize: 16, width: '100%', maxWidth: 320,
+    outline: 'none', fontFamily: 'system-ui, sans-serif', boxSizing: 'border-box',
+  };
+
+  if (authLoading) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <h1 style={{ color: '#fff', fontSize: 32, margin: 0, marginBottom: 8 }}>Talk</h1>
+        <p style={{ color: '#888', marginBottom: 28 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
+        <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%', maxWidth: 360, padding: '0 20px' }}>
+          <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+          <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+          <button type="submit" style={sBtn}>{authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+        </form>
+        {authMsg && <p style={{ color: '#ff9800', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 320 }}>{authMsg}</p>}
+        <p style={{ color: '#666', fontSize: 14, marginTop: 20, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
+          {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
@@ -141,6 +207,11 @@ export default function WebApp() {
 
       <div style={{ position: 'absolute', top: 10, left: 10, zIndex: 30, background: wsColor, color: '#fff', padding: '4px 12px', borderRadius: 4, fontSize: 12 }}>
         {wsStatus}
+      </div>
+
+      <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 30, display: 'flex', gap: 8, alignItems: 'center' }}>
+        <span style={{ color: '#888', fontSize: 12 }}>{user.email}</span>
+        <button onClick={handleLogout} style={{ background: 'none', border: '1px solid #555', color: '#aaa', borderRadius: 4, padding: '4px 10px', fontSize: 12, cursor: 'pointer' }}>Logout</button>
       </div>
 
       {state === 'idle' && (

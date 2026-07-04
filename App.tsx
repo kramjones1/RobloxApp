@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, Platform, PermissionsAndroid } from 'react-native';
 import { WebView } from 'react-native-webview';
 
-const WEB_URL = 'https://aquamarine-sable-cd0178.netlify.app';
+const WEB_URL = 'https://robloxapp-78g.pages.dev';
 
 export default function App() {
   const [ready, setReady] = useState(Platform.OS !== 'android');

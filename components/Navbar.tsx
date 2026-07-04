@@ -24,57 +24,67 @@ const styles = {
   },
   logo: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 700,
     cursor: 'pointer',
     letterSpacing: '-0.5px',
     background: 'linear-gradient(135deg, #6c63ff, #2a6eff)',
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
+    flexShrink: 0,
   },
   links: {
     display: 'flex',
     alignItems: 'center',
-    gap: 24,
+    gap: 12,
   },
   link: {
     color: '#999',
-    fontSize: 14,
+    fontSize: 13,
     cursor: 'pointer',
     transition: 'color 0.2s',
     background: 'none',
     border: 'none',
     fontFamily: 'inherit',
     padding: 0,
+    whiteSpace: 'nowrap' as const,
   },
   linkActive: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     cursor: 'pointer',
     background: 'none',
     border: 'none',
     fontFamily: 'inherit',
     padding: 0,
+    whiteSpace: 'nowrap' as const,
   },
   userSection: {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    flexShrink: 0,
   },
   email: {
     color: '#888',
-    fontSize: 13,
+    fontSize: 12,
+    display: 'none',
+  },
+  emailDesktop: {
+    color: '#888',
+    fontSize: 12,
   },
   logoutBtn: {
     background: 'none',
     border: '1px solid #444',
     color: '#aaa',
     borderRadius: 6,
-    padding: '4px 12px',
+    padding: '3px 10px',
     fontSize: 12,
     cursor: 'pointer',
     fontFamily: 'inherit',
     transition: 'all 0.2s',
+    whiteSpace: 'nowrap' as const,
   },
 };
 
@@ -90,7 +100,7 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
       <div style={styles.userSection}>
         {user ? (
           <>
-            <span style={styles.email}>{user.email}</span>
+            <span className="nav-email" style={styles.email}>{user.email}</span>
             <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
           </>
         ) : (

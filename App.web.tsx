@@ -9,7 +9,7 @@ import TermsPage from './pages/TermsPage';
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@media(min-width:500px){.nav-email{display:inline!important}}';
 document.head.appendChild(style);
 
 export default function WebApp() {
@@ -333,24 +333,24 @@ export default function WebApp() {
       )}
 
       {state === 'connected' && (
-        <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 8 }}>
-          <p style={{ color: '#aaa', fontSize: 13, margin: 0 }}>{log}</p>
-          <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 6 }}>
+          <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>{log}</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
             <button onClick={reportUser} style={{
-              ...sBtn, width: 'auto', padding: '10px 20px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
-              boxShadow: 'none', fontSize: 13,
+              ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
+              boxShadow: 'none', fontSize: 12,
             }}>
               {reportSent ? 'Reported' : 'Report'}
             </button>
             <button onClick={skip} style={{
-              ...sBtn, width: 'auto', padding: '10px 20px', background: '#d32f2f',
-              boxShadow: 'none', fontSize: 13,
+              ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
+              boxShadow: 'none', fontSize: 12,
             }}>
               Next →
             </button>
             <button onClick={() => { skip(); setPage('home'); }} style={{
-              ...sBtn, width: 'auto', padding: '10px 20px', background: '#555',
-              boxShadow: 'none', fontSize: 13,
+              ...sBtn, width: 'auto', padding: '8px 16px', background: '#555',
+              boxShadow: 'none', fontSize: 12,
             }}>
               Leave
             </button>
@@ -358,7 +358,7 @@ export default function WebApp() {
         </div>
       )}
 
-      <p style={{ position: 'absolute', bottom: 0, left: 0, right: 0, color: '#555', fontSize: 11, textAlign: 'center', padding: 8, margin: 0, zIndex: 20, fontFamily: 'system-ui, sans-serif' }}>ID: {id}</p>
+      <p style={{ position: 'absolute', bottom: 3, left: 6, color: '#555', fontSize: 10, margin: 0, zIndex: 20, fontFamily: 'system-ui, sans-serif' }}>ID: {id}</p>
     </div>
   );
 }

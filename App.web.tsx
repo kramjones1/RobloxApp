@@ -8,6 +8,10 @@ import TermsPage from './pages/TermsPage';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
+const style = document.createElement('style');
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}';
+document.head.appendChild(style);
+
 export default function WebApp() {
   const [page, setPage] = useState('home');
   const [user, setUser] = useState<any>(null);

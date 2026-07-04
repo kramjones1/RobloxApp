@@ -5,32 +5,54 @@ const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 export default function WebApp() {
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
+  const [statusText, setStatusText] = useState('');
   const localRef = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<any>(null);
   const lsRef = useRef<any>(null);
   const wsRef = useRef<WebSocket>();
+  const wsOk = useRef(false);
 
   useEffect(() => {
+    setStatusText('Connecting...');
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
 
+    ws.onopen = () => {
+      console.log('WS connected');
+      wsOk.current = true;
+      setStatusText('');
+    };
+
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
+      console.log('WS msg:', msg.type);
       switch (msg.type) {
-        case 'connected': setId(msg.id); break;
-        case 'matched': startCall(ws); break;
-        case 'partner_left': cleanup(); break;
+        case 'connected': setId(msg.id); setStatusText('Ready'); break;
+        case 'matched': startCall(ws, msg.room); break;
+        case 'partner_left': cleanup(); setStatusText('Partner left'); break;
         case 'sdp': handleSDP(ws, msg); break;
         case 'ice': handleICE(msg); break;
       }
     };
 
+    ws.onerror = () => {
+      console.log('WS error');
+      setStatusText('Connection failed');
+    };
+
+    ws.onclose = () => {
+      console.log('WS closed');
+      if (wsOk.current) setStatusText('Disconnected');
+    };
+
     return () => { ws.close(); lsRef.current?.getTracks().forEach((t: any) => t.stop()); };
   }, []);
 
-  async function startCall(ws: WebSocket) {
+  async function startCall(ws: WebSocket, _room: string) {
+    console.log('Starting call...');
     setState('connecting');
+    setStatusText('Connecting...');
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
     pcRef.current = pc;
 
@@ -38,18 +60,24 @@ export default function WebApp() {
       if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
     };
     pc.ontrack = (e) => {
-      if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0];
+      console.log('Remote track received');
+      if (e.streams?.[0] && remoteRef.current) {
+        remoteRef.current.srcObject = e.streams[0];
+        setStatusText('Connected');
+      }
+    };
+    pc.oniceconnectionstatechange = () => {
+      console.log('ICE state:', pc.iceConnectionState);
     };
 
     const stream = lsRef.current;
-    if (stream) {
-      stream.getTracks().forEach((t: any) => pc.addTrack(t, stream));
-    }
+    if (stream) stream.getTracks().forEach((t: any) => pc.addTrack(t, stream));
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
     setState('connected');
+    setStatusText('Waiting for answer...');
   }
 
   async function handleSDP(ws: WebSocket, msg: any) {
@@ -69,12 +97,19 @@ export default function WebApp() {
 
   async function findStranger() {
     try {
+      console.log('Requesting camera...');
+      setStatusText('Requesting camera...');
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      console.log('Camera OK');
       lsRef.current = stream;
       if (localRef.current) localRef.current.srcObject = stream;
       setState('searching');
+      setStatusText('Looking for someone...');
       wsRef.current?.send(JSON.stringify({ type: 'find' }));
-    } catch (_) { alert('Camera access required'); }
+    } catch (e: any) {
+      console.log('Camera error:', e);
+      setStatusText('Camera access denied');
+    }
   }
 
   function cleanup() {
@@ -90,10 +125,8 @@ export default function WebApp() {
     wsRef.current?.send(JSON.stringify({ type: 'next' }));
   }
 
-  const btnStyle: React.CSSProperties = {
-    backgroundColor: '#2a6eff', color: '#fff', border: 'none',
-    padding: '14px 40px', borderRadius: 8, fontSize: 16, cursor: 'pointer',
-    fontFamily: 'system-ui, sans-serif',
+  const s = {
+    btn: { backgroundColor: '#2a6eff', color: '#fff', border: 'none', padding: '14px 40px', borderRadius: 8, fontSize: 16, cursor: 'pointer', fontFamily: 'system-ui, sans-serif' } as React.CSSProperties,
   };
 
   return (
@@ -105,20 +138,22 @@ export default function WebApp() {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
           <h1 style={{ color: '#fff', fontSize: 36, margin: 0 }}>Talk</h1>
           <p style={{ color: '#888', marginBottom: 40 }}>Random video chat</p>
-          <button onClick={findStranger} style={btnStyle}>Start Chatting</button>
+          <button onClick={findStranger} style={s.btn}>Start Chatting</button>
+          {statusText && <p style={{ color: '#aaa', fontSize: 14, marginTop: 20 }}>{statusText}</p>}
         </div>
       )}
 
       {state === 'searching' && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-          <p style={{ color: '#aaa', fontSize: 18 }}>Looking for someone...</p>
-          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); setState('idle'); }} style={{ ...btnStyle, marginTop: 20 }}>Cancel</button>
+          <p style={{ color: '#aaa', fontSize: 18 }}>{statusText}</p>
+          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); setState('idle'); setStatusText(''); }} style={{ ...s.btn, marginTop: 20 }}>Cancel</button>
         </div>
       )}
 
       {state === 'connected' && (
-        <div style={{ position: 'absolute', bottom: 60, left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 20 }}>
-          <button onClick={skip} style={{ ...btnStyle, backgroundColor: '#d32f2f' }}>Next →</button>
+        <div style={{ position: 'absolute', bottom: 60, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 10 }}>
+          {statusText && <p style={{ color: '#aaa', fontSize: 14 }}>{statusText}</p>}
+          <button onClick={skip} style={{ ...s.btn, backgroundColor: '#d32f2f' }}>Next →</button>
         </div>
       )}
 

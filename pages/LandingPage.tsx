@@ -8,8 +8,7 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: 'system-ui, sans-serif',
-    padding: '80px 5% 40px',
-    width: '100%',
+    padding: '80px 0 40px',
   },
   hero: {
     background: 'linear-gradient(135deg, #0a0a0a 0%, #111128 50%, #0a0a0a 100%)',
@@ -54,6 +53,7 @@ const s = {
     width: '100%',
     maxWidth: 1400,
     marginTop: 48,
+    padding: '0 20px',
   },
   card: {
     background: 'rgba(255,255,255,0.04)',
@@ -86,6 +86,7 @@ const s = {
   aboutContent: {
     maxWidth: 900,
     textAlign: 'center' as const,
+    padding: '0 20px',
   },
   aboutTitle: {
     color: '#fff',

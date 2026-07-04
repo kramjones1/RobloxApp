@@ -17,13 +17,13 @@ const s = {
     display: 'flex',
     flexWrap: 'wrap' as const,
     width: '100%',
-    maxWidth: 1400,
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'space-evenly',
     padding: '0 20px',
   },
   heroLeft: {
     flex: '1 1 400px',
+    maxWidth: 600,
     padding: '40px 0',
   },
   heroTitle: {
@@ -57,6 +57,7 @@ const s = {
   },
   heroRight: {
     flex: '1 1 360px',
+    maxWidth: 420,
     padding: '40px 0',
     display: 'flex',
     justifyContent: 'center',

@@ -291,50 +291,53 @@ export default function WebApp() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
-      <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <video ref={remoteRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
+      <video ref={localRef} autoPlay playsInline muted style={{ position: 'absolute', top: 14, right: 10, width: 100, height: 140, borderRadius: 10, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
 
-      <video ref={remoteRef} autoPlay playsInline style={{ position: 'absolute', top: 60, width: '100%', height: 'calc(100% - 60px)', objectFit: 'cover', background: '#111' }} />
-      <video ref={localRef} autoPlay playsInline muted style={{ position: 'absolute', top: 80, right: 10, width: 120, height: 160, borderRadius: 12, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
-
-      <div style={{ position: 'absolute', top: 75, left: 14, zIndex: 30, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 30, display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: wsColor, display: 'inline-block' }} />
         <span style={{ color: '#aaa', fontSize: 11 }}>{wsStatus}</span>
       </div>
 
       {state === 'idle' && (
-        <div style={{ position: 'absolute', inset: 0, top: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-          <h1 style={{ color: '#fff', fontSize: 36, margin: 0, fontWeight: 700 }}>LiveMe</h1>
-          <p style={{ color: '#888', marginBottom: 20 }}>Random video chat</p>
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
+          <p style={{ color: '#888', marginBottom: 20 }}>Preview</p>
           <button onClick={findStranger} style={sBtn}>Start Chatting</button>
           <p style={{ color: '#aaa', fontSize: 14, marginTop: 20, textAlign: 'center', maxWidth: '80%' }}>{log}</p>
         </div>
       )}
 
-      {state === 'searching' && (
-        <div style={{ position: 'absolute', inset: 0, top: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
+      {(state === 'searching' || state === 'connecting') && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
           <div style={{ width: 40, height: 40, border: '3px solid #333', borderTopColor: '#6c63ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 20 }} />
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <p style={{ color: '#aaa', fontSize: 18 }}>{log || 'Searching...'}</p>
+          <p style={{ color: '#aaa', fontSize: 18 }}>{log || (state === 'connecting' ? 'Connecting...' : 'Searching...')}</p>
           <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{ ...sBtn, marginTop: 20, background: '#555', boxShadow: 'none' }}>Cancel</button>
         </div>
       )}
 
       {state === 'connected' && (
-        <div style={{ position: 'absolute', bottom: 40, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 10 }}>
-          <p style={{ color: '#aaa', fontSize: 14, margin: 0 }}>{log}</p>
-          <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 8 }}>
+          <p style={{ color: '#aaa', fontSize: 13, margin: 0 }}>{log}</p>
+          <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={reportUser} style={{
-              ...sBtn, width: 'auto', padding: '12px 24px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
-              boxShadow: 'none', fontSize: 14,
+              ...sBtn, width: 'auto', padding: '10px 20px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
+              boxShadow: 'none', fontSize: 13,
             }}>
               {reportSent ? 'Reported' : 'Report'}
             </button>
             <button onClick={skip} style={{
-              ...sBtn, width: 'auto', padding: '12px 24px', background: '#d32f2f',
-              boxShadow: 'none', fontSize: 14,
+              ...sBtn, width: 'auto', padding: '10px 20px', background: '#d32f2f',
+              boxShadow: 'none', fontSize: 13,
             }}>
               Next →
+            </button>
+            <button onClick={() => { skip(); setPage('home'); }} style={{
+              ...sBtn, width: 'auto', padding: '10px 20px', background: '#555',
+              boxShadow: 'none', fontSize: 13,
+            }}>
+              Leave
             </button>
           </div>
         </div>

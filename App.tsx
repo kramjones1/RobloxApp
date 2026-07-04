@@ -1,19 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Platform, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 
-const WS_URL = 'wss://16f292242c7ce9.lhr.life';
-const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+const WS_URL = 'wss://3b2228bfd57e69.lhr.life';
+const isWeb = Platform.OS === 'web';
+
+const _rtc = isWeb ? (globalThis as any) : require('react-native-webrtc');
 
 let ws: WebSocket;
-let pc: RTCPeerConnection;
-let localStream: MediaStream;
+let pc: any;
+let localStream: any = null;
 
 type State = 'idle' | 'searching' | 'connecting' | 'connected';
 
 export default function App() {
   const [state, setState] = useState<State>('idle');
   const [id, setId] = useState('');
-  const localVideo = useRef<HTMLVideoElement>(null);
-  const remoteVideo = useRef<HTMLVideoElement>(null);
+  const [remoteURL, setRemoteURL] = useState('');
+  const localRef = useRef<any>(null);
+  const remoteRef = useRef<any>(null);
 
   useEffect(() => {
     ws = new WebSocket(WS_URL);
@@ -21,21 +25,26 @@ export default function App() {
       const msg = JSON.parse(e.data);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': startCall(msg.room); break;
-        case 'partner_left': hangup(); break;
+        case 'matched': startCall(); break;
+        case 'partner_left': cleanup(); break;
         case 'sdp': handleSDP(msg); break;
         case 'ice': handleICE(msg); break;
       }
     };
-    return () => ws?.close();
+    return () => { ws?.close(); localStream?.getTracks().forEach((t: any) => t.stop()); };
   }, []);
 
-  async function startCall(room: string) {
+  async function startCall() {
     setState('connecting');
-    pc = new RTCPeerConnection(iceServers);
-    pc.onicecandidate = (e) => e.candidate && ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
-    pc.ontrack = (e) => { if (remoteVideo.current) remoteVideo.current.srcObject = e.streams[0]; };
-    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+    pc = new _rtc.RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    pc.onicecandidate = (e: any) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
+    pc.ontrack = (e: any) => {
+      if (e.streams?.[0]) {
+        if (isWeb && remoteRef.current) (remoteRef.current as HTMLVideoElement).srcObject = e.streams[0];
+        else setRemoteURL(e.streams[0].toURL());
+      }
+    };
+    localStream?.getTracks().forEach((t: any) => pc.addTrack(t, localStream));
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
@@ -43,7 +52,7 @@ export default function App() {
   }
 
   async function handleSDP(msg: any) {
-    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    await pc.setRemoteDescription(new _rtc.RTCSessionDescription(msg.sdp));
     if (msg.sdp.type === 'offer') {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -52,71 +61,87 @@ export default function App() {
   }
 
   async function handleICE(msg: any) {
-    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+    try { await pc.addIceCandidate(new _rtc.RTCIceCandidate(msg.candidate)); } catch (_) {}
   }
 
   async function findStranger() {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      if (localVideo.current) localVideo.current.srcObject = localStream;
+      localStream = await _rtc.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (isWeb && localRef.current) (localRef.current as HTMLVideoElement).srcObject = localStream;
       setState('searching');
       ws.send(JSON.stringify({ type: 'find' }));
-    } catch (e) {
-      alert('Camera access required');
-    }
+    } catch (_) { alert('Camera access required'); }
   }
 
-  function hangup() {
-    localStream?.getTracks().forEach((t) => t.stop());
-    pc?.close();
-    setState('idle');
-    setId('');
+  function cleanup() {
+    localStream?.getTracks().forEach((t: any) => t.stop());
+    localStream = null; pc?.close(); pc = null;
+    setRemoteURL(''); setState('idle');
   }
 
-  function skip() {
-    hangup();
-    ws.send(JSON.stringify({ type: 'next' }));
-  }
+  function skip() { cleanup(); ws.send(JSON.stringify({ type: 'next' })); }
+
+  const Btn = ({ label, onPress, style }: any) => (
+    <TouchableOpacity onPress={onPress} style={[s.btn, style]}>
+      <Text style={s.btnText}>{label}</Text>
+    </TouchableOpacity>
+  );
+
+  const remoteVideo = isWeb
+    ? <video ref={remoteRef} autoPlay playsInline style={s.remoteWeb as any} />
+    : remoteURL
+      ? <_rtc.RTCView streamURL={remoteURL} style={s.remoteNative} objectFit="cover" />
+      : null;
+
+  const localVideo = isWeb
+    ? <video ref={localRef} autoPlay playsInline muted style={s.localWeb as any} />
+    : localStream
+      ? <_rtc.RTCView streamURL={localStream.toURL()} style={s.localNative} objectFit="cover" zOrder={1} />
+      : null;
 
   return (
-    <div style={styles.container}>
-      {remoteVideo && (
-        <video ref={remoteVideo} autoPlay playsInline style={styles.remoteVideo} />
-      )}
-      <video ref={localVideo} autoPlay playsInline muted style={styles.localVideo} />
-      
-      <div style={styles.overlay}>
+    <View style={s.container}>
+      {remoteVideo}
+
+      {localVideo}
+
+      <View style={s.overlay}>
         {state === 'idle' && (
-          <div style={styles.center}>
-            <h1 style={{ color: '#fff', fontSize: 36, margin: 0 }}>Talk</h1>
-            <p style={{ color: '#888', marginBottom: 40 }}>Random video chat</p>
-            <button onClick={findStranger} style={styles.btn}>Start Chatting</button>
-          </div>
+          <View style={s.center}>
+            <Text style={s.title}>Talk</Text>
+            <Text style={s.subtitle}>Random video chat</Text>
+            <Btn label="Start Chatting" onPress={findStranger} style={{ marginTop: 40 }} />
+          </View>
         )}
         {state === 'searching' && (
-          <div style={styles.center}>
-            <p style={{ color: '#aaa', fontSize: 18 }}>Looking for someone...</p>
-            <button onClick={() => { ws.send(JSON.stringify({ type: 'leave' })); setState('idle'); }} style={{ ...styles.btn, marginTop: 20 }}>Cancel</button>
-          </div>
+          <View style={s.center}>
+            <Text style={{ color: '#aaa', fontSize: 18 }}>Looking for someone...</Text>
+            <Btn label="Cancel" onPress={() => { ws.send(JSON.stringify({ type: 'leave' })); setState('idle'); }} style={{ marginTop: 20 }} />
+          </View>
         )}
         {state === 'connected' && (
-          <div style={styles.controls}>
-            <button onClick={skip} style={{ ...styles.btn, backgroundColor: '#d32f2f' }}>Next →</button>
-          </div>
+          <View style={s.controls}>
+            <Btn label="Next \u2192" onPress={skip} style={{ backgroundColor: '#d32f2f' }} />
+          </View>
         )}
-        <p style={styles.idText}>ID: {id}</p>
-      </div>
-    </div>
+        <Text style={s.id}>ID: {id}</Text>
+      </View>
+    </View>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: { position: 'relative', width: '100vw', height: '100vh', backgroundColor: '#0a0a0a', overflow: 'hidden' },
-  remoteVideo: { position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#111' },
-  localVideo: { position: 'absolute', top: 40, right: 10, width: 120, height: 160, borderRadius: 8, objectFit: 'cover', zIndex: 10, border: '2px solid #333' },
-  overlay: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 20 },
-  center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 },
-  btn: { backgroundColor: '#2a6eff', color: '#fff', border: 'none', padding: '14px 40px', borderRadius: 8, fontSize: 16, cursor: 'pointer' },
-  controls: { display: 'flex', justifyContent: 'center', paddingBottom: 60 },
-  idText: { color: '#555', fontSize: 11, textAlign: 'center', padding: 8, margin: 0 },
-};
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0a0a0a' },
+  overlay: { ...StyleSheet.absoluteFillObject as any, justifyContent: 'space-between' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  title: { color: '#fff', fontSize: 36, fontWeight: 'bold' },
+  subtitle: { color: '#888', fontSize: 16, marginTop: 4 },
+  btn: { backgroundColor: '#2a6eff', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 8 },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  controls: { alignItems: 'center', paddingBottom: 60 },
+  id: { color: '#555', fontSize: 11, textAlign: 'center', padding: 8 },
+  remoteWeb: { position: 'absolute', width: '100%', height: '100%', objectFit: 'cover' as any, backgroundColor: '#111' },
+  remoteNative: { position: 'absolute', width: '100%', height: '100%', backgroundColor: '#111' },
+  localWeb: { position: 'absolute', top: 40, right: 10, width: 120, height: 160, borderRadius: 8, zIndex: 10, borderWidth: 2, borderColor: '#333' },
+  localNative: { position: 'absolute', top: 40, right: 10, width: 120, height: 160, borderRadius: 8, zIndex: 10, borderWidth: 2, borderColor: '#333' },
+});

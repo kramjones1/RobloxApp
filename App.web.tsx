@@ -168,6 +168,10 @@ export default function WebApp() {
   async function findStranger() {
     setCamError('');
     setNoAudio(false);
+    if (lsRef.current) {
+      lsRef.current.getTracks().forEach((t: any) => t.stop());
+      lsRef.current = null;
+    }
     try {
       addLog('Requesting camera...');
       let stream: MediaProvider;
@@ -195,11 +199,11 @@ export default function WebApp() {
     } catch (e: any) {
       const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
       const notFound = e.name === 'NotFoundError';
-      const inUse = e.message?.includes('already in use') || e.message?.includes('Could not start');
+      const inUse = e.message?.includes('already in use') || e.message?.includes('Could not start') || e.name === 'NotReadableError';
       if (denied) setCamError('Camera permission denied. Please allow camera access in your browser settings and try again.');
       else if (notFound) setCamError('No camera found on this device.');
-      else if (inUse) setCamError('Camera is in use by another app or tab. Close it and try again.');
-      else setCamError(e.message || 'Could not access camera.');
+      else if (inUse) setCamError('Camera is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.');
+      else setCamError('Could not access camera: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));
     }
   }

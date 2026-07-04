@@ -257,33 +257,7 @@ export default function WebApp() {
     return (
       <div style={{ background: '#0a0a0a', minHeight: '100vh' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: 'calc(100vh - 60px)' }}>
-          <div style={{ flex: '1 1 50%', minWidth: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '60px 40px' }}>
-            <h1 style={{ fontSize: 'clamp(48px, 6vw, 72px)', fontWeight: 800, margin: 0, letterSpacing: '-3px', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', lineHeight: 1.1 }}>
-              Talk
-            </h1>
-            <p style={{ color: '#999', fontSize: 'clamp(18px, 2.5vw, 24px)', marginTop: 16 }}>Random video chat. Meet new people.</p>
-            <div style={{ display: 'flex', gap: 16, marginTop: 32, flexWrap: 'wrap' }}>
-              {['⚡ Instant Matching', '🎥 Live Video', '🛡️ Anonymous', '🌍 No Sign-up'].map((t, i) => (
-                <span key={i} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 10, padding: '10px 16px', color: '#aaa', fontSize: 13 }}>{t}</span>
-              ))}
-            </div>
-          </div>
-          <div style={{ flex: '1 1 50%', minWidth: 320, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '60px 40px', background: 'rgba(255,255,255,0.02)' }}>
-            <div style={{ width: '100%', maxWidth: 380 }}>
-              <p style={{ color: '#888', marginBottom: 24, fontSize: 14, textAlign: 'center' }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
-              <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-                <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-                <button type="submit" disabled={submitting} style={{...sBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
-              </form>
-              {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 14, textAlign: 'center', wordBreak: 'break-word' }}>{authMsg}</p>}
-              <p style={{ color: '#666', fontSize: 13, marginTop: 18, textAlign: 'center', cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
-                {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-              </p>
-            </div>
-          </div>
-        </div>
+        <LandingPage onStart={() => setPage('auth')} />
         <Footer setPage={setPage} />
       </div>
     );

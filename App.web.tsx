@@ -44,10 +44,14 @@ export default function WebApp() {
     e.preventDefault();
     setAuthMsg('');
     if (password.length < 6) { setAuthMsg('Password must be at least 6 characters'); return; }
-    const fn = authMode === 'login' ? supabase.auth.signInWithPassword : supabase.auth.signUp;
-    const { error } = await fn({ email, password });
-    if (error) setAuthMsg(error.message);
-    else if (authMode === 'register') setAuthMsg('Check your email for confirmation link!');
+    try {
+      const fn = authMode === 'login' ? supabase.auth.signInWithPassword : supabase.auth.signUp;
+      const { error } = await fn({ email, password });
+      if (error) setAuthMsg(error.message);
+      else if (authMode === 'register') setAuthMsg('Check your email for confirmation link!');
+    } catch (err: any) {
+      setAuthMsg('Error: ' + (err.message || 'unknown'));
+    }
   }
 
   async function handleLogout() {

@@ -130,10 +130,11 @@ styleTag.textContent = `
   .nav-desktop { display: flex !important; }
   .nav-mobile { display: none !important; }
   .page-content { padding-top: 60px !important; }
+  .nav-mobile { height: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }
   @media (max-width: 699px) {
     .nav-desktop { display: none !important; }
     .nav-mobile { display: flex !important; }
-    body { padding-bottom: 64px; }
+    body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
     .page-content { padding-top: 0 !important; }
   }
 `;

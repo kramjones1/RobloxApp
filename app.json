@@ -35,6 +35,8 @@
         "projectId": "ef1a0b90-91e8-4c68-90cb-bb0dc01e8af2"
       }
     },
-    "runtimeVersion": "1.0.0"
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

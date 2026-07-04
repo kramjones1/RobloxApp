@@ -199,10 +199,12 @@ export default function WebApp() {
     } catch (e: any) {
       const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
       const notFound = e.name === 'NotFoundError';
-      const inUse = e.message?.includes('already in use') || e.message?.includes('Could not start') || e.name === 'NotReadableError';
+      const inUse = e.message?.includes('already in use') || e.name === 'NotReadableError';
+      const camFail = e.message?.includes('Could not start');
       if (denied) setCamError('Camera permission denied. Please allow camera access in your browser settings and try again.');
       else if (notFound) setCamError('No camera found on this device.');
       else if (inUse) setCamError('Camera is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.');
+      else if (camFail) setCamError('Camera failed to start. Try restarting your browser or reconnecting your camera.');
       else setCamError('Could not access camera: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));
     }
@@ -364,7 +366,10 @@ export default function WebApp() {
           {camError && (
             <div style={{ marginTop: 16, padding: '12px 20px', background: 'rgba(244,67,54,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
               <p style={{ color: '#f44336', fontSize: 13, margin: 0, lineHeight: 1.4 }}>{camError}</p>
-              <p style={{ color: '#888', fontSize: 11, marginTop: 8, cursor: 'pointer' }} onClick={() => setCamError('')}>Dismiss</p>
+              <div style={{ marginTop: 10, display: 'flex', gap: 10, justifyContent: 'center' }}>
+                <p style={{ color: '#888', fontSize: 11, cursor: 'pointer' }} onClick={() => setCamError('')}>Dismiss</p>
+                <p style={{ color: '#6c63ff', fontSize: 11, cursor: 'pointer', fontWeight: 600 }} onClick={findStranger}>Try Again</p>
+              </div>
             </div>
           )}
           {noAudio && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getSupabase } from './supabaseClient';
+import { signUp, signIn, signOut, getSession, onAuthChange } from './supabaseClient';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 
@@ -24,15 +24,9 @@ export default function WebApp() {
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
   useEffect(() => {
-    const s = getSupabase();
-    s.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
-    const { data: { subscription } } = s.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
+    setUser(getSession());
+    setAuthLoading(false);
+    return onAuthChange(u => setUser(u));
   }, []);
 
   useEffect(() => {
@@ -45,19 +39,14 @@ export default function WebApp() {
     e.preventDefault();
     setAuthMsg('');
     if (password.length < 6) { setAuthMsg('Password must be at least 6 characters'); return; }
-    try {
-      const s = getSupabase();
-      const fn = authMode === 'login' ? s.auth.signInWithPassword : s.auth.signUp;
-      const { error } = await fn({ email, password });
-      if (error) setAuthMsg(error.message);
-      else if (authMode === 'register') setAuthMsg('Check your email for confirmation link!');
-    } catch (err: any) {
-      setAuthMsg('Error: ' + (err.message || 'unknown'));
-    }
+    const fn = authMode === 'login' ? signIn : signUp;
+    const { error } = await fn(email, password);
+    if (error) setAuthMsg(error);
+    else if (authMode === 'register') setAuthMsg('Check your email for confirmation link!');
   }
 
   async function handleLogout() {
-    await getSupabase().auth.signOut();
+    signOut();
     wsRef.current?.close();
     cleanup();
   }

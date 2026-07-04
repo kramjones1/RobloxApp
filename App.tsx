@@ -1,10 +1,29 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Text, Platform, PermissionsAndroid } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 const WEB_URL = 'https://aquamarine-sable-cd0178.netlify.app';
 
 export default function App() {
+  const [ready, setReady] = useState(Platform.OS !== 'android');
+
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      PermissionsAndroid.requestMultiple([
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      ]).then(() => setReady(true));
+    }
+  }, []);
+
+  if (!ready) {
+    return (
+      <View style={s.container}>
+        <Text style={s.loading}>Requesting permissions...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={s.container}>
       <WebView
@@ -23,6 +42,7 @@ export default function App() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#0a0a0a' },
   webview: { flex: 1 },
+  loading: { color: '#fff', fontSize: 18, textAlign: 'center', marginTop: 100 },
 });

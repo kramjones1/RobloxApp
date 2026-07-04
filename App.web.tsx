@@ -68,12 +68,16 @@ export default function WebApp() {
   async function findStranger() {
     try {
       addLog('Requesting camera...');
+      const constraints = {
+        video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+        audio: { echoCancellation: true, noiseSuppression: true },
+      };
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      } catch (_) {
-        addLog('Audio unavailable, video only...');
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch {
+        addLog('Audio unavailable, trying video only...');
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
       }
       addLog('Camera OK');
       lsRef.current = stream;
@@ -81,7 +85,7 @@ export default function WebApp() {
       setState('searching');
       wsRef.current?.send(JSON.stringify({ type: 'find' }));
     } catch (e: any) {
-      addLog('Camera error: ' + e.message);
+      addLog('Error: ' + e.message + '. Check camera permissions.');
     }
   }
 

@@ -19,11 +19,11 @@ function readFileAsDataURL(file: File): Promise<string> {
 
 const s = {
   page: { minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', paddingTop: 60, overflowY: 'auto' as const },
-  wrap: { maxWidth: 500, margin: '0 auto', padding: '24px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 20 },
-  coverWrap: { position: 'relative' as const, width: '100%', height: 160, borderRadius: 14, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
+  wrap: { maxWidth: 600, margin: '0 auto', padding: '24px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 20 },
+  coverWrap: { position: 'relative' as const, width: '100%', height: 180, borderRadius: 14, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
-  coverOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer', background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', width: '100%' },
-  avatarWrap: { display: 'flex', justifyContent: 'center', marginTop: -50 },
+  coverOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', width: '100%', opacity: 0, transition: 'opacity 0.2s' },
+  avatarWrap: { display: 'flex', justifyContent: 'center', marginTop: -52 },
   avatar: { width: 96, height: 96, borderRadius: '50%', border: '4px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   avatarOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0, transition: 'opacity 0.2s' },
@@ -44,6 +44,22 @@ const s = {
   friendBio: { color: '#777', fontSize: 12 },
   hiddenInput: { display: 'none' },
 };
+
+const hoverStyles = document.createElement('style');
+hoverStyles.textContent = `
+  .cover-overlay { opacity: 0 !important; }
+  .av-overlay { opacity: 0 !important; }
+  .cover-wrap:hover .cover-overlay { opacity: 1 !important; }
+  .avatar-circle:hover .av-overlay { opacity: 1 !important; }
+  @media (hover: none) {
+    .cover-overlay { opacity: 1 !important; }
+    .av-overlay { opacity: 0.8 !important; }
+  }
+`;
+if (!document.getElementById('profile-hover-styles')) {
+  hoverStyles.id = 'profile-hover-styles';
+  document.head.appendChild(hoverStyles);
+}
 
 export default function ProfilePage({ onNav, user }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
@@ -119,7 +135,7 @@ export default function ProfilePage({ onNav, user }: Props) {
   return (
     <div style={s.page}>
       <div style={s.wrap}>
-        <div style={s.coverWrap} onMouseEnter={e => { const el = e.currentTarget.querySelector('.cover-overlay') as HTMLElement; if (el) el.style.opacity = '1'; }} onMouseLeave={e => { const el = e.currentTarget.querySelector('.cover-overlay') as HTMLElement; if (el) el.style.opacity = '0'; }}>
+        <div className="cover-wrap" style={s.coverWrap}>
           {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
           <button className="cover-overlay" style={s.coverOverlay} onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}>
             {uploadingCover ? 'Uploading...' : 'Change Cover'}
@@ -128,7 +144,7 @@ export default function ProfilePage({ onNav, user }: Props) {
         <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} style={s.hiddenInput} />
 
         <div style={s.avatarWrap}>
-          <div style={s.avatar} onClick={() => avatarInputRef.current?.click()} onMouseEnter={e => { const el = e.currentTarget.querySelector('.av-overlay') as HTMLElement; if (el) el.style.opacity = '1'; }} onMouseLeave={e => { const el = e.currentTarget.querySelector('.av-overlay') as HTMLElement; if (el) el.style.opacity = '0'; }}>
+          <div className="avatar-circle" style={s.avatar} onClick={() => avatarInputRef.current?.click()}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
             <span className="av-overlay" style={s.avatarOverlay}>{uploadingAvatar ? '...' : 'Edit'}</span>
           </div>

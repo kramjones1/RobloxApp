@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 
-const WS_URL = 'wss://3b2228bfd57e69.lhr.life';
+const WS_URL = 'wss://d285230df4182f.lhr.life';
 const isWeb = Platform.OS === 'web';
 
 const _rtc = isWeb ? (globalThis as any) : require('react-native-webrtc');

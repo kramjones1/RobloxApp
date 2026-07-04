@@ -1,205 +1,122 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
 
 const WS_URL = 'wss://16f292242c7ce9.lhr.life';
-
-let RTCPeerConnection: any;
-let RTCSessionDescription: any;
-let RTCIceCandidate: any;
-let mediaDevices: any;
-let RTCView: any;
-
-if (Platform.OS === 'web') {
-  RTCPeerConnection = (window as any).RTCPeerConnection;
-  RTCSessionDescription = (window as any).RTCSessionDescription;
-  RTCIceCandidate = (window as any).RTCIceCandidate;
-  mediaDevices = navigator.mediaDevices;
-} else {
-  const wrtc = require('react-native-webrtc');
-  RTCPeerConnection = wrtc.RTCPeerConnection;
-  RTCSessionDescription = wrtc.RTCSessionDescription;
-  RTCIceCandidate = wrtc.RTCIceCandidate;
-  mediaDevices = wrtc.mediaDevices;
-  RTCView = wrtc.RTCView;
-}
-
 const iceServers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
+let ws: WebSocket;
+let pc: RTCPeerConnection;
+let localStream: MediaStream;
+
+type State = 'idle' | 'searching' | 'connecting' | 'connected';
+
 export default function App() {
-  const [status, setStatus] = useState('idle');
-  const [myId, setMyId] = useState('');
-  const wsRef = useRef<WebSocket | null>(null);
-  const pcRef = useRef<any>(null);
-  const localStreamRef = useRef<any>(null);
-  const [localSrc, setLocalSrc] = useState<any>(null);
-  const [remoteSrc, setRemoteSrc] = useState<any>(null);
+  const [state, setState] = useState<State>('idle');
+  const [id, setId] = useState('');
+  const localVideo = useRef<HTMLVideoElement>(null);
+  const remoteVideo = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(WS_URL);
-    ws.onopen = () => console.log('WS connected');
+    ws = new WebSocket(WS_URL);
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
-      handleMessage(msg);
+      switch (msg.type) {
+        case 'connected': setId(msg.id); break;
+        case 'matched': startCall(msg.room); break;
+        case 'partner_left': hangup(); break;
+        case 'sdp': handleSDP(msg); break;
+        case 'ice': handleICE(msg); break;
+      }
     };
-    ws.onclose = () => console.log('WS closed');
-    wsRef.current = ws;
-    return () => ws.close();
+    return () => ws?.close();
   }, []);
 
-  const handleMessage = useCallback(async (msg: any) => {
-    switch (msg.type) {
-      case 'connected':
-        setMyId(msg.id);
-        break;
-      case 'matched':
-        setStatus('connected');
-        startCall();
-        break;
-      case 'partner_left':
-        setStatus('idle');
-        setRemoteSrc(null);
-        cleanupPC();
-        break;
-      case 'sdp':
-        if (pcRef.current) {
-          await pcRef.current.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-          if (msg.sdp.type === 'offer') {
-            const answer = await pcRef.current.createAnswer();
-            await pcRef.current.setLocalDescription(answer);
-            wsRef.current?.send(JSON.stringify({ type: 'sdp', sdp: pcRef.current.localDescription }));
-          }
-        }
-        break;
-      case 'ice':
-        if (pcRef.current) {
-          await pcRef.current.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        }
-        break;
+  async function startCall(room: string) {
+    setState('connecting');
+    pc = new RTCPeerConnection(iceServers);
+    pc.onicecandidate = (e) => e.candidate && ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+    pc.ontrack = (e) => { if (remoteVideo.current) remoteVideo.current.srcObject = e.streams[0]; };
+    localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
+    setState('connected');
+  }
+
+  async function handleSDP(msg: any) {
+    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    if (msg.sdp.type === 'offer') {
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
     }
-  }, []);
+  }
 
-  async function startCall() {
-    const pc = new RTCPeerConnection(iceServers);
-    pcRef.current = pc;
+  async function handleICE(msg: any) {
+    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+  }
 
-    pc.onicecandidate = (e: any) => {
-      if (e.candidate) {
-        wsRef.current?.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
-      }
-    };
-
-    pc.ontrack = (e: any) => {
-      if (Platform.OS === 'web') {
-        setRemoteSrc(e.streams[0]);
-      } else {
-        setRemoteSrc(e.streams[0].toURL());
-      }
-    };
-
+  async function findStranger() {
     try {
-      const stream = await mediaDevices.getUserMedia({ video: true, audio: true });
-      localStreamRef.current = stream;
-      if (Platform.OS === 'web') {
-        setLocalSrc(stream);
-      } else {
-        setLocalSrc(stream.toURL());
-      }
-      stream.getTracks().forEach((t: any) => pc.addTrack(t, stream));
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      wsRef.current?.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
-    } catch (err) {
-      console.error('Media error:', err);
-      setStatus('idle');
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      if (localVideo.current) localVideo.current.srcObject = localStream;
+      setState('searching');
+      ws.send(JSON.stringify({ type: 'find' }));
+    } catch (e) {
+      alert('Camera access required');
     }
   }
 
-  function cleanupPC() {
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
-  }
-
-  function findStranger() {
-    setStatus('searching');
-    wsRef.current?.send(JSON.stringify({ type: 'find' }));
+  function hangup() {
+    localStream?.getTracks().forEach((t) => t.stop());
+    pc?.close();
+    setState('idle');
+    setId('');
   }
 
   function skip() {
-    cleanupPC();
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((t: any) => t.stop());
-      localStreamRef.current = null;
-    }
-    setLocalSrc(null);
-    setRemoteSrc(null);
-    wsRef.current?.send(JSON.stringify({ type: 'next' }));
-    setStatus('searching');
+    hangup();
+    ws.send(JSON.stringify({ type: 'next' }));
   }
 
   return (
-    <View style={styles.container}>
-      {Platform.OS !== 'web' && RTCView && localSrc && (
-        <RTCView streamURL={localSrc} style={styles.localVideo} objectFit="cover" zOrder={1} />
+    <div style={styles.container}>
+      {remoteVideo && (
+        <video ref={remoteVideo} autoPlay playsInline style={styles.remoteVideo} />
       )}
-      {Platform.OS === 'web' && localSrc && (
-        <video autoPlay muted playsInline ref={(ref) => { if (ref) ref.srcObject = localSrc; }} style={{ ...styles.localVideo, position: 'absolute', top: 40, right: 10, width: 120, height: 160, borderRadius: 8, zIndex: 10 }} />
-      )}
-
-      {Platform.OS !== 'web' && RTCView && remoteSrc && (
-        <RTCView streamURL={remoteSrc} style={styles.remoteVideo} objectFit="cover" zOrder={0} />
-      )}
-      {Platform.OS === 'web' && remoteSrc && (
-        <video autoPlay playsInline ref={(ref) => { if (ref) ref.srcObject = remoteSrc; }} style={styles.remoteVideo} />
-      )}
-
-      <View style={styles.overlay}>
-        {status === 'idle' && (
-          <View style={styles.center}>
-            <Text style={styles.title}>Omegle</Text>
-            <Text style={styles.subtitle}>Random video chat</Text>
-            <TouchableOpacity style={styles.btn} onPress={findStranger}>
-              <Text style={styles.btnText}>Start Chatting</Text>
-            </TouchableOpacity>
-          </View>
+      <video ref={localVideo} autoPlay playsInline muted style={styles.localVideo} />
+      
+      <div style={styles.overlay}>
+        {state === 'idle' && (
+          <div style={styles.center}>
+            <h1 style={{ color: '#fff', fontSize: 36, margin: 0 }}>Talk</h1>
+            <p style={{ color: '#888', marginBottom: 40 }}>Random video chat</p>
+            <button onClick={findStranger} style={styles.btn}>Start Chatting</button>
+          </div>
         )}
-        {status === 'searching' && (
-          <View style={styles.center}>
-            <Text style={styles.waiting}>Looking for someone...</Text>
-            <TouchableOpacity style={styles.btnSmall} onPress={() => { cleanupPC(); setStatus('idle'); }}>
-              <Text style={styles.btnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
+        {state === 'searching' && (
+          <div style={styles.center}>
+            <p style={{ color: '#aaa', fontSize: 18 }}>Looking for someone...</p>
+            <button onClick={() => { ws.send(JSON.stringify({ type: 'leave' })); setState('idle'); }} style={{ ...styles.btn, marginTop: 20 }}>Cancel</button>
+          </div>
         )}
-        {status === 'connected' && (
-          <View style={styles.controls}>
-            <Text style={styles.connectedText}>Connected</Text>
-            <TouchableOpacity style={styles.btnSmall} onPress={skip}>
-              <Text style={styles.btnText}>Next</Text>
-            </TouchableOpacity>
-          </View>
+        {state === 'connected' && (
+          <div style={styles.controls}>
+            <button onClick={skip} style={{ ...styles.btn, backgroundColor: '#d32f2f' }}>Next →</button>
+          </div>
         )}
-        <Text style={styles.idText}>ID: {myId}</Text>
-      </View>
-    </View>
+        <p style={styles.idText}>ID: {id}</p>
+      </div>
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0a0a0a' },
-  remoteVideo: { flex: 1, backgroundColor: '#111' },
-  localVideo: { width: 120, height: 160, borderRadius: 8, overflow: 'hidden' },
-  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 36, fontWeight: '700', color: '#fff', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#888', marginBottom: 40 },
-  btn: { backgroundColor: '#2a6eff', paddingHorizontal: 40, paddingVertical: 14, borderRadius: 8 },
-  btnSmall: { backgroundColor: '#2a6eff', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 6, marginTop: 16 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  waiting: { fontSize: 18, color: '#aaa', marginBottom: 20 },
-  connectedText: { color: '#4caf50', fontSize: 14, textAlign: 'center', marginBottom: 8 },
-  controls: { alignItems: 'center', paddingBottom: 60 },
-  idText: { color: '#555', fontSize: 11, textAlign: 'center', padding: 8 },
-});
+const styles: Record<string, React.CSSProperties> = {
+  container: { position: 'relative', width: '100vw', height: '100vh', backgroundColor: '#0a0a0a', overflow: 'hidden' },
+  remoteVideo: { position: 'absolute', width: '100%', height: '100%', objectFit: 'cover', backgroundColor: '#111' },
+  localVideo: { position: 'absolute', top: 40, right: 10, width: 120, height: 160, borderRadius: 8, objectFit: 'cover', zIndex: 10, border: '2px solid #333' },
+  overlay: { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', zIndex: 20 },
+  center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 },
+  btn: { backgroundColor: '#2a6eff', color: '#fff', border: 'none', padding: '14px 40px', borderRadius: 8, fontSize: 16, cursor: 'pointer' },
+  controls: { display: 'flex', justifyContent: 'center', paddingBottom: 60 },
+  idText: { color: '#555', fontSize: 11, textAlign: 'center', padding: 8, margin: 0 },
+};

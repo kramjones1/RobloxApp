@@ -86,13 +86,12 @@ export default function ProfilePage({ onNav, user }: Props) {
         setBio(profile.bio);
         setShareName(profile.share_name);
         setShareBio(profile.share_bio);
-        setAvatarUrl(profile.avatar_url || '');
+        setAvatarUrl(profile.avatar_url || localStorage.getItem('profile_avatar') || '');
+        setCoverUrl(profile.cover_url || localStorage.getItem('profile_cover') || '');
       }
       setLoading(false);
     })();
     try { setRecent(JSON.parse(localStorage.getItem('recent_live') || '[]')); } catch {}
-    const storedCover = localStorage.getItem('profile_cover') || '';
-    setCoverUrl(storedCover);
   }, []);
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -100,7 +99,12 @@ export default function ProfilePage({ onNav, user }: Props) {
     if (!file) return;
     if (file.size > 500 * 1024) { setMsg('Image must be under 500KB'); return; }
     setUploadingAvatar(true);
-    try { setAvatarUrl(await readFileAsDataURL(file)); } catch { setMsg('Failed to read avatar'); }
+    try {
+      const url = await readFileAsDataURL(file);
+      setAvatarUrl(url);
+      localStorage.setItem('profile_avatar', url);
+      upsertChatProfile({ display_name: displayName, bio, avatar_url: url, cover_url: coverUrl, share_name: shareName, share_bio: shareBio }).catch(() => {});
+    } catch { setMsg('Failed to read avatar'); }
     setUploadingAvatar(false);
   }
 
@@ -113,6 +117,7 @@ export default function ProfilePage({ onNav, user }: Props) {
       const url = await readFileAsDataURL(file);
       setCoverUrl(url);
       localStorage.setItem('profile_cover', url);
+      upsertChatProfile({ display_name: displayName, bio, avatar_url: avatarUrl, cover_url: url, share_name: shareName, share_bio: shareBio }).catch(() => {});
     } catch { setMsg('Failed to read cover'); }
     setUploadingCover(false);
   }

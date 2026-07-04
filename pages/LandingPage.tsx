@@ -172,14 +172,14 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
       <section style={{ ...s.section, ...s.hero }}>
         <div style={s.heroInner}>
           <div style={s.heroLeft}>
-            <h1 style={s.heroTitle}>Talk</h1>
+            <h1 style={s.heroTitle}>LiveMe</h1>
             <p style={s.heroTagline}>Random video chat. Meet new people.</p>
             <button style={s.cta} onClick={onStart}>Start Chatting</button>
           </div>
           {showAuth && (
             <div style={s.heroRight}>
               <div style={s.authBox}>
-                <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join Talk'}</p>
+                <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
                 <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
                 <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
@@ -199,7 +199,7 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
       </section>
 
       <section style={{ ...s.section, ...s.features }}>
-        <h2 style={s.sectionTitle}>Why Talk?</h2>
+        <h2 style={s.sectionTitle}>Why LiveMe?</h2>
         <p style={s.sectionSub}>Everything you need for spontaneous conversations</p>
         <div style={s.featuresGrid}>
           {features.map((f, i) => (
@@ -214,11 +214,11 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
 
       <section style={{ ...s.section, ...s.about }}>
         <div style={s.aboutContent}>
-          <h2 style={s.aboutTitle}>About Talk</h2>
+          <h2 style={s.aboutTitle}>About LiveMe</h2>
           <p style={s.aboutText}>
-            Talk is a free, anonymous video chat platform that connects you with random people from around the world.
+            LiveMe is a free, anonymous video chat platform that connects you with random people from around the world.
             Our mission is to break down barriers and bring people together through spontaneous face-to-face conversations.
-            Whether you want to make new friends, practice a language, or just have fun, Talk provides a safe and
+            Whether you want to make new friends, practice a language, or just have fun, LiveMe provides a safe and
             welcoming space for genuine human connection. No sign-ups, no tracking — just real conversations.
           </p>
         </div>

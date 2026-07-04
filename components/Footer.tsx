@@ -48,13 +48,13 @@ const styles = {
 export default function Footer({ setPage }: FooterProps) {
   return (
     <footer style={styles.footer}>
-      <div style={styles.logo}>Talk</div>
+      <div style={styles.logo}>LiveMe</div>
       <div style={styles.links}>
         <button style={styles.link} onClick={() => setPage('home')}>Home</button>
         <button style={styles.link} onClick={() => setPage('privacy')}>Privacy</button>
         <button style={styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>
-      <div style={styles.copyright}>&copy; {new Date().getFullYear()} Talk. All rights reserved.</div>
+      <div style={styles.copyright}>&copy; {new Date().getFullYear()} LiveMe. All rights reserved.</div>
     </footer>
   );
 }

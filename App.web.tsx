@@ -237,7 +237,7 @@ export default function WebApp() {
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 60px)', padding: '100px 20px 60px' }}>
-          <h1 style={{ color: '#fff', fontSize: 32, margin: 0, marginBottom: 8 }}>Talk</h1>
+          <h1 style={{ color: '#fff', fontSize: 32, margin: 0, marginBottom: 8 }}>LiveMe</h1>
           <p style={{ color: '#888', marginBottom: 28 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
           <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%', maxWidth: 360 }}>
             <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
@@ -301,7 +301,7 @@ export default function WebApp() {
 
       {state === 'idle' && (
         <div style={{ position: 'absolute', inset: 0, top: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20 }}>
-          <h1 style={{ color: '#fff', fontSize: 36, margin: 0, fontWeight: 700 }}>Talk</h1>
+          <h1 style={{ color: '#fff', fontSize: 36, margin: 0, fontWeight: 700 }}>LiveMe</h1>
           <p style={{ color: '#888', marginBottom: 20 }}>Random video chat</p>
           <button onClick={findStranger} style={sBtn}>Start Chatting</button>
           <p style={{ color: '#aaa', fontSize: 14, marginTop: 20, textAlign: 'center', maxWidth: '80%' }}>{log}</p>

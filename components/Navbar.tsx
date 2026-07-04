@@ -81,7 +81,7 @@ const styles = {
 export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
   return (
     <nav style={styles.nav}>
-      <span style={styles.logo} onClick={() => setPage('home')}>Talk</span>
+        <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
       <div style={styles.links}>
         <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
         <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>

@@ -42,7 +42,7 @@ export default function TermsPage() {
 
       <h2 style={s.h2}>1. Acceptance of Terms</h2>
       <p style={s.p}>
-        By using Talk, you agree to these Terms of Service. If you do not agree, do not use the service.
+        By using LiveMe, you agree to these Terms of Service. If you do not agree, do not use the service.
         We reserve the right to update these terms at any time with notice to users.
       </p>
 
@@ -67,7 +67,7 @@ export default function TermsPage() {
 
       <h2 style={s.h2}>5. Limitation of Liability</h2>
       <p style={s.p}>
-        Talk and its operators shall not be liable for any damages arising from the use or inability
+        LiveMe and its operators shall not be liable for any damages arising from the use or inability
         to use the service, including but not limited to direct, indirect, incidental, or consequential damages.
       </p>
 

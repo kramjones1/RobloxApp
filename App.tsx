@@ -4,7 +4,18 @@ import { Platform, StyleSheet, Text, View, TouchableOpacity } from 'react-native
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
 const isWeb = Platform.OS === 'web';
 
-const _rtc = isWeb ? (globalThis as any) : require('react-native-webrtc');
+let _rtc: any = null;
+function getRTC() {
+  if (!_rtc) {
+    try {
+      _rtc = isWeb ? (globalThis as any) : require('react-native-webrtc');
+    } catch (e) {
+      console.warn('WebRTC init failed:', e);
+      _rtc = {};
+    }
+  }
+  return _rtc;
+}
 
 let ws: WebSocket;
 let pc: any;
@@ -16,43 +27,62 @@ export default function App() {
   const [state, setState] = useState<State>('idle');
   const [id, setId] = useState('');
   const [remoteURL, setRemoteURL] = useState('');
+  const [error, setError] = useState('');
   const localRef = useRef<any>(null);
   const remoteRef = useRef<any>(null);
 
   useEffect(() => {
-    ws = new WebSocket(WS_URL);
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      switch (msg.type) {
-        case 'connected': setId(msg.id); break;
-        case 'matched': startCall(); break;
-        case 'partner_left': cleanup(); break;
-        case 'sdp': handleSDP(msg); break;
-        case 'ice': handleICE(msg); break;
-      }
+    try {
+      ws = new WebSocket(WS_URL);
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          switch (msg.type) {
+            case 'connected': setId(msg.id); break;
+            case 'matched': startCall(); break;
+            case 'partner_left': cleanup(); break;
+            case 'sdp': handleSDP(msg); break;
+            case 'ice': handleICE(msg); break;
+          }
+        } catch (_) {}
+      };
+      ws.onerror = () => setError('Connection failed');
+    } catch (e: any) {
+      setError(e.message);
+    }
+    return () => {
+      ws?.close();
+      localStream?.getTracks().forEach((t: any) => t.stop());
     };
-    return () => { ws?.close(); localStream?.getTracks().forEach((t: any) => t.stop()); };
   }, []);
 
   async function startCall() {
-    setState('connecting');
-    pc = new _rtc.RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    pc.onicecandidate = (e: any) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
-    pc.ontrack = (e: any) => {
-      if (e.streams?.[0]) {
-        if (isWeb && remoteRef.current) (remoteRef.current as HTMLVideoElement).srcObject = e.streams[0];
-        else setRemoteURL(e.streams[0].toURL());
-      }
-    };
-    localStream?.getTracks().forEach((t: any) => pc.addTrack(t, localStream));
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
-    setState('connected');
+    try {
+      setState('connecting');
+      const rtc = getRTC();
+      pc = new rtc.RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pc.onicecandidate = (e: any) => {
+        if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate }));
+      };
+      pc.ontrack = (e: any) => {
+        if (e.streams?.[0]) {
+          if (isWeb && remoteRef.current) (remoteRef.current as HTMLVideoElement).srcObject = e.streams[0];
+          else setRemoteURL(e.streams[0].toURL());
+        }
+      };
+      localStream?.getTracks().forEach((t: any) => pc.addTrack(t, localStream));
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
+      setState('connected');
+    } catch (e: any) {
+      setError('Call failed: ' + e.message);
+    }
   }
 
   async function handleSDP(msg: any) {
-    await pc.setRemoteDescription(new _rtc.RTCSessionDescription(msg.sdp));
+    const rtc = getRTC();
+    await pc.setRemoteDescription(new rtc.RTCSessionDescription(msg.sdp));
     if (msg.sdp.type === 'offer') {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -61,16 +91,24 @@ export default function App() {
   }
 
   async function handleICE(msg: any) {
-    try { await pc.addIceCandidate(new _rtc.RTCIceCandidate(msg.candidate)); } catch (_) {}
+    try {
+      const rtc = getRTC();
+      await pc.addIceCandidate(new rtc.RTCIceCandidate(msg.candidate));
+    } catch (_) {}
   }
 
   async function findStranger() {
     try {
-      localStream = await _rtc.mediaDevices.getUserMedia({ video: true, audio: true });
+      setError('');
+      const rtc = getRTC();
+      if (!rtc.mediaDevices) { setError('WebRTC not available'); return; }
+      localStream = await rtc.mediaDevices.getUserMedia({ video: true, audio: true });
       if (isWeb && localRef.current) (localRef.current as HTMLVideoElement).srcObject = localStream;
       setState('searching');
       ws.send(JSON.stringify({ type: 'find' }));
-    } catch (_) { alert('Camera access required'); }
+    } catch (e: any) {
+      setError('Camera access required');
+    }
   }
 
   function cleanup() {
@@ -87,23 +125,27 @@ export default function App() {
     </TouchableOpacity>
   );
 
-  const remoteVideo = isWeb
-    ? <video ref={remoteRef} autoPlay playsInline style={s.remoteWeb as any} />
-    : remoteURL
-      ? <_rtc.RTCView streamURL={remoteURL} style={s.remoteNative} objectFit="cover" />
-      : null;
-
-  const localVideo = isWeb
-    ? <video ref={localRef} autoPlay playsInline muted style={s.localWeb as any} />
-    : localStream
-      ? <_rtc.RTCView streamURL={localStream.toURL()} style={s.localNative} objectFit="cover" zOrder={1} />
-      : null;
+  const rtc = getRTC();
 
   return (
     <View style={s.container}>
-      {remoteVideo}
+      {isWeb ? (
+        <video ref={remoteRef} autoPlay playsInline style={s.remoteWeb as any} />
+      ) : remoteURL ? (
+        <rtc.RTCView streamURL={remoteURL} style={s.remoteNative} objectFit="cover" />
+      ) : null}
 
-      {localVideo}
+      {isWeb ? (
+        <video ref={localRef} autoPlay playsInline muted style={s.localWeb as any} />
+      ) : localStream ? (
+        <rtc.RTCView streamURL={localStream.toURL()} style={s.localNative} objectFit="cover" zOrder={1} />
+      ) : null}
+
+      {error ? (
+        <View style={s.errorBar}>
+          <Text style={s.errorText}>{error}</Text>
+        </View>
+      ) : null}
 
       <View style={s.overlay}>
         {state === 'idle' && (
@@ -140,6 +182,8 @@ const s = StyleSheet.create({
   btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   controls: { alignItems: 'center', paddingBottom: 60 },
   id: { color: '#555', fontSize: 11, textAlign: 'center', padding: 8 },
+  errorBar: { backgroundColor: 'rgba(255,0,0,0.8)', padding: 10, zIndex: 100, position: 'absolute', top: 0, left: 0, right: 0 },
+  errorText: { color: '#fff', textAlign: 'center', fontSize: 13 },
   remoteWeb: { position: 'absolute', width: '100%', height: '100%', objectFit: 'cover' as any, backgroundColor: '#111' },
   remoteNative: { position: 'absolute', width: '100%', height: '100%', backgroundColor: '#111' },
   localWeb: { position: 'absolute', top: 40, right: 10, width: 120, height: 160, borderRadius: 8, zIndex: 10, borderWidth: 2, borderColor: '#333' },

@@ -1,5 +1,5 @@
 [build]
-  command = "npx expo export --platform web && cp -r static/godot dist/godot/"
+  command = "npx expo export --platform web"
   publish = "dist"
 
 [build.environment]

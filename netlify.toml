@@ -1,3 +1,6 @@
 [build]
   command = "npx expo export --platform web && cp -r static/godot dist/godot/"
   publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"

@@ -113,42 +113,13 @@ const s = {
     marginTop: 16,
     cursor: 'pointer',
   },
-  features: {
-    background: '#0d0d0d',
-  },
-  featuresGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-    gap: 24,
-    width: '100%',
-    margin: '48px auto 0',
-    padding: '0 40px',
-  },
-  card: {
-    background: 'rgba(255,255,255,0.04)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(255,255,255,0.06)',
-    borderRadius: 16,
-    padding: '40px 28px',
-    textAlign: 'center' as const,
-  },
-  cardIcon: { fontSize: 40, marginBottom: 16 },
-  cardTitle: { color: '#fff', fontSize: 20, fontWeight: 600, margin: '0 0 10px' },
-  cardDesc: { color: '#888', fontSize: 15, lineHeight: 1.6, margin: 0 },
+  sectionTitle: { color: '#fff', fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, margin: 0, textAlign: 'center' as const },
   about: { background: '#0a0a0a' },
   aboutContent: { textAlign: 'center' as const, padding: '0 40px' },
   aboutTitle: { color: '#fff', fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, margin: '0 0 20px' },
   aboutText: { color: '#888', fontSize: 17, lineHeight: 1.9, margin: 0 },
-  sectionTitle: { color: '#fff', fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, margin: 0, textAlign: 'center' as const },
-  sectionSub: { color: '#888', fontSize: 17, marginTop: 8, textAlign: 'center' as const },
+  credit: { color: '#555', fontSize: 14, textAlign: 'center' as const, padding: '40px 20px 0' },
 };
-
-const features = [
-  { icon: '⚡', title: 'Instant Matching', desc: 'Connect with a random stranger in seconds. No swiping, no profiles, just real conversations.' },
-  { icon: '🎥', title: 'Live Video Chat', desc: 'Face-to-face conversation with high-quality video and audio. Real-time and authentic.' },
-  { icon: '🛡️', title: 'Safe & Anonymous', desc: 'Your identity stays private. No account details shared. Report inappropriate users instantly.' },
-  { icon: '🌍', title: 'No Sign-up Required', desc: 'Jump straight into a conversation. No email verification, no personal information needed.' },
-];
 
 interface Props {
   onStart: () => void;
@@ -196,19 +167,7 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
         </div>
       </section>
 
-      <section style={{ ...s.section, ...s.features }}>
-        <h2 style={s.sectionTitle}>Why LiveMe?</h2>
-        <p style={s.sectionSub}>Everything you need for spontaneous conversations</p>
-        <div style={s.featuresGrid}>
-          {features.map((f, i) => (
-            <div key={i} style={s.card}>
-              <div style={s.cardIcon}>{f.icon}</div>
-              <h3 style={s.cardTitle}>{f.title}</h3>
-              <p style={s.cardDesc}>{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
+      <p style={s.credit}>© 2026 Anito MJI</p>
 
       <section style={{ ...s.section, ...s.about }}>
         <div style={s.aboutContent}>

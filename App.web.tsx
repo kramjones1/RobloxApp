@@ -33,7 +33,7 @@ export default function WebApp() {
   const remoteRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<any>(null);
   const lsRef = useRef<any>(null);
-  const wsRef = useRef<WebSocket>();
+  const wsRef = useRef<WebSocket>(null);
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 

@@ -10,6 +10,7 @@ export default function WebApp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authMsg, setAuthMsg] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -39,8 +40,10 @@ export default function WebApp() {
     e.preventDefault();
     setAuthMsg('');
     if (password.length < 6) { setAuthMsg('Password must be at least 6 characters'); return; }
+    setSubmitting(true);
     const fn = authMode === 'login' ? signIn : signUp;
     const { error } = await fn(email, password);
+    setSubmitting(false);
     if (error) setAuthMsg(error);
     else if (authMode === 'register') setAuthMsg('Check your email for confirmation link!');
   }
@@ -185,7 +188,7 @@ export default function WebApp() {
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%', maxWidth: 360, padding: '0 20px' }}>
           <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
           <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-          <button type="submit" style={sBtn}>{authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+          <button type="submit" disabled={submitting} style={{...sBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
         </form>
         {authMsg && <p style={{ color: '#ff9800', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 320 }}>{authMsg}</p>}
         <p style={{ color: '#666', fontSize: 14, marginTop: 20, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>

@@ -97,14 +97,12 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
         <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
         <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>
-      <div style={styles.userSection}>
-        {user && (
-          <>
-            <span className="nav-email" style={styles.email}>{user.email}</span>
-            <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
-          </>
-        )}
-      </div>
+      {user && (
+        <div style={styles.userSection}>
+          <span className="nav-email" style={styles.email}>{user.email}</span>
+          <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
+        </div>
+      )}
     </nav>
   );
 }

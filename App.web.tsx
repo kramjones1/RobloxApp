@@ -39,8 +39,8 @@ export default function WebApp() {
   const dcRef = useRef<any>(null);
   const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
   const [showChat, setShowChat] = useState(false);
-  const [partnerProfile, setPartnerProfile] = useState<{ name: string; bio: string } | null>(null);
-  const [myProfile, setMyProfile] = useState<{ name: string; bio: string } | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<{ name: string; bio: string; avatar: string } | null>(null);
+  const [myProfile, setMyProfile] = useState<{ name: string; bio: string; avatar: string } | null>(null);
   const [chatInput, setChatInput] = useState('');
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
@@ -49,10 +49,10 @@ export default function WebApp() {
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
-    if (u) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio }); });
+    if (u) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
     return onAuthChange(u2 => {
       setUser(u2);
-      if (u2) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio }); });
+      if (u2) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
       else setMyProfile(null);
     });
   }, []);
@@ -136,7 +136,7 @@ export default function WebApp() {
           setChatMessages(prev => [...prev, msg]);
           setTimeout(() => setChatMessages(prev => prev.filter(m => m !== msg)), 5000);
         } else if (data.type === 'profile') {
-          setPartnerProfile({ name: data.name, bio: data.bio });
+          setPartnerProfile({ name: data.name, bio: data.bio, avatar: data.avatar || '' });
         }
       } catch {}
     }
@@ -144,13 +144,13 @@ export default function WebApp() {
     if (role === 'offer') {
       const dc = pc.createDataChannel('chat');
       dcRef.current = dc;
-      dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio })); };
+      dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
       dc.onmessage = onDcMessage;
     } else {
       pc.ondatachannel = (e) => {
         const dc = e.channel;
         dcRef.current = dc;
-        dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio })); };
+        dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
         dc.onmessage = onDcMessage;
       };
     }
@@ -196,7 +196,7 @@ export default function WebApp() {
     setCamError('');
     setNoAudio(false);
     const { profile } = await getChatProfile();
-    if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio });
+    if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
       lsRef.current = null;
@@ -246,7 +246,7 @@ export default function WebApp() {
     if (partnerId && partnerProfile) {
       try {
         const recent = JSON.parse(localStorage.getItem('recent_live') || '[]');
-        recent.unshift({ id: partnerId, name: partnerProfile.name, bio: partnerProfile.bio, time: Date.now() });
+        recent.unshift({ id: partnerId, name: partnerProfile.name, bio: partnerProfile.bio, avatar: partnerProfile.avatar, time: Date.now() });
         localStorage.setItem('recent_live', JSON.stringify(recent.slice(0, 20)));
       } catch {}
     }
@@ -459,15 +459,19 @@ export default function WebApp() {
         <div style={{ position: 'absolute', bottom: 90, right: 14, width: 280, maxHeight: 300, background: 'rgba(20,20,20,0.95)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', zIndex: 25, display: 'flex', flexDirection: 'column' }}>
           {partnerProfile && (
             <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {partnerProfile.avatar ? <img src={partnerProfile.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} /> :
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 600 }}>
                 {(partnerProfile.name || 'A')[0].toUpperCase()}
-              </div>
+              </div>}
               <div>
                 <p style={{ color: '#fff', fontSize: 12, fontWeight: 600, margin: 0 }}>{partnerProfile.name}</p>
                 <p style={{ color: '#888', fontSize: 10, margin: 0 }}>{partnerProfile.bio}</p>
               </div>
             </div>
           )}
+          <div style={{ padding: '4px 12px', background: 'rgba(255,152,0,0.1)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <p style={{ color: '#ff9800', fontSize: 10, margin: 0, textAlign: 'center' }}>Messages disappear after 5 seconds</p>
+          </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 4, minHeight: 80 }}>
             {chatMessages.map((m, i) => (
               <div key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', background: m.me ? '#6c63ff' : 'rgba(255,255,255,0.08)', padding: '6px 10px', borderRadius: 12, maxWidth: '80%', fontSize: 12, color: '#fff', wordBreak: 'break-word', animation: 'fadeIn 0.2s' }}>

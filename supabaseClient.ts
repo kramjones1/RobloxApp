@@ -104,6 +104,7 @@ export interface ChatProfile {
   display_name: string;
   bio: string;
   avatar_url: string;
+  cover_url: string;
   share_name: boolean;
   share_bio: boolean;
 }
@@ -121,9 +122,9 @@ export async function getChatProfile(): Promise<{ profile?: ChatProfile; error?:
     if (data.error) return { error: data.error };
     if (Array.isArray(data) && data.length > 0) {
       const p = data[0];
-      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, share_name: p.share_name, share_bio: p.share_bio } };
+      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio } };
     }
-    return { profile: { display_name: 'Anonymous', bio: '', avatar_url: '', share_name: false, share_bio: false } };
+    return { profile: { display_name: 'Anonymous', bio: '', avatar_url: '', cover_url: '', share_name: false, share_bio: false } };
   } catch (e: any) {
     return { error: e.message };
   }

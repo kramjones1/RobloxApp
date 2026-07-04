@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getChatProfile, upsertChatProfile, ChatProfile } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
@@ -8,30 +8,41 @@ interface Props {
   user: any;
 }
 
+function readFileAsDataURL(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 const s = {
   page: { minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', paddingTop: 60, overflowY: 'auto' as const },
-  cover: { height: 200, background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', position: 'relative' as const },
-  coverInner: { maxWidth: 960, margin: '0 auto', position: 'relative' as const, height: '100%' },
-  avatarWrap: { position: 'absolute' as const, bottom: -50, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 8 },
-  avatar: { width: 100, height: 100, borderRadius: '50%', border: '4px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, color: '#fff', fontWeight: 700, boxShadow: '0 2px 12px rgba(0,0,0,0.4)' },
-  name: { fontSize: 22, fontWeight: 700, color: '#fff', margin: 0, textAlign: 'center' as const },
-  body: { maxWidth: 960, margin: '0 auto', padding: '70px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 16 },
-  leftCol: { flex: 1 },
-  rightCol: { width: 320, flexShrink: 0 },
-  card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20, marginBottom: 20 },
-  cardTitle: { color: '#fff', fontSize: 18, fontWeight: 600, margin: '0 0 16px' },
+  wrap: { maxWidth: 500, margin: '0 auto', padding: '24px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 20 },
+  coverWrap: { position: 'relative' as const, width: '100%', height: 160, borderRadius: 14, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
+  coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
+  coverOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer', background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', width: '100%' },
+  avatarWrap: { display: 'flex', justifyContent: 'center', marginTop: -50 },
+  avatar: { width: 96, height: 96, borderRadius: '50%', border: '4px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
+  avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
+  avatarOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0, transition: 'opacity 0.2s' },
+  name: { color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center' as const, margin: 0 },
+  card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20 },
+  cardTitle: { color: '#fff', fontSize: 16, fontWeight: 600, margin: '0 0 16px' },
   label: { color: '#aaa', fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' },
   input: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', padding: '11px 14px', borderRadius: 10, fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 16 },
-  textarea: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', padding: '11px 14px', borderRadius: 10, fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 16, resize: 'vertical' as const, minHeight: 80 },
+  textarea: { background: 'rgba(255,255,255,0.06)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)', padding: '11px 14px', borderRadius: 10, fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 16, resize: 'vertical' as const, minHeight: 64 },
   toggleRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' },
   toggleLabel: { color: '#ccc', fontSize: 14 },
   toggleBtn: { padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none', fontFamily: 'inherit' },
-  saveBtn: { marginTop: 16, background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none', padding: '10px', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
+  saveBtn: { marginTop: 12, background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none', padding: '12px', borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%' },
   msg: { fontSize: 13, textAlign: 'center' as const, marginTop: 12 },
-  friendCard: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' },
+  friendCard: { display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' },
   friendAvatar: { width: 36, height: 36, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 15, fontWeight: 600, flexShrink: 0 },
   friendName: { color: '#e0e0e0', fontSize: 14, fontWeight: 500 },
   friendBio: { color: '#777', fontSize: 12 },
+  hiddenInput: { display: 'none' },
 };
 
 export default function ProfilePage({ onNav, user }: Props) {
@@ -42,7 +53,14 @@ export default function ProfilePage({ onNav, user }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
-  const [recent, setRecent] = useState<{ id: string; name: string; bio: string; time: number }[]>([]);
+  const [recent, setRecent] = useState<{ id: string; name: string; bio: string; avatar: string; time: number }[]>([]);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -52,18 +70,43 @@ export default function ProfilePage({ onNav, user }: Props) {
         setBio(profile.bio);
         setShareName(profile.share_name);
         setShareBio(profile.share_bio);
+        setAvatarUrl(profile.avatar_url || '');
       }
       setLoading(false);
     })();
     try { setRecent(JSON.parse(localStorage.getItem('recent_live') || '[]')); } catch {}
+    const storedCover = localStorage.getItem('profile_cover') || '';
+    setCoverUrl(storedCover);
   }, []);
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) { setMsg('Image must be under 500KB'); return; }
+    setUploadingAvatar(true);
+    try { setAvatarUrl(await readFileAsDataURL(file)); } catch { setMsg('Failed to read avatar'); }
+    setUploadingAvatar(false);
+  }
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) { setMsg('Image must be under 500KB'); return; }
+    setUploadingCover(true);
+    try {
+      const url = await readFileAsDataURL(file);
+      setCoverUrl(url);
+      localStorage.setItem('profile_cover', url);
+    } catch { setMsg('Failed to read cover'); }
+    setUploadingCover(false);
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!displayName || displayName.length < 1) { setMsg('Display name is required'); return; }
     setSaving(true);
     setMsg('');
-    const { error } = await upsertChatProfile({ display_name: displayName, bio, avatar_url: '', share_name: shareName, share_bio: shareBio });
+    const { error } = await upsertChatProfile({ display_name: displayName, bio, avatar_url: avatarUrl, cover_url: coverUrl, share_name: shareName, share_bio: shareBio });
     setSaving(false);
     if (error) setMsg(error);
     else setMsg('Saved!');
@@ -75,18 +118,25 @@ export default function ProfilePage({ onNav, user }: Props) {
 
   return (
     <div style={s.page}>
-      <div style={s.cover}>
-        <div style={s.coverInner}>
-          <div style={s.avatarWrap}>
-            <div style={s.avatar}>{initial}</div>
-            <div>
-              <h1 style={s.name}>{displayName}</h1>
-            </div>
+      <div style={s.wrap}>
+        <div style={s.coverWrap} onMouseEnter={e => { const el = e.currentTarget.querySelector('.cover-overlay') as HTMLElement; if (el) el.style.opacity = '1'; }} onMouseLeave={e => { const el = e.currentTarget.querySelector('.cover-overlay') as HTMLElement; if (el) el.style.opacity = '0'; }}>
+          {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
+          <button className="cover-overlay" style={s.coverOverlay} onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}>
+            {uploadingCover ? 'Uploading...' : 'Change Cover'}
+          </button>
+        </div>
+        <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} style={s.hiddenInput} />
+
+        <div style={s.avatarWrap}>
+          <div style={s.avatar} onClick={() => avatarInputRef.current?.click()} onMouseEnter={e => { const el = e.currentTarget.querySelector('.av-overlay') as HTMLElement; if (el) el.style.opacity = '1'; }} onMouseLeave={e => { const el = e.currentTarget.querySelector('.av-overlay') as HTMLElement; if (el) el.style.opacity = '0'; }}>
+            {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
+            <span className="av-overlay" style={s.avatarOverlay}>{uploadingAvatar ? '...' : 'Edit'}</span>
           </div>
         </div>
-      </div>
+        <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
 
-      <div style={s.body}>
+        <h1 style={s.name}>{displayName}</h1>
+
         <div style={s.card}>
           <h2 style={s.cardTitle}>About</h2>
           <form onSubmit={handleSave}>
@@ -121,7 +171,7 @@ export default function ProfilePage({ onNav, user }: Props) {
             <p style={{ color: '#666', fontSize: 13 }}>No recent interactions yet. Start chatting to meet people!</p>
           ) : recent.map((r, i) => (
             <div key={i} style={s.friendCard}>
-              <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>
+              {r.avatar ? <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>}
               <div>
                 <p style={s.friendName}>{r.name || 'Unknown'}</p>
                 <p style={s.friendBio}>{r.bio || ''}</p>

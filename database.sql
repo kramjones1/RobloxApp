@@ -83,6 +83,7 @@ CREATE TABLE chat_profiles (
   display_name TEXT NOT NULL DEFAULT 'Anonymous',
   bio TEXT NOT NULL DEFAULT '',
   avatar_url TEXT NOT NULL DEFAULT '',
+  cover_url TEXT NOT NULL DEFAULT '',
   share_name BOOLEAN NOT NULL DEFAULT false,
   share_bio BOOLEAN NOT NULL DEFAULT false,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -9,7 +9,9 @@ async function supabaseFetch(url: string, opts: RequestInit) {
     try { json = JSON.parse(txt); } catch { json = {}; }
     return { error: json.error_description || json.msg || json.error || `HTTP ${res.status}: ${txt.slice(0, 100)}` };
   }
-  return await res.json();
+  const text = await res.text();
+  if (!text) return {};
+  try { return JSON.parse(text); } catch { return {}; }
 }
 
 export interface SupabaseUser {

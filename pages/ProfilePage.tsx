@@ -177,9 +177,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     return (
       <div style={s.page}>
         <div style={s.wrap}>
-          <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => onClearView?.()} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Back</button>
-          </div>
+          
           <div className="cover-wrap" style={s.coverWrap}>
             {viewedUser.cover ? <img src={viewedUser.cover} alt="" style={s.coverImg} /> : null}
           </div>

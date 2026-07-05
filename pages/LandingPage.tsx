@@ -267,11 +267,7 @@ export default function LandingPage({
           </div>
         )}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, fontSize: 13 }}>
-        <span style={{ color: '#6c63ff', cursor: 'pointer' }} onClick={() => onNav?.('privacy')}>Privacy</span>
-        <span style={{ color: '#6c63ff', cursor: 'pointer' }} onClick={() => onNav?.('terms')}>Terms</span>
-      </div>
-      <p style={s.credit}>© 2026 Anito MJI</p>
+      
     </section>
   );
 }

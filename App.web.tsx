@@ -104,6 +104,8 @@ export default function WebApp() {
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(forgotEmail)) { setAuthMsg('Please enter a valid email address (e.g. name@domain.com)'); return; }
     setSubmitting(true);
     const { error } = await resetPassword(forgotEmail);
     setSubmitting(false);
@@ -415,8 +417,8 @@ export default function WebApp() {
               <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{forgotSent ? 'Check your email' : 'Reset password'}</p>
               {forgotSent ? (
                 <>
-                  <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16 }}>
-                    We've sent a password reset link to <b style={{ color: '#fff' }}>{forgotEmail}</b>. Check your inbox and click the link to reset your password.
+                  <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16, wordBreak: 'break-word' }}>
+                    We've sent a password reset link to <b style={{ color: '#fff' }}>{forgotEmail}</b>. Check your inbox (and spam folder). Didn't get it? Make sure the email address is correct.
                   </p>
                   <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }} style={mobileBtn}>
                     Back to Sign In

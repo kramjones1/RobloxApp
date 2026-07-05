@@ -623,7 +623,7 @@ export default function WebApp() {
         </div>
       )}
 
-      {/* NON-CHAT PAGES */}
+      {/* NON-CHAT PAGES - mutually exclusive groups (same priority as old early returns) */}
       {page === 'privacy' && (
         <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
@@ -639,33 +639,7 @@ export default function WebApp() {
         </div>
       )}
 
-      {page === 'profile' && (
-        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-          <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
-          <Footer setPage={setPage} />
-        </div>
-      )}
-
-      {page === 'messages' && (
-        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-          <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
-        </div>
-      )}
-
-      {page === 'home' && (
-        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-          <LandingPage onNav={setPage} onStart={() => {
-            setPage('chat');
-            setTimeout(findStranger, 100);
-          }} />
-          <Footer setPage={setPage} />
-        </div>
-      )}
-
-      {!user && (
+      {!user ? (
         <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div className="mobile-auth" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', flexShrink: 0 }}>
             {showForgot ? (
@@ -802,6 +776,35 @@ export default function WebApp() {
             <Footer setPage={setPage} />
           </div>
         </div>
+      ) : (
+        /* Authenticated user pages */
+        <>
+          {page === 'profile' && (
+            <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+              <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
+              <Footer setPage={setPage} />
+            </div>
+          )}
+
+          {page === 'messages' && (
+            <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+              <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+              <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
+            </div>
+          )}
+
+          {page === 'home' && (
+            <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+              <LandingPage onNav={setPage} onStart={() => {
+                setPage('chat');
+                setTimeout(findStranger, 100);
+              }} />
+              <Footer setPage={setPage} />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

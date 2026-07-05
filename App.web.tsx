@@ -221,7 +221,7 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); setReportSent(false); startCall(ws, msg.role); break;
+        case 'matched': setPartnerId(msg.partner); console.log('matched: partnerId=', msg.partner, 'userId=', msg.userId); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); setReportSent(false); startCall(ws, msg.role); break;
         case 'partner_left': cleanup(); addLog('Partner left'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
@@ -261,7 +261,7 @@ export default function WebApp() {
           setChatMessages(prev => [...prev, msg]);
           setTimeout(() => setChatMessages(prev => prev.filter(m => m !== msg)), 5000);
         } else if (data.type === 'profile') {
-          setPartnerProfile(prev => ({ userId: data.userId || prev?.userId || '', name: data.name, bio: data.bio, avatar: data.avatar || '' }));
+          setPartnerProfile(prev => { console.log('DC profile: userId=', data.userId, 'prev=', prev); return { userId: data.userId || prev?.userId || '', name: data.name, bio: data.bio, avatar: data.avatar || '' }; });
         }
       } catch {}
     }
@@ -368,12 +368,16 @@ export default function WebApp() {
   }
 
   function cleanup() {
+    console.log('cleanup: partnerProfile=', partnerProfile, 'partnerId=', partnerId);
     if (partnerProfile?.userId) {
       try {
         const recent = JSON.parse(localStorage.getItem('recent_live') || '[]');
         recent.unshift({ id: partnerProfile.userId, name: partnerProfile.name, bio: partnerProfile.bio, avatar: partnerProfile.avatar, time: Date.now() });
         localStorage.setItem('recent_live', JSON.stringify(recent.slice(0, 20)));
-      } catch {}
+        console.log('cleanup: saved to recent_live', partnerProfile.userId);
+      } catch (e) { console.log('cleanup: error saving', e); }
+    } else {
+      console.log('cleanup: no userId, not saving. partnerProfile=', partnerProfile);
     }
     lsRef.current?.getTracks().forEach((t: any) => t.stop());
     lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;

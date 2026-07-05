@@ -129,6 +129,35 @@ export async function updatePassword(newPassword: string): Promise<{ error?: str
   }
 }
 
+export async function sendPhoneOtp(phone: string): Promise<{ error?: string }> {
+  try {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ phone }),
+    });
+    if (data.error) return { error: data.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Network error' };
+  }
+}
+
+export async function verifyPhoneOtp(phone: string, token: string): Promise<{ error?: string; access_token?: string }> {
+  try {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ type: 'sms', phone, token }),
+    });
+    if (data.error) return { error: data.error };
+    if (data.access_token) return { access_token: data.access_token };
+    return { error: 'Verification failed' };
+  } catch (e: any) {
+    return { error: e.message || 'Network error' };
+  }
+}
+
 export async function signOut() {
   setStoredSession(null);
   notify(null);

@@ -14,17 +14,26 @@ const s = {
     background: 'linear-gradient(135deg, #0a0a0a 0%, #111128 50%, #0a0a0a 100%)',
     flex: 1,
   },
-  center: {
+  row: {
     flex: 1,
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 1100,
+    margin: '0 auto',
+    padding: '0 40px',
+    gap: 40,
+  },
+  left: {
+    flex: '1 1 400px',
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '40px 20px',
-  },
-  brand: {
     textAlign: 'center' as const,
-    marginBottom: 32,
+    padding: '20px 0',
   },
   heroTitle: {
     fontSize: 'clamp(48px, 8vw, 96px)',
@@ -54,6 +63,12 @@ const s = {
     cursor: 'pointer',
     fontFamily: 'inherit',
     boxShadow: '0 4px 24px rgba(108,99,255,0.3)',
+  },
+  right: {
+    flex: '0 0 auto',
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '20px 0',
   },
   authBox: {
     background: 'rgba(255,255,255,0.04)',
@@ -122,67 +137,111 @@ interface Props {
   onForgotSubmit?: (e: React.FormEvent) => void;
   onShowForgot?: () => void;
   onBackToSignIn?: () => void;
+  onSendPhoneOtp?: () => void;
+  onFinishSignup?: () => void;
+  phoneOtpSent?: boolean;
+  phone?: string;
+  onPhoneChange?: (v: string) => void;
+  phoneOtp?: string;
+  onPhoneOtpChange?: (v: string) => void;
+  onVerifyPhoneOtp?: () => void;
+  phoneVerified?: boolean;
+  phoneStep?: boolean;
+  phoneError?: string;
 }
 
-export default function LandingPage({ onStart, authMode, authMsg, submitting, email, password, onEmailChange, onPasswordChange, onSubmit, onToggleAuth, showForgot, forgotSent, forgotEmail, forgotCooldown, onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn }: Props) {
+export default function LandingPage({
+  onStart, authMode, authMsg, submitting, email, password,
+  onEmailChange, onPasswordChange, onSubmit, onToggleAuth,
+  showForgot, forgotSent, forgotEmail, forgotCooldown,
+  onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
+  onSendPhoneOtp, onFinishSignup, phoneOtpSent, phone, onPhoneChange,
+  phoneOtp, onPhoneOtpChange, onVerifyPhoneOtp, phoneVerified, phoneStep, phoneError,
+}: Props) {
   const showAuth = !!onSubmit;
   return (
     <section style={{ ...s.section, ...s.hero }}>
-      <div style={s.center}>
-        <div style={s.brand}>
+      <div style={s.row}>
+        <div style={s.left}>
           <h1 style={s.heroTitle}>LiveMe</h1>
           <p style={s.heroTagline}>Random video chat. Meet new people.</p>
           {!showAuth && <button style={s.cta} onClick={onStart}>Start Chatting</button>}
         </div>
 
         {showAuth && (
-          <div style={s.authBox}>
-            {showForgot ? (
-              <>
-                <p style={s.authTitle}>Reset password</p>
-                <p style={s.authSub}>{forgotSent ? 'Check your email' : 'Enter your email to receive a reset link'}</p>
-                {forgotSent ? (
-                  <>
-                    <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', lineHeight: 1.5, margin: '0 0 16px', wordBreak: 'break-word' }}>
-                      If an account exists at <b style={{ color: '#fff' }}>{forgotEmail}</b>, we've sent a password reset link.
-                    </p>
-                    <button onClick={onBackToSignIn} style={s.submitBtn}>Back to Sign In</button>
-                  </>
-                ) : (
-                  <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
-                    <button type="submit" disabled={submitting || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
-                      {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
+          <div style={s.right}>
+            <div style={s.authBox}>
+              {showForgot ? (
+                <>
+                  <p style={s.authTitle}>Reset password</p>
+                  <p style={s.authSub}>{forgotSent ? 'Check your email' : 'Enter your email to receive a reset link'}</p>
+                  {forgotSent ? (
+                    <>
+                      <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', lineHeight: 1.5, margin: '0 0 16px', wordBreak: 'break-word' }}>
+                        If an account exists at <b style={{ color: '#fff' }}>{forgotEmail}</b>, we've sent a password reset link.
+                      </p>
+                      <button onClick={onBackToSignIn} style={s.submitBtn}>Back to Sign In</button>
+                    </>
+                  ) : (
+                    <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
+                      <button type="submit" disabled={submitting || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
+                        {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
+                      </button>
+                      <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onBackToSignIn}>← Back to Sign In</p>
+                    </form>
+                  )}
+                  {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: '12px 0 0' }}>{authMsg}</p>}
+                </>
+              ) : phoneStep ? (
+                <>
+                  <p style={s.authTitle}>Verify your phone</p>
+                  <p style={s.authSub}>{phoneVerified ? 'Phone verified!' : (phoneOtpSent ? 'Enter the code sent to your phone' : 'Enter your phone number to receive a verification code')}</p>
+                  {!phoneOtpSent ? (
+                    <>
+                      <input style={s.input} type="tel" placeholder="+1 (555) 123-4567" value={phone || ''} onChange={e => onPhoneChange?.(e.target.value)} />
+                      <button onClick={onSendPhoneOtp} disabled={submitting} style={{...s.submitBtn, marginTop: 10, opacity: submitting ? 0.5 : 1}}>
+                        {submitting ? 'Sending...' : 'Send Code'}
+                      </button>
+                    </>
+                  ) : !phoneVerified ? (
+                    <>
+                      <input style={s.input} type="text" placeholder="Enter 6-digit code" value={phoneOtp || ''} onChange={e => onPhoneOtpChange?.(e.target.value)} maxLength={6} />
+                      <button onClick={onVerifyPhoneOtp} disabled={submitting || (phoneOtp?.length || 0) < 6} style={{...s.submitBtn, marginTop: 10, opacity: submitting || (phoneOtp?.length || 0) < 6 ? 0.5 : 1}}>
+                        {submitting ? 'Verifying...' : 'Verify Code'}
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={onFinishSignup as any} style={s.submitBtn}>Complete Sign Up</button>
+                  )}
+                  {phoneError && <p style={{ color: '#f44336', fontSize: 13, textAlign: 'center', margin: '12px 0 0' }}>{phoneError}</p>}
+                </>
+              ) : (
+                <>
+                  <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
+                  <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
+                  <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
+                    <input style={s.input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={8} />
+                    {authMode === 'register' && (
+                      <input style={s.input} type="tel" placeholder="Phone number (for verification)" value={phone || ''} onChange={e => onPhoneChange?.(e.target.value)} required />
+                    )}
+                    <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
+                      {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>
-                    <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onBackToSignIn}>
-                      ← Back to Sign In
+                    {authMode === 'login' && (
+                      <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: '0 0 8px' }} onClick={onShowForgot}>
+                        Forgot password?
+                      </p>
+                    )}
+                    {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>{authMsg}</p>}
+                    <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onToggleAuth}>
+                      {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
                     </p>
                   </form>
-                )}
-                {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: '12px 0 0' }}>{authMsg}</p>}
-              </>
-            ) : (
-              <>
-                <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
-                <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
-                <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
-                  <input style={s.input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={8} />
-                  <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
-                    {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
-                  </button>
-                  {authMode === 'login' && (
-                    <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: '0 0 8px' }} onClick={onShowForgot}>
-                      Forgot password?
-                    </p>
-                  )}
-                  {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>{authMsg}</p>}
-                  <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onToggleAuth}>
-                    {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-                  </p>
-                </form>
-              </>
-            )}
+                </>
+              )}
+            </div>
           </div>
         )}
       </div>

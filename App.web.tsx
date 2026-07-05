@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, sendPhoneOtp, verifyPhoneOtp } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -37,6 +37,12 @@ export default function WebApp() {
   const [onboardingStep, setOnboardingStep] = useState<'name' | 'bio' | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
+  const [phoneStep, setPhoneStep] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -96,13 +102,48 @@ export default function WebApp() {
     e.preventDefault();
     setAuthMsg('');
     if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
+    if (authMode === 'register') {
+      if (!phone || phone.length < 6) { setAuthMsg('Phone number is required for signup'); return; }
+      setPhoneStep(true);
+      return;
+    }
     setSubmitting(true);
-    const fn = authMode === 'login' ? signIn : signUp;
-    const { error } = await fn(email, password);
+    const { error } = await signIn(email, password);
     setSubmitting(false);
     if (error) setAuthMsg(error);
-    else if (authMode === 'register') setOnboardingStep('name');
     else setPage('profile');
+  }
+
+  async function handleSendPhoneOtp() {
+    setPhoneError('');
+    if (!phone || phone.length < 6) { setPhoneError('Please enter a valid phone number'); return; }
+    setSubmitting(true);
+    const { error } = await sendPhoneOtp(phone);
+    setSubmitting(false);
+    if (error) { setPhoneError(error); return; }
+    setPhoneOtpSent(true);
+  }
+
+  async function handleVerifyPhoneOtp() {
+    setPhoneError('');
+    if (!phoneOtp || phoneOtp.length < 6) { setPhoneError('Enter the 6-digit code'); return; }
+    setSubmitting(true);
+    const { error } = await verifyPhoneOtp(phone, phoneOtp);
+    setSubmitting(false);
+    if (error) { setPhoneError(error); return; }
+    setPhoneVerified(true);
+    await finishSignup();
+  }
+
+  async function finishSignup() {
+    setSubmitting(true);
+    const res = await signUp(email, password);
+    setSubmitting(false);
+    if (res.error) {
+      setPhoneError('Phone verified but account creation failed: ' + res.error);
+      return;
+    }
+    setOnboardingStep('name');
   }
 
   async function handleForgotPassword(e: React.FormEvent) {
@@ -489,6 +530,26 @@ export default function WebApp() {
                 </form>
               )}
             </>
+          ) : phoneStep ? (
+            <>
+              <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+              <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{phoneVerified ? 'Phone verified!' : (phoneOtpSent ? 'Enter the code sent to your phone' : 'Verify your phone')}</p>
+              {!phoneOtpSent ? (
+                <>
+                  <input style={input} type="tel" placeholder="+1 (555) 123-4567" value={phone} onChange={e => setPhone(e.target.value)} />
+                  <button onClick={handleSendPhoneOtp} disabled={submitting} style={{...mobileBtn, marginTop: 10, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Sending...' : 'Send Code'}</button>
+                </>
+              ) : !phoneVerified ? (
+                <>
+                  <input style={input} type="text" placeholder="Enter 6-digit code" value={phoneOtp} onChange={e => setPhoneOtp(e.target.value)} maxLength={6} />
+                  <button onClick={handleVerifyPhoneOtp} disabled={submitting || phoneOtp.length < 6} style={{...mobileBtn, marginTop: 10, opacity: submitting || phoneOtp.length < 6 ? 0.5 : 1}}>{submitting ? 'Verifying...' : 'Verify Code'}</button>
+                </>
+              ) : (
+                <button onClick={finishSignup} disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : 'Complete Sign Up'}</button>
+              )}
+              {phoneError && <p style={{ color: '#f44336', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{phoneError}</p>}
+              {!phoneOtpSent && <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setPhoneStep(false); setPhoneOtpSent(false); setPhoneVerified(false); setPhoneOtp(''); setPhoneError(''); }}>← Back</p>}
+            </>
           ) : (
             <>
               <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
@@ -496,6 +557,7 @@ export default function WebApp() {
               <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
                 <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
                 <input style={input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+                {authMode === 'register' && <input style={input} type="tel" placeholder="Phone number (for verification)" value={phone} onChange={e => setPhone(e.target.value)} required />}
                 <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
               </form>
               {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
@@ -534,6 +596,17 @@ export default function WebApp() {
               onForgotSubmit={handleForgotPassword}
               onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
               onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
+              phoneStep={phoneStep}
+              phone={phone}
+              onPhoneChange={setPhone}
+              phoneOtp={phoneOtp}
+              onPhoneOtpChange={setPhoneOtp}
+              phoneOtpSent={phoneOtpSent}
+              phoneVerified={phoneVerified}
+              phoneError={phoneError}
+              onSendPhoneOtp={handleSendPhoneOtp}
+              onFinishSignup={finishSignup}
+              onVerifyPhoneOtp={handleVerifyPhoneOtp}
             />
           </div>
           <Footer setPage={setPage} />

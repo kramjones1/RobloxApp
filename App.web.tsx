@@ -69,13 +69,14 @@ export default function WebApp() {
 
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash.includes('type=recovery') && hash.includes('access_token=')) {
+    if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
       const token = params.get('access_token');
+      const type = params.get('type');
       if (token) {
         setSessionToken(token);
         window.location.hash = '';
-        setRecoveryMode(true);
+        if (type === 'recovery') setRecoveryMode(true);
       }
     }
     const u = getSession();

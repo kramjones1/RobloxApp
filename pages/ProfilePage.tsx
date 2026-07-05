@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -77,7 +77,7 @@ export default function ProfilePage({ onNav, user, onMessage }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
-  const [recent, setRecent] = useState<{ id: string; name: string; bio: string; avatar: string; time: number }[]>([]);
+  const [recent, setRecent] = useState<{ id: string; name: string; bio: string; avatar: string; time: string }[]>([]);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -99,7 +99,9 @@ export default function ProfilePage({ onNav, user, onMessage }: Props) {
       }
       setLoading(false);
     })();
-    try { setRecent(JSON.parse(localStorage.getItem('recent_live') || '[]')); } catch {}
+    getRecentLive().then(({ entries }) => {
+      if (entries) setRecent(entries.map(e => ({ id: e.partner_id, name: e.partner_name, bio: e.partner_bio, avatar: e.partner_avatar, time: e.created_at })));
+    });
   }, []);
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -202,21 +204,25 @@ export default function ProfilePage({ onNav, user, onMessage }: Props) {
           <h2 style={s.cardTitle}>Recent Live</h2>
           {recent.length === 0 ? (
             <p style={{ color: '#666', fontSize: 13 }}>No recent interactions yet. Start chatting to meet people!</p>
-          ) : recent.map((r, i) => (
-            <div key={i} style={s.friendCard}>
-              {r.avatar ? <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={s.friendName}>{r.name || 'Unknown'}</p>
-                <p style={s.friendBio}>{r.bio || ''}</p>
-                <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
+          ) : (
+            <div style={{ maxHeight: 320, overflowY: 'auto' as const }}>
+            {recent.map((r, i) => (
+              <div key={i} style={s.friendCard}>
+                {r.avatar ? <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={s.friendName}>{r.name || 'Unknown'}</p>
+                  <p style={s.friendBio}>{r.bio || ''}</p>
+                  <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
+                </div>
+                {onMessage && r.id && (
+                  <button onClick={() => onMessage(r.id)} style={{ background: 'rgba(108,99,255,0.15)', color: '#6c63ff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Message</button>
+                )}
               </div>
-              {onMessage && r.id && (
-                <button onClick={() => onMessage(r.id)} style={{ background: 'rgba(108,99,255,0.15)', color: '#6c63ff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Message</button>
-              )}
+            ))}
             </div>
-          ))}
+          )}
           {recent.length > 0 && (
-            <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={() => { localStorage.removeItem('recent_live'); setRecent([]); }}>Clear history</p>
+            <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={async () => { await clearRecentLive(); setRecent([]); }}>Clear history</p>
           )}
         </div>
         </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -400,6 +400,7 @@ export default function WebApp() {
         localStorage.setItem('recent_live', JSON.stringify(recent.slice(0, 20)));
         console.log('cleanup: saved to recent_live', uid);
       } catch (e) { console.log('cleanup: error saving', e); }
+      try { await saveRecentLive(uid, pName, pBio, pAvatar); } catch {}
     } else {
       console.log('cleanup: no userId, not saving. partnerProfile=', partnerProfile);
     }

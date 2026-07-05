@@ -352,3 +352,55 @@ export async function upsertChatProfile(profile: ChatProfile): Promise<{ error?:
     return { error: e.message };
   }
 }
+
+export async function saveRecentLive(partnerId: string, name: string, bio: string, avatar: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/recent_live`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id, partner_id: partnerId, partner_name: name, partner_bio: bio, partner_avatar: avatar }),
+    });
+    if (res?.error) return { error: res.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function getRecentLive(): Promise<{ entries?: { id: string; partner_id: string; partner_name: string; partner_bio: string; partner_avatar: string; created_at: string }[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const res = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/recent_live?user_id=eq.${user.id}&order=created_at.desc&limit=20`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (res?.error) return { error: res.error };
+    return { entries: res as any[] };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function clearRecentLive(): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/recent_live?user_id=eq.${user.id}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` },
+    });
+    if (res?.error) return { error: res.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}

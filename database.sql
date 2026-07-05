@@ -125,3 +125,22 @@ CREATE POLICY "msg update read" ON chat_messages FOR UPDATE TO authenticated USI
 ) WITH CHECK (
   auth.uid() = receiver_id AND read = true
 );
+
+-- Recent live history (per-account, across devices)
+CREATE TABLE recent_live (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  partner_id UUID NOT NULL,
+  partner_name TEXT NOT NULL DEFAULT '',
+  partner_bio TEXT NOT NULL DEFAULT '',
+  partner_avatar TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_recent_live_user ON recent_live(user_id, created_at DESC);
+
+ALTER TABLE recent_live ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "recent_live select" ON recent_live FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "recent_live insert" ON recent_live FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "recent_live delete" ON recent_live FOR DELETE TO authenticated USING (auth.uid() = user_id);

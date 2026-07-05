@@ -109,8 +109,11 @@ export default function WebApp() {
     setSubmitting(true);
     const { error } = await resetPassword(forgotEmail);
     setSubmitting(false);
-    if (error) setAuthMsg(error);
-    else {
+    if (error) {
+      setAuthMsg(error);
+      setForgotCooldown(60);
+      const iv = setInterval(() => setForgotCooldown(prev => { if (prev <= 1) { clearInterval(iv); return 0; } return prev - 1; }), 1000);
+    } else {
       setForgotSent(true);
       setForgotCooldown(60);
       const iv = setInterval(() => setForgotCooldown(prev => { if (prev <= 1) { clearInterval(iv); return 0; } return prev - 1; }), 1000);

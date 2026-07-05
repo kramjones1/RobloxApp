@@ -819,7 +819,7 @@ export default function WebApp() {
           )}
 
           {page === 'messages' && (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
               <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
               <Footer setPage={setPage} />

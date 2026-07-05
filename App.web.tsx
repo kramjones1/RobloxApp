@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -34,6 +34,9 @@ export default function WebApp() {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<'name' | 'bio' | null>(null);
+  const [onboardingName, setOnboardingName] = useState('');
+  const [onboardingBio, setOnboardingBio] = useState('');
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -98,6 +101,7 @@ export default function WebApp() {
     const { error } = await fn(email, password);
     setSubmitting(false);
     if (error) setAuthMsg(error);
+    else if (authMode === 'register') setOnboardingStep('name');
     else setPage('profile');
   }
 
@@ -129,6 +133,25 @@ export default function WebApp() {
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPasswordUpdated(true);
+  }
+
+  async function handleOnboardingSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthMsg('');
+    if (onboardingStep === 'name') {
+      if (!onboardingName || onboardingName.length < 1) { setAuthMsg('Display name is required'); return; }
+      setSubmitting(true);
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: '', avatar_url: '', cover_url: '', share_name: true, share_bio: true });
+      setSubmitting(false);
+      if (error) setAuthMsg(error);
+      else setOnboardingStep('bio');
+    } else {
+      setSubmitting(true);
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true });
+      setSubmitting(false);
+      if (error) setAuthMsg(error);
+      else setOnboardingStep(null);
+    }
   }
 
   async function handleLogout() {
@@ -367,6 +390,32 @@ export default function WebApp() {
             </form>
             {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
           </>
+        )}
+      </div>
+    );
+  }
+
+  if (onboardingStep) {
+    return (
+      <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+        <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}</p>
+        <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+          {onboardingStep === 'name' ? (
+            <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
+          ) : (
+            <>
+              <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>Display name: <b style={{ color: '#fff' }}>{onboardingName}</b></p>
+              <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} maxLength={200} />
+            </>
+          )}
+          <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
+            {submitting ? 'Saving...' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
+          </button>
+        </form>
+        {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+        {onboardingStep === 'bio' && (
+          <p style={{ color: '#6c63ff', fontSize: 12, marginTop: 12, cursor: 'pointer' }} onClick={handleOnboardingSubmit}>Skip</p>
         )}
       </div>
     );

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, sendPhoneOtp, verifyPhoneOtp } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -560,6 +560,19 @@ export default function WebApp() {
                 {authMode === 'register' && <input style={input} type="tel" placeholder="Phone number (for verification)" value={phone} onChange={e => setPhone(e.target.value)} required />}
                 <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
               </form>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
+                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                <span style={{ color: '#666', fontSize: 12 }}>OR</span>
+                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+              </div>
+              <button type="button" onClick={() => signInWithGoogle()} style={{
+                background: '#fff', color: '#333', border: 'none', padding: '12px', borderRadius: 10,
+                fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%', maxWidth: 360,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.54 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.98-5.97z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z"/></svg>
+                Sign {authMode === 'login' ? 'in' : 'up'} with Google
+              </button>
               {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
               {authMode === 'login' && (
                 <p style={{ color: '#6c63ff', fontSize: 13, marginTop: 12, cursor: 'pointer' }} onClick={() => { setShowForgot(true); setAuthMsg(''); }}>
@@ -596,6 +609,7 @@ export default function WebApp() {
               onForgotSubmit={handleForgotPassword}
               onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
               onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
+              onGoogleSignIn={() => signInWithGoogle()}
               phoneStep={phoneStep}
               phone={phone}
               onPhoneChange={setPhone}

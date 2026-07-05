@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -7,6 +7,9 @@ interface Props {
   onNav: (p: Page) => void;
   user: any;
   onMessage?: (userId: string) => void;
+  viewUserId?: string | null;
+  onViewProfile?: (userId: string) => void;
+  onClearView?: () => void;
 }
 
 function readFileAsDataURL(file: File): Promise<string> {
@@ -69,7 +72,7 @@ if (!document.getElementById('profile-hover-styles')) {
   document.head.appendChild(hoverStyles);
 }
 
-export default function ProfilePage({ onNav, user, onMessage }: Props) {
+export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
   const [bio, setBio] = useState('');
   const [shareName, setShareName] = useState(false);
@@ -82,9 +85,22 @@ export default function ProfilePage({ onNav, user, onMessage }: Props) {
   const [coverUrl, setCoverUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string } | null>(null);
+  const [loadingViewed, setLoadingViewed] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const longPressTimer = useRef<any>(null);
+
+  const isViewingOther = viewUserId && viewUserId !== user?.id;
+
+  // Long-press handlers
+  function startLongPress(cb: () => void) {
+    longPressTimer.current = setTimeout(cb, 500);
+  }
+  function cancelLongPress() {
+    clearTimeout(longPressTimer.current);
+  }
 
   useEffect(() => {
     (async () => {
@@ -103,6 +119,15 @@ export default function ProfilePage({ onNav, user, onMessage }: Props) {
       if (entries) setRecent(entries.map(e => ({ id: e.partner_id, name: e.partner_name, bio: e.partner_bio, avatar: e.partner_avatar, time: e.created_at })));
     });
   }, []);
+
+  useEffect(() => {
+    if (!isViewingOther) { setViewedUser(null); return; }
+    setLoadingViewed(true);
+    getUserProfile(viewUserId).then(({ profile }) => {
+      if (profile) setViewedUser({ name: profile.display_name || 'User', bio: profile.bio || '', avatar: profile.avatar_url || '', cover: profile.cover_url || '' });
+      setLoadingViewed(false);
+    });
+  }, [viewUserId, user?.id]);
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -143,23 +168,64 @@ export default function ProfilePage({ onNav, user, onMessage }: Props) {
     else setMsg('Saved!');
   }
 
-  if (loading) return <div style={{ ...s.page, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>Loading...</div>;
+  if (loading || loadingViewed) return <div style={{ ...s.page, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>Loading...</div>;
 
-  const initial = displayName ? displayName[0].toUpperCase() : 'A';
+  const initial = (isViewingOther ? viewedUser?.name : displayName)?.[0]?.toUpperCase() || 'A';
+
+  // Viewing another user's profile (read-only)
+  if (isViewingOther && viewedUser) {
+    return (
+      <div style={s.page}>
+        <div style={s.wrap}>
+          <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={() => onClearView?.()} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>← Back</button>
+          </div>
+          <div className="cover-wrap" style={s.coverWrap}>
+            {viewedUser.cover ? <img src={viewedUser.cover} alt="" style={s.coverImg} /> : null}
+          </div>
+          <div className="profile-avatar-wrap" style={s.avatarWrap}>
+            <div className="avatar-circle profile-avatar" style={{ ...s.avatar, cursor: 'default' }}>
+              {viewedUser.avatar ? <img src={viewedUser.avatar} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
+            </div>
+          </div>
+          <div className="profile-name-section" style={s.nameSection}>
+            <h1 style={s.name}>{viewedUser.name}</h1>
+            {viewedUser.bio && <p style={{ color: '#aaa', fontSize: 14, margin: '4px 0 0' }}>{viewedUser.bio}</p>}
+          </div>
+          {onMessage && (
+            <div style={{ padding: '8px 24px 24px' }}>
+              <button onClick={() => { onMessage(viewUserId); onClearView?.(); }} style={s.saveBtn}>Message</button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.page}>
       <div style={s.wrap}>
         <div className="cover-wrap" style={s.coverWrap}>
           {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
-          <button className="cover-overlay" style={s.coverOverlay} onClick={() => coverInputRef.current?.click()} disabled={uploadingCover}>
+          <button className="cover-overlay" style={s.coverOverlay}
+            onTouchStart={() => startLongPress(() => coverInputRef.current?.click())}
+            onTouchEnd={cancelLongPress} onTouchCancel={cancelLongPress}
+            onMouseDown={() => startLongPress(() => coverInputRef.current?.click())}
+            onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
+            onClick={(e) => { if (window.innerWidth >= 700) { e.preventDefault(); coverInputRef.current?.click(); } }}
+            disabled={uploadingCover}>
             {uploadingCover ? 'Uploading...' : 'Change Cover'}
           </button>
         </div>
         <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} style={s.hiddenInput} />
 
         <div className="profile-avatar-wrap" style={s.avatarWrap}>
-          <div className="avatar-circle profile-avatar" style={s.avatar} onClick={() => avatarInputRef.current?.click()}>
+          <div className="avatar-circle profile-avatar" style={s.avatar}
+            onTouchStart={() => startLongPress(() => avatarInputRef.current?.click())}
+            onTouchEnd={cancelLongPress} onTouchCancel={cancelLongPress}
+            onMouseDown={() => startLongPress(() => avatarInputRef.current?.click())}
+            onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
+            onClick={(e) => { if (window.innerWidth >= 700) { e.preventDefault(); avatarInputRef.current?.click(); } }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
             <span className="av-overlay" style={s.avatarOverlay}>{uploadingAvatar ? '...' : 'Edit'}</span>
           </div>
@@ -208,11 +274,13 @@ export default function ProfilePage({ onNav, user, onMessage }: Props) {
             <div style={{ maxHeight: 320, overflowY: 'auto' as const }}>
             {recent.map((r, i) => (
               <div key={i} style={s.friendCard}>
-                {r.avatar ? <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={s.friendName}>{r.name || 'Unknown'}</p>
-                  <p style={s.friendBio}>{r.bio || ''}</p>
-                  <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
+                <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }} onClick={() => onViewProfile?.(r.id)}>
+                  {r.avatar ? <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={s.friendName}>{r.name || 'Unknown'}</p>
+                    <p style={s.friendBio}>{r.bio || ''}</p>
+                    <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
+                  </div>
                 </div>
                 {onMessage && r.id && (
                   <button onClick={() => onMessage(r.id)} style={{ background: 'rgba(108,99,255,0.15)', color: '#6c63ff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Message</button>

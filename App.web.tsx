@@ -37,6 +37,7 @@ export default function WebApp() {
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'name' | 'bio' | null>(null);
   const [messagePartner, setMessagePartner] = useState('');
+  const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
   const [phoneStep, setPhoneStep] = useState(false);
@@ -658,7 +659,7 @@ export default function WebApp() {
         <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
           <PrivacyPage />
-          <Footer setPage={setPage} />
+          {window.innerWidth >= 700 && <Footer setPage={setPage} />}
         </div>
       )}
 
@@ -666,7 +667,7 @@ export default function WebApp() {
         <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
           <TermsPage />
-          <Footer setPage={setPage} />
+          {window.innerWidth >= 700 && <Footer setPage={setPage} />}
         </div>
       )}
 
@@ -813,16 +814,16 @@ export default function WebApp() {
           {page === 'profile' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
-              <Footer setPage={setPage} />
+              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} />
+              {window.innerWidth >= 700 && <Footer setPage={setPage} />}
             </div>
           )}
 
           {page === 'messages' && (
             <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-              <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
-              <Footer setPage={setPage} />
+              <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} />
+              {window.innerWidth >= 700 && <Footer setPage={setPage} />}
             </div>
           )}
 
@@ -833,7 +834,7 @@ export default function WebApp() {
                 setPage('chat');
                 setTimeout(findStranger, 100);
               }} />
-              <Footer setPage={setPage} />
+              {window.innerWidth >= 700 && <Footer setPage={setPage} />}
             </div>
           )}
         </>

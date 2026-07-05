@@ -12,7 +12,7 @@ const inp = {
   outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const,
 };
 
-export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (p: any) => void; user: any; messagePartner?: string }) {
+export default function MessagesPage({ onNav, user, messagePartner, onViewProfile }: { onNav: (p: any) => void; user: any; messagePartner?: string; onViewProfile?: (userId: string) => void }) {
   const [conversations, setConversations] = useState<{ partnerId: string; lastMessage: ChatMessage; unread: number }[]>([]);
   const [selectedId, setSelectedId] = useState(messagePartner || '');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -82,13 +82,13 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
     markMessagesRead(partnerId);
   }
 
-  function Avatar({ uid, size = 34 }: { uid: string; size?: number }) {
+  function Avatar({ uid, size = 34, onClick }: { uid: string; size?: number; onClick?: () => void }) {
     const info = partnerInfo[uid];
     if (info?.avatar) {
-      return <img src={info.avatar} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />;
+      return <img src={info.avatar} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, cursor: onClick ? 'pointer' : undefined }} onClick={onClick} />;
     }
     return (
-      <div style={{ width: size, height: size, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: size * 0.42, fontWeight: 600, flexShrink: 0 }}>
+      <div style={{ width: size, height: size, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: size * 0.42, fontWeight: 600, flexShrink: 0, cursor: onClick ? 'pointer' : undefined }} onClick={onClick}>
         {(info?.name || 'U')[0].toUpperCase()}
       </div>
     );
@@ -136,7 +136,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
       <div style={{ background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
-          <Avatar uid={selectedId} size={34} />
+          <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
           <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -174,7 +174,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
                 cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%',
               }}>
                 <div style={{ position: 'relative' }}>
-                  <Avatar uid={conv.partnerId} size={44} />
+                  <span onClick={(e) => { e.stopPropagation(); onViewProfile?.(conv.partnerId); }}><Avatar uid={conv.partnerId} size={44} /></span>
                   {conv.unread > 0 && <span style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: '#6c63ff', border: '2px solid #161616' }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -195,7 +195,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
         {selectedId && !isMobile && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
-              <Avatar uid={selectedId} size={34} />
+              <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
               <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>

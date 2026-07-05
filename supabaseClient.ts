@@ -168,12 +168,16 @@ export async function signOut() {
 
 export function signInWithGoogle() {
   const redirectTo = window.location.origin;
-  window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  const w = window.open(url, 'google-oauth', 'width=600,height=700,popup=1');
+  if (!w) { window.location.href = url; return; }
 }
 
 export function signInWithGitHub() {
   const redirectTo = window.location.origin;
-  window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
+  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
+  const w = window.open(url, 'github-oauth', 'width=600,height=700,popup=1');
+  if (!w) { window.location.href = url; return; }
 }
 
 export function getSession(): SupabaseUser | null {

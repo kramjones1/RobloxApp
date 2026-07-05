@@ -87,6 +87,11 @@ export default function WebApp() {
       const token = params.get('access_token');
       const type = params.get('type');
       if (token) {
+        if (window.opener) {
+          window.opener.postMessage({ type: 'oauth_token', access_token: token, oauthType: type }, window.location.origin);
+          window.close();
+          return;
+        }
         setSessionToken(token);
         history.replaceState(null, '', window.location.pathname + window.location.search);
         if (type === 'recovery') setRecoveryMode(true);
@@ -104,11 +109,28 @@ export default function WebApp() {
       if (oauthSignup) setOnboardingStep('name');
       else setPage('profile');
     }
-    return onAuthChange(u2 => {
+    // Listen for OAuth tokens from popup windows
+    function handleOAuthMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin || e.data?.type !== 'oauth_token') return;
+      setSessionToken(e.data.access_token);
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+      const oauthType = e.data.oauthType;
+      if (oauthType === 'recovery') setRecoveryMode(true);
+      else {
+        const u2 = getSession();
+        setUser(u2);
+        if (u2?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
+        if (oauthType === 'signup') setOnboardingStep('name');
+        else setPage('profile');
+      }
+    }
+    window.addEventListener('message', handleOAuthMessage);
+    const unsub = onAuthChange(u2 => {
       setUser(u2);
       if (u2?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
       else setMyProfile(null);
     });
+    return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
   }, []);
 
   useEffect(() => {

@@ -135,13 +135,14 @@ interface Props {
   showForgot?: boolean;
   forgotSent?: boolean;
   forgotEmail?: string;
+  forgotCooldown?: number;
   onForgotEmailChange?: (v: string) => void;
   onForgotSubmit?: (e: React.FormEvent) => void;
   onShowForgot?: () => void;
   onBackToSignIn?: () => void;
 }
 
-export default function LandingPage({ onStart, authMode, authMsg, submitting, email, password, onEmailChange, onPasswordChange, onSubmit, onToggleAuth, showForgot, forgotSent, forgotEmail, onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn }: Props) {
+export default function LandingPage({ onStart, authMode, authMsg, submitting, email, password, onEmailChange, onPasswordChange, onSubmit, onToggleAuth, showForgot, forgotSent, forgotEmail, forgotCooldown, onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn }: Props) {
   const showAuth = !!onSubmit;
   return (
     <>
@@ -169,8 +170,8 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
                     ) : (
                       <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
-                        <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
-                          {submitting ? 'Sending...' : 'Send Reset Link'}
+                        <button type="submit" disabled={submitting || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
+                          {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                         </button>
                         <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onBackToSignIn}>
                           ← Back to Sign In

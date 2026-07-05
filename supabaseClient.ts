@@ -7,7 +7,10 @@ async function supabaseFetch(url: string, opts: RequestInit) {
     const txt = await res.text();
     let json;
     try { json = JSON.parse(txt); } catch { json = {}; }
-    return { error: json.error_description || json.msg || json.error || `HTTP ${res.status}: ${txt.slice(0, 100)}` };
+    const msg = json.error_description || json.msg || json.error || `HTTP ${res.status}: ${txt.slice(0, 100)}`;
+    if (res.status === 429) return { error: 'Too many requests. Please wait a minute before trying again.' };
+    if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('over_limit') || msg.toLowerCase().includes('over_request_rate_limit')) return { error: 'Email rate limit exceeded. Please wait a few minutes before trying again.' };
+    return { error: msg };
   }
   const text = await res.text();
   if (!text) return {};

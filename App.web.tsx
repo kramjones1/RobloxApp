@@ -30,6 +30,7 @@ export default function WebApp() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotCooldown, setForgotCooldown] = useState(0);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
@@ -107,7 +108,11 @@ export default function WebApp() {
     const { error } = await resetPassword(forgotEmail);
     setSubmitting(false);
     if (error) setAuthMsg(error);
-    else setForgotSent(true);
+    else {
+      setForgotSent(true);
+      setForgotCooldown(60);
+      const iv = setInterval(() => setForgotCooldown(prev => { if (prev <= 1) { clearInterval(iv); return 0; } return prev - 1; }), 1000);
+    }
   }
 
   async function handlePasswordReset(e: React.FormEvent) {
@@ -420,7 +425,9 @@ export default function WebApp() {
               ) : (
                 <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
                   <input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
-                  <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Sending...' : 'Send Reset Link'}</button>
+                  <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
+                    {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
+                  </button>
                   {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
                   <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setShowForgot(false); setAuthMsg(''); }}>
                     ← Back to Sign In
@@ -467,6 +474,7 @@ export default function WebApp() {
             showForgot={showForgot}
             forgotSent={forgotSent}
             forgotEmail={forgotEmail}
+            forgotCooldown={forgotCooldown}
             onForgotEmailChange={setForgotEmail}
             onForgotSubmit={handleForgotPassword}
             onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface NavbarProps {
   page: string;
@@ -84,109 +84,73 @@ const styles = {
     transition: 'all 0.2s',
     whiteSpace: 'nowrap' as const,
   },
-  bottomNav: {
-    position: 'fixed' as const,
-    bottom: 0, left: 0, right: 0,
-    zIndex: 100,
-    background: 'rgba(10,10,10,0.95)',
-    backdropFilter: 'blur(12px)',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    height: 56,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    fontFamily: 'system-ui, sans-serif',
-  },
-  tab: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    background: 'none',
-    border: 'none',
-    fontFamily: 'inherit',
-    cursor: 'pointer',
-    padding: '4px 12px',
-    flex: 1,
-    height: '100%',
-  },
-  tabIcon: (active: boolean) => ({
-    fontSize: 22,
-    lineHeight: 1,
-    color: active ? activeColor : '#888',
-    transition: 'color 0.2s',
-  }),
-  tabLabel: (active: boolean) => ({
-    fontSize: 10,
-    color: active ? activeColor : '#888',
-    transition: 'color 0.2s',
-    fontWeight: active ? 600 : 400,
-  }),
 };
 
-const styleTag = document.createElement('style');
-styleTag.textContent = `
-  .nav-desktop { display: flex !important; }
-  .nav-mobile { display: none !important; }
-  .page-content { padding-top: 60px !important; }
-  .nav-mobile { height: calc(56px + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0px); }
-  @media (max-width: 699px) {
-    .nav-desktop { display: none !important; }
-    .nav-mobile { display: flex !important; }
-    body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
-    .page-content { padding-top: 0 !important; }
-  }
-`;
-if (!document.getElementById('nav-styles')) {
-  styleTag.id = 'nav-styles';
-  document.head.appendChild(styleTag);
-}
-
 export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
-  const tabs = [
-    { id: 'home', label: 'Home', icon: '⌂' },
-    ...(user ? [{ id: 'messages' as const, label: 'Messages' as const, icon: '✉' }] : []),
-    ...(user ? [{ id: 'profile' as const, label: 'Profile' as const, icon: '👤' }] : []),
-    { id: 'privacy', label: 'Privacy', icon: '🔒' },
-    { id: 'terms', label: 'Terms', icon: '📄' },
-  ];
+  const [mobile, setMobile] = useState(false);
 
-  return (
-    <>
-      {/* Desktop top nav */}
-      <nav className="nav-desktop" style={styles.topNav}>
-        <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
-        <div style={styles.topLinks}>
-          <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
-          {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>Messages</button>}
-          {user && <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}>Profile</button>}
-          <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
-          <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
-        </div>
-        {user && (
-          <div style={styles.userSection}>
-            <span style={styles.email}>{user.email}</span>
-            <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
-          </div>
-        )}
-      </nav>
+  useEffect(() => {
+    function check() { setMobile(window.innerWidth < 700); }
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
-      {/* Mobile bottom nav */}
-      <nav className="nav-mobile" style={styles.bottomNav}>
-        {tabs.map(t => (
-          <button key={t.id} style={styles.tab} onClick={() => setPage(t.id)}>
-            <span style={styles.tabIcon(page === t.id)}>{t.icon}</span>
-            <span style={styles.tabLabel(page === t.id)}>{t.label}</span>
+  if (mobile) {
+    return (
+      <nav style={{
+        position: 'fixed', bottom: 20, right: 16, zIndex: 100,
+        display: 'flex', flexDirection: 'column', gap: 2,
+        background: 'rgba(15,15,15,0.92)', backdropFilter: 'blur(16px)',
+        borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)',
+        padding: 4, boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+        fontFamily: 'system-ui, sans-serif',
+      }}>
+        {[
+          { id: 'home', icon: '⌂' },
+          ...(user ? [{ id: 'messages' as const, icon: '✉' }] : []),
+          ...(user ? [{ id: 'profile' as const, icon: '👤' }] : []),
+        ].map(t => (
+          <button key={t.id} onClick={() => setPage(t.id)} style={{
+            width: 44, height: 44, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: page === t.id ? 'rgba(108,99,255,0.2)' : 'transparent',
+            border: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1,
+            fontFamily: 'inherit', transition: 'all 0.15s',
+          }}>
+            {t.icon}
           </button>
         ))}
         {user && (
-          <button style={styles.tab} onClick={onLogout}>
-            <span style={styles.tabIcon(false)}>🚪</span>
-            <span style={styles.tabLabel(false)}>Logout</span>
+          <button onClick={onLogout} style={{
+            width: 44, height: 44, borderRadius: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            fontSize: 18, lineHeight: 1, fontFamily: 'inherit',
+          }}>
+            🚪
           </button>
         )}
       </nav>
-    </>
+    );
+  }
+
+  return (
+    <nav style={styles.topNav}>
+      <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
+      <div style={styles.topLinks}>
+        <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
+        {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>Messages</button>}
+        {user && <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}>Profile</button>}
+        <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
+        <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
+      </div>
+      {user && (
+        <div style={styles.userSection}>
+          <span style={styles.email}>{user.email}</span>
+          <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
+        </div>
+      )}
+    </nav>
   );
 }

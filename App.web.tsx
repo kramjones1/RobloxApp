@@ -16,7 +16,7 @@ meta.content = '#1a1a1a';
 document.head.appendChild(meta);
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.page-content{padding-top:60px}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:0}}@media(min-width:700px){.mobile-auth{display:none!important}}';
 document.head.appendChild(style);
 
 export default function WebApp() {
@@ -63,8 +63,8 @@ export default function WebApp() {
   const phoneCodeRef = useRef('');
   const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
   const [showChat, setShowChat] = useState(false);
-  const [partnerProfile, setPartnerProfile] = useState<{ name: string; bio: string; avatar: string } | null>(null);
-  const [myProfile, setMyProfile] = useState<{ name: string; bio: string; avatar: string } | null>(null);
+  const [partnerProfile, setPartnerProfile] = useState<{ userId: string; name: string; bio: string; avatar: string } | null>(null);
+  const [myProfile, setMyProfile] = useState<{ userId: string; name: string; bio: string; avatar: string } | null>(null);
   const [chatInput, setChatInput] = useState('');
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
@@ -90,14 +90,14 @@ export default function WebApp() {
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
-    if (u) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
+    if (u?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
     if (u && oauthLogin) {
       if (oauthSignup) setOnboardingStep('name');
       else setPage('profile');
     }
     return onAuthChange(u2 => {
       setUser(u2);
-      if (u2) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
+      if (u2?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
       else setMyProfile(null);
     });
   }, []);
@@ -161,7 +161,7 @@ export default function WebApp() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(forgotEmail)) { setAuthMsg('Please enter a valid email address (e.g. name@domain.com)'); return; }
     setSubmitting(true);
-    const { error } = await resetPassword(forgotEmail);
+    const { error } = await resetPassword(forgotEmail, window.location.origin);
     setSubmitting(false);
     if (error) {
       setAuthMsg(error);
@@ -221,7 +221,7 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': setPartnerId(msg.partner); setReportSent(false); startCall(ws, msg.role); break;
+        case 'matched': setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); setReportSent(false); startCall(ws, msg.role); break;
         case 'partner_left': cleanup(); addLog('Partner left'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
@@ -261,7 +261,7 @@ export default function WebApp() {
           setChatMessages(prev => [...prev, msg]);
           setTimeout(() => setChatMessages(prev => prev.filter(m => m !== msg)), 5000);
         } else if (data.type === 'profile') {
-          setPartnerProfile({ name: data.name, bio: data.bio, avatar: data.avatar || '' });
+          setPartnerProfile(prev => ({ userId: data.userId || prev?.userId || '', name: data.name, bio: data.bio, avatar: data.avatar || '' }));
         }
       } catch {}
     }
@@ -269,13 +269,13 @@ export default function WebApp() {
     if (role === 'offer') {
       const dc = pc.createDataChannel('chat');
       dcRef.current = dc;
-      dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+      dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
       dc.onmessage = onDcMessage;
     } else {
       pc.ondatachannel = (e) => {
         const dc = e.channel;
         dcRef.current = dc;
-        dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+        dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
         dc.onmessage = onDcMessage;
       };
     }
@@ -321,7 +321,7 @@ export default function WebApp() {
     setCamError('');
     setNoAudio(false);
     const { profile } = await getChatProfile();
-    if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url });
+    if (profile && user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
       lsRef.current = null;
@@ -344,7 +344,7 @@ export default function WebApp() {
         connect();
         await new Promise(r => setTimeout(r, 2000));
       }
-      wsRef.current?.send(JSON.stringify({ type: 'find' }));
+      wsRef.current?.send(JSON.stringify({ type: 'find', userId: user?.id }));
       addLog('Searching for partner...');
     } catch (e: any) {
       const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
@@ -353,7 +353,7 @@ export default function WebApp() {
       const camFail = e.message?.includes('Could not start');
       if (denied) setCamError('Camera permission denied. Please allow camera access in your browser settings and try again.');
       else if (notFound) setCamError('No camera found on this device.');
-      else if (inUse) setCamError('Camera is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.');
+      else if (inUse) setCamError('Camera is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\n\nIf no other apps are open:\n• Open Task Manager and end ALL Chrome processes\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\n• Or try a different browser (Firefox, Edge)');
       else if (camFail) setCamError('Camera failed to start. Try restarting your browser or reconnecting your camera.');
       else setCamError('Could not access camera: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));
@@ -368,10 +368,10 @@ export default function WebApp() {
   }
 
   function cleanup() {
-    if (partnerId && partnerProfile) {
+    if (partnerProfile?.userId) {
       try {
         const recent = JSON.parse(localStorage.getItem('recent_live') || '[]');
-        recent.unshift({ id: partnerId, name: partnerProfile.name, bio: partnerProfile.bio, avatar: partnerProfile.avatar, time: Date.now() });
+        recent.unshift({ id: partnerProfile.userId, name: partnerProfile.name, bio: partnerProfile.bio, avatar: partnerProfile.avatar, time: Date.now() });
         localStorage.setItem('recent_live', JSON.stringify(recent.slice(0, 20)));
       } catch {}
     }
@@ -620,6 +620,7 @@ export default function WebApp() {
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
             <LandingPage
+              onNav={setPage}
               onStart={() => {}}
               authMode={authMode}
               authMsg={authMsg}
@@ -664,7 +665,7 @@ export default function WebApp() {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
-        <LandingPage onStart={() => {
+        <LandingPage onNav={setPage} onStart={() => {
           setPage('chat');
           setTimeout(findStranger, 100);
         }} />
@@ -691,7 +692,7 @@ export default function WebApp() {
           <button onClick={() => setPage('profile')} style={{ ...sBtn, marginTop: 10, background: '#555', boxShadow: 'none' }}>Profile</button>
           {camError && (
             <div style={{ marginTop: 16, padding: '12px 20px', background: 'rgba(244,67,54,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
-              <p style={{ color: '#f44336', fontSize: 13, margin: 0, lineHeight: 1.4 }}>{camError}</p>
+              <p style={{ color: '#f44336', fontSize: 13, margin: 0, lineHeight: 1.4, whiteSpace: 'pre-line' }}>{camError}</p>
               <div style={{ marginTop: 10, display: 'flex', gap: 10, justifyContent: 'center' }}>
                 <p style={{ color: '#888', fontSize: 11, cursor: 'pointer' }} onClick={() => setCamError('')}>Dismiss</p>
                 <p style={{ color: '#6c63ff', fontSize: 11, cursor: 'pointer', fontWeight: 600 }} onClick={findStranger}>Try Again</p>

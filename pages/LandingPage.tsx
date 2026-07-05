@@ -1,4 +1,5 @@
 import React from 'react';
+type Page = 'home' | 'privacy' | 'terms' | 'profile' | 'messages';
 
 const s = {
   section: {
@@ -120,6 +121,7 @@ const s = {
 
 interface Props {
   onStart: () => void;
+  onNav?: (p: Page) => void;
   authMode?: 'login' | 'register';
   authMsg?: string;
   submitting?: boolean;
@@ -154,7 +156,7 @@ interface Props {
 }
 
 export default function LandingPage({
-  onStart, authMode, authMsg, submitting, email, password,
+  onNav, onStart, authMode, authMsg, submitting, email, password,
   onEmailChange, onPasswordChange, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
@@ -264,6 +266,10 @@ export default function LandingPage({
             </div>
           </div>
         )}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 12, fontSize: 13 }}>
+        <span style={{ color: '#6c63ff', cursor: 'pointer' }} onClick={() => onNav?.('privacy')}>Privacy</span>
+        <span style={{ color: '#6c63ff', cursor: 'pointer' }} onClick={() => onNav?.('terms')}>Terms</span>
       </div>
       <p style={s.credit}>© 2026 Anito MJI</p>
     </section>

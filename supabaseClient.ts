@@ -100,12 +100,14 @@ export async function signIn(email: string, password: string): Promise<{ error?:
   }
 }
 
-export async function resetPassword(email: string): Promise<{ error?: string }> {
+export async function resetPassword(email: string, redirectTo?: string): Promise<{ error?: string }> {
   try {
+    const body: any = { email };
+    if (redirectTo) body.redirect_to = redirectTo;
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/recover`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(body),
     });
     if (data.error) return { error: data.error };
     return {};

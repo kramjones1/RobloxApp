@@ -512,13 +512,13 @@ export default function WebApp() {
       {/* Always-mounted video elements - hidden on non-chat pages so stream stays alive */}
       <div style={page === 'chat' ? {} : { display: 'none' }}>
         <video ref={remoteRef} autoPlay playsInline style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
-        <video ref={localRef} autoPlay playsInline muted style={{ position: 'fixed', top: 14, right: 10, width: 100, height: 140, borderRadius: 10, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
+        <video ref={localRef} autoPlay playsInline muted style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top, 0px))', right: 10, width: 100, height: 140, borderRadius: 10, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
       </div>
 
       {/* CHAT PAGE (overlaid on video) */}
       {page === 'chat' && (
         <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
-          <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 30, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ position: 'absolute', top: 'calc(14px + env(safe-area-inset-top, 0px))', left: 14, zIndex: 30, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: wsColor, display: 'inline-block' }} />
             <span style={{ color: '#aaa', fontSize: 11 }}>{wsStatus}</span>
             {noAudio && <span style={{ color: '#ff9800', fontSize: 11, marginLeft: 4 }}>Mic off</span>}
@@ -557,35 +557,65 @@ export default function WebApp() {
           )}
 
           {state === 'connected' && (
-            <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 6 }}>
-              <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>{log}</p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
+            window.innerWidth < 700 ? (
+              <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, zIndex: 20 }}>
+                <p style={{ color: '#aaa', fontSize: 11, margin: 0, writingMode: 'vertical-rl' as any, textOrientation: 'mixed' as any }}>{log}</p>
                 <button onClick={() => setShowChat(!showChat)} style={{
-                  ...sBtn, width: 'auto', padding: '8px 16px', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
-                  boxShadow: 'none', fontSize: 12,
+                  ...sBtn, width: 52, padding: '6px 0', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
+                  boxShadow: 'none', fontSize: 10, writingMode: 'vertical-rl' as any,
                 }}>Chat</button>
                 <button onClick={reportUser} style={{
-                  ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
-                  boxShadow: 'none', fontSize: 12,
+                  ...sBtn, width: 52, padding: '6px 0', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
+                  boxShadow: 'none', fontSize: 10,
                 }}>{reportSent ? 'Reported' : 'Report'}</button>
                 <button onClick={skip} style={{
-                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
-                  boxShadow: 'none', fontSize: 12,
-                }}>Next →</button>
+                  ...sBtn, width: 52, padding: '6px 0', background: '#d32f2f',
+                  boxShadow: 'none', fontSize: 10,
+                }}>Next</button>
                 <button onClick={() => setPage('profile')} style={{
-                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#6c63ff',
-                  boxShadow: 'none', fontSize: 12,
+                  ...sBtn, width: 52, padding: '6px 0', background: '#6c63ff',
+                  boxShadow: 'none', fontSize: 10,
                 }}>Profile</button>
                 <button onClick={() => { cleanup(); setPage('home'); }} style={{
-                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
-                  boxShadow: 'none', fontSize: 12,
-                }}>End Call</button>
+                  ...sBtn, width: 52, padding: '6px 0', background: '#d32f2f',
+                  boxShadow: 'none', fontSize: 10,
+                }}>End</button>
                 <button onClick={() => { setPage('home'); }} style={{
-                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#555',
-                  boxShadow: 'none', fontSize: 12,
+                  ...sBtn, width: 52, padding: '6px 0', background: '#555',
+                  boxShadow: 'none', fontSize: 10,
                 }}>Home</button>
               </div>
-            </div>
+            ) : (
+              <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 6 }}>
+                <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>{log}</p>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
+                  <button onClick={() => setShowChat(!showChat)} style={{
+                    ...sBtn, width: 'auto', padding: '8px 16px', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
+                    boxShadow: 'none', fontSize: 12,
+                  }}>Chat</button>
+                  <button onClick={reportUser} style={{
+                    ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
+                    boxShadow: 'none', fontSize: 12,
+                  }}>{reportSent ? 'Reported' : 'Report'}</button>
+                  <button onClick={skip} style={{
+                    ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
+                    boxShadow: 'none', fontSize: 12,
+                  }}>Next →</button>
+                  <button onClick={() => setPage('profile')} style={{
+                    ...sBtn, width: 'auto', padding: '8px 16px', background: '#6c63ff',
+                    boxShadow: 'none', fontSize: 12,
+                  }}>Profile</button>
+                  <button onClick={() => { cleanup(); setPage('home'); }} style={{
+                    ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
+                    boxShadow: 'none', fontSize: 12,
+                  }}>End Call</button>
+                  <button onClick={() => { setPage('home'); }} style={{
+                    ...sBtn, width: 'auto', padding: '8px 16px', background: '#555',
+                    boxShadow: 'none', fontSize: 12,
+                  }}>Home</button>
+                </div>
+              </div>
+            )
           )}
 
           {showChat && state === 'connected' && (
@@ -628,6 +658,7 @@ export default function WebApp() {
         <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
           <PrivacyPage />
+          <Footer setPage={setPage} />
         </div>
       )}
 
@@ -788,9 +819,12 @@ export default function WebApp() {
           )}
 
           {page === 'messages' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-              <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
+              </div>
+              <Footer setPage={setPage} />
             </div>
           )}
 

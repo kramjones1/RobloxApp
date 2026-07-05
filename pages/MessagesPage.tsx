@@ -91,7 +91,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 700;
 
-  if (loading) return <div style={{ background: '#161616', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
+  if (loading) return <div style={{ background: '#161616', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
 
   function renderMessages(withAvatars: boolean) {
     return messages.map((m, i) => {
@@ -128,7 +128,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
 
   if (selectedId && isMobile) {
     return (
-      <div style={{ background: '#161616', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#161616', height: '100%', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
           <Avatar uid={selectedId} size={34} />
@@ -148,7 +148,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
   }
 
   return (
-    <div style={{ background: '#161616', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: '#161616', height: '100%', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
       <div style={{ maxWidth: 900, margin: '0 auto', width: '100%', flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
         {/* Conversation list */}
         <div style={{ width: isMobile ? '100%' : 320, borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column' }}>

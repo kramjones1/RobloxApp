@@ -58,6 +58,7 @@ export default function WebApp() {
   const lsRef = useRef<any>(null);
   const wsRef = useRef<WebSocket>(null);
   const dcRef = useRef<any>(null);
+  const phoneCodeRef = useRef('');
   const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
   const [showChat, setShowChat] = useState(false);
   const [partnerProfile, setPartnerProfile] = useState<{ name: string; bio: string; avatar: string } | null>(null);
@@ -117,20 +118,15 @@ export default function WebApp() {
   async function handleSendPhoneOtp() {
     setPhoneError('');
     if (!phone || phone.length < 6) { setPhoneError('Please enter a valid phone number'); return; }
-    setSubmitting(true);
-    const { error } = await sendPhoneOtp(phone);
-    setSubmitting(false);
-    if (error) { setPhoneError(error); return; }
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    phoneCodeRef.current = code;
     setPhoneOtpSent(true);
   }
 
   async function handleVerifyPhoneOtp() {
     setPhoneError('');
     if (!phoneOtp || phoneOtp.length < 6) { setPhoneError('Enter the 6-digit code'); return; }
-    setSubmitting(true);
-    const { error } = await verifyPhoneOtp(phone, phoneOtp);
-    setSubmitting(false);
-    if (error) { setPhoneError(error); return; }
+    if (phoneOtp !== phoneCodeRef.current) { setPhoneError('Invalid code. Try again.'); return; }
     setPhoneVerified(true);
     await finishSignup();
   }
@@ -541,6 +537,9 @@ export default function WebApp() {
                 </>
               ) : !phoneVerified ? (
                 <>
+                  <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', marginBottom: 8, background: 'rgba(108,99,255,0.1)', padding: '8px 12px', borderRadius: 8, wordBreak: 'break-all' }}>
+                    Dev mode: code is <b style={{ fontSize: 18, letterSpacing: 4 }}>{phoneCodeRef.current}</b>
+                  </p>
                   <input style={input} type="text" placeholder="Enter 6-digit code" value={phoneOtp} onChange={e => setPhoneOtp(e.target.value)} maxLength={6} />
                   <button onClick={handleVerifyPhoneOtp} disabled={submitting || phoneOtp.length < 6} style={{...mobileBtn, marginTop: 10, opacity: submitting || phoneOtp.length < 6 ? 0.5 : 1}}>{submitting ? 'Verifying...' : 'Verify Code'}</button>
                 </>
@@ -607,6 +606,7 @@ export default function WebApp() {
               onSendPhoneOtp={handleSendPhoneOtp}
               onFinishSignup={finishSignup}
               onVerifyPhoneOtp={handleVerifyPhoneOtp}
+              phoneCode={phoneCodeRef.current}
             />
           </div>
           <Footer setPage={setPage} />

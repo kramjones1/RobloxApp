@@ -148,6 +148,7 @@ interface Props {
   phoneVerified?: boolean;
   phoneStep?: boolean;
   phoneError?: string;
+  phoneCode?: string;
 }
 
 export default function LandingPage({
@@ -156,7 +157,7 @@ export default function LandingPage({
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
   onSendPhoneOtp, onFinishSignup, phoneOtpSent, phone, onPhoneChange,
-  phoneOtp, onPhoneOtpChange, onVerifyPhoneOtp, phoneVerified, phoneStep, phoneError,
+   phoneOtp, onPhoneOtpChange, onVerifyPhoneOtp, phoneVerified, phoneStep, phoneError, phoneCode,
 }: Props) {
   const showAuth = !!onSubmit;
   return (
@@ -206,6 +207,9 @@ export default function LandingPage({
                     </>
                   ) : !phoneVerified ? (
                     <>
+                      <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', marginBottom: 8, background: 'rgba(108,99,255,0.1)', padding: '8px 12px', borderRadius: 8, wordBreak: 'break-all' }}>
+                        Dev mode: code is <b style={{ fontSize: 18, letterSpacing: 4 }}>{phoneCode}</b>
+                      </p>
                       <input style={s.input} type="text" placeholder="Enter 6-digit code" value={phoneOtp || ''} onChange={e => onPhoneOtpChange?.(e.target.value)} maxLength={6} />
                       <button onClick={onVerifyPhoneOtp} disabled={submitting || (phoneOtp?.length || 0) < 6} style={{...s.submitBtn, marginTop: 10, opacity: submitting || (phoneOtp?.length || 0) < 6 ? 0.5 : 1}}>
                         {submitting ? 'Verifying...' : 'Verify Code'}

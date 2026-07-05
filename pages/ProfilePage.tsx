@@ -23,13 +23,13 @@ const s = {
   coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/312' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block', position: 'absolute' as const, inset: 0 },
   coverOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', width: '100%', opacity: 0, transition: 'opacity 0.2s' },
-  avatarWrap: { display: 'flex', justifyContent: 'center', marginTop: -64 },
+  avatarWrap: { display: 'flex', justifyContent: 'flex-start', marginTop: -64, paddingLeft: 24 },
   avatar: { width: 140, height: 140, borderRadius: '50%', border: '5px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   avatarOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0, transition: 'opacity 0.2s' },
-  nameSection: { padding: '8px 16px 4px', textAlign: 'center' as const },
+  nameSection: { padding: '8px 24px 4px', textAlign: 'left' as const },
   name: { color: '#fff', fontSize: 24, fontWeight: 700, margin: 0 },
-  contentArea: { padding: '8px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 12 },
+  contentArea: { padding: '8px 24px 40px', display: 'flex', flexDirection: 'column' as const, gap: 12 },
   card: { background: '#1f1f1f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 20 },
   cardTitle: { color: '#fff', fontSize: 16, fontWeight: 600, margin: '0 0 16px' },
   label: { color: '#aaa', fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' },
@@ -59,7 +59,8 @@ hoverStyles.textContent = `
   }
   @media (max-width: 699px) {
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
-    .profile-avatar-wrap { margin-top: -48px !important; }
+    .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }
+    .profile-name-section { padding-left: 16px !important; }
   }
 `;
 if (!document.getElementById('profile-hover-styles')) {
@@ -162,7 +163,7 @@ export default function ProfilePage({ onNav, user }: Props) {
         </div>
         <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
 
-        <div style={s.nameSection}>
+        <div className="profile-name-section" style={s.nameSection}>
           <h1 style={s.name}>{displayName}</h1>
         </div>
 

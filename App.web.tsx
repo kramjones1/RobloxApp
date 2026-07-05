@@ -428,6 +428,7 @@ export default function WebApp() {
   }
 
   const wsColor = wsStatus === 'connected' ? '#4caf50' : wsStatus === 'connecting' ? '#ff9800' : '#f44336';
+  const callActive = state === 'searching' || state === 'connecting' || state === 'connected';
 
   const sBtn: React.CSSProperties = {
     background: 'linear-gradient(135deg, #6c63ff, #2a6eff)',
@@ -517,7 +518,7 @@ export default function WebApp() {
   if (page === 'privacy') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
         <PrivacyPage />
       </div>
     );
@@ -526,7 +527,7 @@ export default function WebApp() {
   if (page === 'terms') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
         <TermsPage />
         <Footer setPage={setPage} />
       </div>
@@ -536,7 +537,7 @@ export default function WebApp() {
   if (page === 'profile') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
         <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
         <Footer setPage={setPage} />
       </div>
@@ -546,7 +547,7 @@ export default function WebApp() {
   if (page === 'messages') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
         <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
       </div>
     );
@@ -652,7 +653,7 @@ export default function WebApp() {
 
         {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
         <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
             <LandingPage
               onNav={setPage}
@@ -699,7 +700,7 @@ export default function WebApp() {
   if (page === 'home') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
         <LandingPage onNav={setPage} onStart={() => {
           setPage('chat');
           setTimeout(findStranger, 100);
@@ -780,11 +781,17 @@ export default function WebApp() {
             }}>
               Profile
             </button>
-            <button onClick={() => { skip(); setPage('home'); }} style={{
+            <button onClick={() => { cleanup(); setPage('home'); }} style={{
+              ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
+              boxShadow: 'none', fontSize: 12,
+            }}>
+              End Call
+            </button>
+            <button onClick={() => { setPage('home'); }} style={{
               ...sBtn, width: 'auto', padding: '8px 16px', background: '#555',
               boxShadow: 'none', fontSize: 12,
             }}>
-              Leave
+              Home
             </button>
           </div>
         </div>

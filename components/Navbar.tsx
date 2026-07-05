@@ -6,6 +6,7 @@ interface NavbarProps {
   user: any;
   onLogout: () => void;
   unreadCount?: number;
+  callActive?: boolean;
 }
 
 const styles = {
@@ -85,7 +86,7 @@ const styles = {
   },
 };
 
-export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0 }: NavbarProps) {
+export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false }: NavbarProps) {
   const [mobile, setMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -139,6 +140,10 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0 
               fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '0 4px', lineHeight: 1,
             }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+            {callActive && !menuOpen && <span style={{
+              position: 'absolute', bottom: 2, right: -2, width: 10, height: 10,
+              borderRadius: '50%', background: '#4caf50', border: '2px solid rgba(10,10,10,0.92)',
+            }} />}
           </div>
         </div>
         {menuOpen && (
@@ -148,6 +153,15 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0 
             borderBottom: '1px solid rgba(255,255,255,0.08)',
             padding: '8px 0', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
           }}>
+            {callActive && (
+              <button onClick={() => { setPage('chat'); setMenuOpen(false); }} style={{
+                display: 'block', width: '100%', textAlign: 'left', padding: '10px 20px',
+                background: 'rgba(76,175,80,0.15)', border: 'none', color: '#4caf50', fontSize: 15,
+                cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+              }}>
+                ● Return to Live
+              </button>
+            )}
             {[
               { id: 'home', label: 'Home' },
               ...(user ? [{ id: 'messages' as const, label: 'Messages' }] : []),
@@ -186,6 +200,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0 
       <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
       <div style={styles.topLinks}>
         <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
+        {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
         {user && <button style={{ position: 'relative', ...(page === 'messages' ? styles.linkActive : styles.link) }} onClick={() => setPage('messages')}>
           Messages
           {unreadCount > 0 && <span style={{

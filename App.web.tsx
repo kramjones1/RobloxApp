@@ -117,18 +117,6 @@ export default function WebApp() {
     return () => clearInterval(iv);
   }, [user]);
 
-  // Re-attach streams to video elements when returning to chat page
-  useEffect(() => {
-    if (page !== 'chat') return;
-    if (lsRef.current && localRef.current) localRef.current.srcObject = lsRef.current;
-    const pc = pcRef.current;
-    if (pc && remoteRef.current) {
-      for (const r of pc.getReceivers()) {
-        if (r.streams?.[0]) { remoteRef.current.srcObject = r.streams[0]; break; }
-      }
-    }
-  }, [page]);
-
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
@@ -517,320 +505,303 @@ export default function WebApp() {
     );
   }
 
-  if (page === 'privacy') {
-    return (
-      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-        <PrivacyPage />
+  // Single return with always-mounted video elements
+  return (
+    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', position: 'relative', overflow: 'hidden' }}>
+      {/* Always-mounted video elements - hidden on non-chat pages so stream stays alive */}
+      <div style={page === 'chat' ? {} : { display: 'none' }}>
+        <video ref={remoteRef} autoPlay playsInline style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
+        <video ref={localRef} autoPlay playsInline muted style={{ position: 'fixed', top: 14, right: 10, width: 100, height: 140, borderRadius: 10, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
       </div>
-    );
-  }
 
-  if (page === 'terms') {
-    return (
-      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-        <TermsPage />
-        <Footer setPage={setPage} />
-      </div>
-    );
-  }
-
-  if (page === 'profile') {
-    return (
-      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-        <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
-        <Footer setPage={setPage} />
-      </div>
-    );
-  }
-
-  if (page === 'messages') {
-    return (
-      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-        <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {/* Mobile: clean auth form only (shown on < 700px) */}
-        <div className="mobile-auth" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', flexShrink: 0 }}>
-          {showForgot ? (
-            <>
-              <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-              <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{forgotSent ? 'Check your email' : 'Reset password'}</p>
-              {forgotSent ? (
-                <>
-                  <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16, wordBreak: 'break-word' }}>
-                    If an account exists at <b style={{ color: '#fff' }}>{forgotEmail}</b>, we've sent a password reset link. Check your inbox and spam folder.
-                  </p>
-                  <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }} style={mobileBtn}>
-                    Back to Sign In
-                  </button>
-                </>
-              ) : (
-                <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
-                  <input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
-                  <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
-                    {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
-                  </button>
-                  {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
-                  <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setShowForgot(false); setAuthMsg(''); }}>
-                    ← Back to Sign In
-                  </p>
-                </form>
-              )}
-            </>
-          ) : phoneStep ? (
-            <>
-              <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-              <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{phoneVerified ? 'Phone verified!' : (phoneOtpSent ? 'Enter the code sent to your phone' : 'Verify your phone')}</p>
-              {!phoneOtpSent ? (
-                <>
-                  <input style={input} type="tel" placeholder="+1 (555) 123-4567" value={phone} onChange={e => setPhone(e.target.value)} />
-                  <button onClick={handleSendPhoneOtp} disabled={submitting} style={{...mobileBtn, marginTop: 10, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Sending...' : 'Send Code'}</button>
-                </>
-              ) : !phoneVerified ? (
-                <>
-                  <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', marginBottom: 8, background: 'rgba(108,99,255,0.1)', padding: '8px 12px', borderRadius: 8, wordBreak: 'break-all' }}>
-                    Dev mode: code is <b style={{ fontSize: 18, letterSpacing: 4 }}>{phoneCodeRef.current}</b>
-                  </p>
-                  <input style={input} type="text" placeholder="Enter 6-digit code" value={phoneOtp} onChange={e => setPhoneOtp(e.target.value)} maxLength={6} />
-                  <button onClick={handleVerifyPhoneOtp} disabled={submitting || phoneOtp.length < 6} style={{...mobileBtn, marginTop: 10, opacity: submitting || phoneOtp.length < 6 ? 0.5 : 1}}>{submitting ? 'Verifying...' : 'Verify Code'}</button>
-                </>
-              ) : (
-                <button onClick={finishSignup} disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : 'Complete Sign Up'}</button>
-              )}
-              {phoneError && <p style={{ color: '#f44336', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{phoneError}</p>}
-              {!phoneOtpSent && <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setPhoneStep(false); setPhoneOtpSent(false); setPhoneVerified(false); setPhoneOtp(''); setPhoneError(''); }}>← Back</p>}
-            </>
-          ) : (
-            <>
-              <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-              <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
-              <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
-                <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-                <input style={input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
-                {authMode === 'register' && <input style={input} type="tel" placeholder="Phone number (for verification)" value={phone} onChange={e => setPhone(e.target.value)} required />}
-                <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
-              </form>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
-                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-                <span style={{ color: '#666', fontSize: 12 }}>OR</span>
-                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
-              </div>
-              <button type="button" onClick={() => signInWithGoogle()} style={{
-                background: '#fff', color: '#333', border: 'none', padding: '12px', borderRadius: 10,
-                fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%', maxWidth: 360,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}>
-                <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.54 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.98-5.97z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z"/></svg>
-                Sign {authMode === 'login' ? 'in' : 'up'} with Google
-              </button>
-              <button type="button" onClick={() => signInWithGitHub()} style={{
-                background: '#24292e', color: '#fff', border: 'none', padding: '12px', borderRadius: 10,
-                fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%', maxWidth: 360,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}>
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="white"><path fillRule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-                Sign {authMode === 'login' ? 'in' : 'up'} with GitHub
-              </button>
-              {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
-              {authMode === 'login' && (
-                <p style={{ color: '#6c63ff', fontSize: 13, marginTop: 12, cursor: 'pointer' }} onClick={() => { setShowForgot(true); setAuthMsg(''); }}>
-                  Forgot password?
-                </p>
-              )}
-              <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
-                {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-              </p>
-            </>
-          )}
-        </div>
-
-        {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
-        <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
-            <LandingPage
-              onNav={setPage}
-              onStart={() => {}}
-              authMode={authMode}
-              authMsg={authMsg}
-              submitting={submitting}
-              email={email}
-              password={password}
-              onEmailChange={setEmail}
-              onPasswordChange={setPassword}
-              onSubmit={handleAuth}
-              onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
-              showForgot={showForgot}
-              forgotSent={forgotSent}
-              forgotEmail={forgotEmail}
-              forgotCooldown={forgotCooldown}
-              onForgotEmailChange={setForgotEmail}
-              onForgotSubmit={handleForgotPassword}
-              onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
-              onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
-              onGoogleSignIn={() => signInWithGoogle()}
-              onGitHubSignIn={() => signInWithGitHub()}
-              phoneStep={phoneStep}
-              phone={phone}
-              onPhoneChange={setPhone}
-              phoneOtp={phoneOtp}
-              onPhoneOtpChange={setPhoneOtp}
-              phoneOtpSent={phoneOtpSent}
-              phoneVerified={phoneVerified}
-              phoneError={phoneError}
-              onSendPhoneOtp={handleSendPhoneOtp}
-              onFinishSignup={finishSignup}
-              onVerifyPhoneOtp={handleVerifyPhoneOtp}
-              phoneCode={phoneCodeRef.current}
-            />
+      {/* CHAT PAGE (overlaid on video) */}
+      {page === 'chat' && (
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', height: '100%' }}>
+          <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 30, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: wsColor, display: 'inline-block' }} />
+            <span style={{ color: '#aaa', fontSize: 11 }}>{wsStatus}</span>
+            {noAudio && <span style={{ color: '#ff9800', fontSize: 11, marginLeft: 4 }}>Mic off</span>}
           </div>
+
+          {state === 'idle' && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
+              <p style={{ color: '#888', marginBottom: 20 }}>Preview</p>
+              <button onClick={findStranger} style={sBtn}>Start Chatting</button>
+              <button onClick={() => setPage('profile')} style={{ ...sBtn, marginTop: 10, background: '#555', boxShadow: 'none' }}>Profile</button>
+              {camError && (
+                <div style={{ marginTop: 16, padding: '12px 20px', background: 'rgba(244,67,54,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
+                  <p style={{ color: '#f44336', fontSize: 13, margin: 0, lineHeight: 1.4, whiteSpace: 'pre-line' }}>{camError}</p>
+                  <div style={{ marginTop: 10, display: 'flex', gap: 10, justifyContent: 'center' }}>
+                    <p style={{ color: '#888', fontSize: 11, cursor: 'pointer' }} onClick={() => setCamError('')}>Dismiss</p>
+                    <p style={{ color: '#6c63ff', fontSize: 11, cursor: 'pointer', fontWeight: 600 }} onClick={findStranger}>Try Again</p>
+                  </div>
+                </div>
+              )}
+              {noAudio && (
+                <div style={{ marginTop: 12, padding: '8px 16px', background: 'rgba(255,152,0,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
+                  <p style={{ color: '#ff9800', fontSize: 12, margin: 0 }}>No microphone — your partner won't hear you</p>
+                </div>
+              )}
+              <p style={{ color: '#aaa', fontSize: 14, marginTop: camError ? 8 : 20, textAlign: 'center', maxWidth: '80%' }}>{log}</p>
+            </div>
+          )}
+
+          {(state === 'searching' || state === 'connecting') && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
+              <div style={{ width: 40, height: 40, border: '3px solid #333', borderTopColor: '#6c63ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 20 }} />
+              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+              <p style={{ color: '#aaa', fontSize: 18 }}>{log || (state === 'connecting' ? 'Connecting...' : 'Searching...')}</p>
+              <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{ ...sBtn, marginTop: 20, background: '#555', boxShadow: 'none' }}>Cancel</button>
+            </div>
+          )}
+
+          {state === 'connected' && (
+            <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 6 }}>
+              <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>{log}</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
+                <button onClick={() => setShowChat(!showChat)} style={{
+                  ...sBtn, width: 'auto', padding: '8px 16px', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
+                  boxShadow: 'none', fontSize: 12,
+                }}>Chat</button>
+                <button onClick={reportUser} style={{
+                  ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
+                  boxShadow: 'none', fontSize: 12,
+                }}>{reportSent ? 'Reported' : 'Report'}</button>
+                <button onClick={skip} style={{
+                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
+                  boxShadow: 'none', fontSize: 12,
+                }}>Next →</button>
+                <button onClick={() => setPage('profile')} style={{
+                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#6c63ff',
+                  boxShadow: 'none', fontSize: 12,
+                }}>Profile</button>
+                <button onClick={() => { cleanup(); setPage('home'); }} style={{
+                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
+                  boxShadow: 'none', fontSize: 12,
+                }}>End Call</button>
+                <button onClick={() => { setPage('home'); }} style={{
+                  ...sBtn, width: 'auto', padding: '8px 16px', background: '#555',
+                  boxShadow: 'none', fontSize: 12,
+                }}>Home</button>
+              </div>
+            </div>
+          )}
+
+          {showChat && state === 'connected' && (
+            <div style={{ position: 'absolute', bottom: 90, right: 14, width: 280, maxHeight: 300, background: 'rgba(20,20,20,0.95)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', zIndex: 25, display: 'flex', flexDirection: 'column' }}>
+              {partnerProfile && (
+                <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {partnerProfile.avatar ? <img src={partnerProfile.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} /> :
+                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 600 }}>
+                    {(partnerProfile.name || 'A')[0].toUpperCase()}
+                  </div>}
+                  <div>
+                    <p style={{ color: '#fff', fontSize: 12, fontWeight: 600, margin: 0 }}>{partnerProfile.name}</p>
+                    <p style={{ color: '#888', fontSize: 10, margin: 0 }}>{partnerProfile.bio}</p>
+                  </div>
+                </div>
+              )}
+              <div style={{ padding: '4px 12px', background: 'rgba(255,152,0,0.1)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <p style={{ color: '#ff9800', fontSize: 10, margin: 0, textAlign: 'center' }}>Messages disappear after 5 seconds</p>
+              </div>
+              <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 4, minHeight: 80 }}>
+                {chatMessages.map((m, i) => (
+                  <div key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', background: m.me ? '#6c63ff' : 'rgba(255,255,255,0.08)', padding: '6px 10px', borderRadius: 12, maxWidth: '80%', fontSize: 12, color: '#fff', wordBreak: 'break-word', animation: 'fadeIn 0.2s' }}>
+                    {m.text}
+                  </div>
+                ))}
+              </div>
+              <form onSubmit={(e) => { e.preventDefault(); sendChat(); }} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type a message..." maxLength={200} style={{ flex: 1, background: 'transparent', border: 'none', padding: '8px 10px', color: '#fff', fontSize: 12, outline: 'none' }} />
+                <button type="submit" style={{ background: 'transparent', border: 'none', color: '#6c63ff', padding: '8px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Send</button>
+              </form>
+            </div>
+          )}
+
+          <p style={{ position: 'absolute', bottom: 3, left: 6, color: '#555', fontSize: 10, margin: 0, zIndex: 20, fontFamily: 'system-ui, sans-serif' }}>ID: {id}</p>
+        </div>
+      )}
+
+      {/* NON-CHAT PAGES */}
+      {page === 'privacy' && (
+        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+          <PrivacyPage />
+        </div>
+      )}
+
+      {page === 'terms' && (
+        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh' }}>
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+          <TermsPage />
           <Footer setPage={setPage} />
         </div>
-      </div>
-    );
-  }
+      )}
 
-  if (page === 'home') {
-    return (
-      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-        <LandingPage onNav={setPage} onStart={() => {
-          setPage('chat');
-          setTimeout(findStranger, 100);
-        }} />
-        <Footer setPage={setPage} />
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <video ref={remoteRef} autoPlay playsInline style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
-      <video ref={localRef} autoPlay playsInline muted style={{ position: 'absolute', top: 14, right: 10, width: 100, height: 140, borderRadius: 10, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
-
-      <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 30, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: wsColor, display: 'inline-block' }} />
-        <span style={{ color: '#aaa', fontSize: 11 }}>{wsStatus}</span>
-        {noAudio && <span style={{ color: '#ff9800', fontSize: 11, marginLeft: 4 }}>Mic off</span>}
-      </div>
-
-      {state === 'idle' && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
-          <p style={{ color: '#888', marginBottom: 20 }}>Preview</p>
-          <button onClick={findStranger} style={sBtn}>Start Chatting</button>
-          <button onClick={() => setPage('profile')} style={{ ...sBtn, marginTop: 10, background: '#555', boxShadow: 'none' }}>Profile</button>
-          {camError && (
-            <div style={{ marginTop: 16, padding: '12px 20px', background: 'rgba(244,67,54,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
-              <p style={{ color: '#f44336', fontSize: 13, margin: 0, lineHeight: 1.4, whiteSpace: 'pre-line' }}>{camError}</p>
-              <div style={{ marginTop: 10, display: 'flex', gap: 10, justifyContent: 'center' }}>
-                <p style={{ color: '#888', fontSize: 11, cursor: 'pointer' }} onClick={() => setCamError('')}>Dismiss</p>
-                <p style={{ color: '#6c63ff', fontSize: 11, cursor: 'pointer', fontWeight: 600 }} onClick={findStranger}>Try Again</p>
-              </div>
-            </div>
-          )}
-          {noAudio && (
-            <div style={{ marginTop: 12, padding: '8px 16px', background: 'rgba(255,152,0,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
-              <p style={{ color: '#ff9800', fontSize: 12, margin: 0 }}>No microphone — your partner won't hear you</p>
-            </div>
-          )}
-          <p style={{ color: '#aaa', fontSize: 14, marginTop: camError ? 8 : 20, textAlign: 'center', maxWidth: '80%' }}>{log}</p>
+      {page === 'profile' && (
+        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+          <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
+          <Footer setPage={setPage} />
         </div>
       )}
 
-      {(state === 'searching' || state === 'connecting') && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
-          <div style={{ width: 40, height: 40, border: '3px solid #333', borderTopColor: '#6c63ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 20 }} />
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-          <p style={{ color: '#aaa', fontSize: 18 }}>{log || (state === 'connecting' ? 'Connecting...' : 'Searching...')}</p>
-          <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{ ...sBtn, marginTop: 20, background: '#555', boxShadow: 'none' }}>Cancel</button>
+      {page === 'messages' && (
+        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+          <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
         </div>
       )}
 
-      {state === 'connected' && (
-        <div style={{ position: 'absolute', bottom: 30, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20, gap: 6 }}>
-          <p style={{ color: '#aaa', fontSize: 12, margin: 0 }}>{log}</p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', padding: '0 10px' }}>
-            <button onClick={() => setShowChat(!showChat)} style={{
-              ...sBtn, width: 'auto', padding: '8px 16px', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
-              boxShadow: 'none', fontSize: 12,
-            }}>
-              Chat
-            </button>
-            <button onClick={reportUser} style={{
-              ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
-              boxShadow: 'none', fontSize: 12,
-            }}>
-              {reportSent ? 'Reported' : 'Report'}
-            </button>
-            <button onClick={skip} style={{
-              ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
-              boxShadow: 'none', fontSize: 12,
-            }}>
-              Next →
-            </button>
-            <button onClick={() => setPage('profile')} style={{
-              ...sBtn, width: 'auto', padding: '8px 16px', background: '#6c63ff',
-              boxShadow: 'none', fontSize: 12,
-            }}>
-              Profile
-            </button>
-            <button onClick={() => { cleanup(); setPage('home'); }} style={{
-              ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
-              boxShadow: 'none', fontSize: 12,
-            }}>
-              End Call
-            </button>
-            <button onClick={() => { setPage('home'); }} style={{
-              ...sBtn, width: 'auto', padding: '8px 16px', background: '#555',
-              boxShadow: 'none', fontSize: 12,
-            }}>
-              Home
-            </button>
+      {page === 'home' && (
+        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+          <LandingPage onNav={setPage} onStart={() => {
+            setPage('chat');
+            setTimeout(findStranger, 100);
+          }} />
+          <Footer setPage={setPage} />
+        </div>
+      )}
+
+      {!user && (
+        <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="mobile-auth" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', flexShrink: 0 }}>
+            {showForgot ? (
+              <>
+                <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+                <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{forgotSent ? 'Check your email' : 'Reset password'}</p>
+                {forgotSent ? (
+                  <>
+                    <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16, wordBreak: 'break-word' }}>
+                      If an account exists at <b style={{ color: '#fff' }}>{forgotEmail}</b>, we've sent a password reset link. Check your inbox and spam folder.
+                    </p>
+                    <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }} style={mobileBtn}>
+                      Back to Sign In
+                    </button>
+                  </>
+                ) : (
+                  <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
+                    <input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
+                    <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
+                      {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
+                    </button>
+                    {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+                    <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setShowForgot(false); setAuthMsg(''); }}>
+                      ← Back to Sign In
+                    </p>
+                  </form>
+                )}
+              </>
+            ) : phoneStep ? (
+              <>
+                <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+                <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{phoneVerified ? 'Phone verified!' : (phoneOtpSent ? 'Enter the code sent to your phone' : 'Verify your phone')}</p>
+                {!phoneOtpSent ? (
+                  <>
+                    <input style={input} type="tel" placeholder="+1 (555) 123-4567" value={phone} onChange={e => setPhone(e.target.value)} />
+                    <button onClick={handleSendPhoneOtp} disabled={submitting} style={{...mobileBtn, marginTop: 10, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Sending...' : 'Send Code'}</button>
+                  </>
+                ) : !phoneVerified ? (
+                  <>
+                    <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', marginBottom: 8, background: 'rgba(108,99,255,0.1)', padding: '8px 12px', borderRadius: 8, wordBreak: 'break-all' }}>
+                      Dev mode: code is <b style={{ fontSize: 18, letterSpacing: 4 }}>{phoneCodeRef.current}</b>
+                    </p>
+                    <input style={input} type="text" placeholder="Enter 6-digit code" value={phoneOtp} onChange={e => setPhoneOtp(e.target.value)} maxLength={6} />
+                    <button onClick={handleVerifyPhoneOtp} disabled={submitting || phoneOtp.length < 6} style={{...mobileBtn, marginTop: 10, opacity: submitting || phoneOtp.length < 6 ? 0.5 : 1}}>{submitting ? 'Verifying...' : 'Verify Code'}</button>
+                  </>
+                ) : (
+                  <button onClick={finishSignup} disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : 'Complete Sign Up'}</button>
+                )}
+                {phoneError && <p style={{ color: '#f44336', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{phoneError}</p>}
+                {!phoneOtpSent && <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setPhoneStep(false); setPhoneOtpSent(false); setPhoneVerified(false); setPhoneOtp(''); setPhoneError(''); }}>← Back</p>}
+              </>
+            ) : (
+              <>
+                <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+                <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
+                <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+                  <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+                  <input style={input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+                  {authMode === 'register' && <input style={input} type="tel" placeholder="Phone number (for verification)" value={phone} onChange={e => setPhone(e.target.value)} required />}
+                  <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+                </form>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                  <span style={{ color: '#666', fontSize: 12 }}>OR</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
+                </div>
+                <button type="button" onClick={() => signInWithGoogle()} style={{
+                  background: '#fff', color: '#333', border: 'none', padding: '12px', borderRadius: 10,
+                  fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%', maxWidth: 360,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.54 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.98-5.97z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z"/></svg>
+                  Sign {authMode === 'login' ? 'in' : 'up'} with Google
+                </button>
+                <button type="button" onClick={() => signInWithGitHub()} style={{
+                  background: '#24292e', color: '#fff', border: 'none', padding: '12px', borderRadius: 10,
+                  fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%', maxWidth: 360,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 16 16" fill="white"><path fillRule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                  Sign {authMode === 'login' ? 'in' : 'up'} with GitHub
+                </button>
+                {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+                {authMode === 'login' && (
+                  <p style={{ color: '#6c63ff', fontSize: 13, marginTop: 12, cursor: 'pointer' }} onClick={() => { setShowForgot(true); setAuthMsg(''); }}>
+                    Forgot password?
+                  </p>
+                )}
+                <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
+                  {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+                </p>
+              </>
+            )}
+          </div>
+          <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
+              <LandingPage
+                onNav={setPage}
+                onStart={() => {}}
+                authMode={authMode}
+                authMsg={authMsg}
+                submitting={submitting}
+                email={email}
+                password={password}
+                onEmailChange={setEmail}
+                onPasswordChange={setPassword}
+                onSubmit={handleAuth}
+                onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
+                showForgot={showForgot}
+                forgotSent={forgotSent}
+                forgotEmail={forgotEmail}
+                forgotCooldown={forgotCooldown}
+                onForgotEmailChange={setForgotEmail}
+                onForgotSubmit={handleForgotPassword}
+                onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
+                onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
+                onGoogleSignIn={() => signInWithGoogle()}
+                onGitHubSignIn={() => signInWithGitHub()}
+                phoneStep={phoneStep}
+                phone={phone}
+                onPhoneChange={setPhone}
+                phoneOtp={phoneOtp}
+                onPhoneOtpChange={setPhoneOtp}
+                phoneOtpSent={phoneOtpSent}
+                phoneVerified={phoneVerified}
+                phoneError={phoneError}
+                onSendPhoneOtp={handleSendPhoneOtp}
+                onFinishSignup={finishSignup}
+                onVerifyPhoneOtp={handleVerifyPhoneOtp}
+                phoneCode={phoneCodeRef.current}
+              />
+            </div>
+            <Footer setPage={setPage} />
           </div>
         </div>
       )}
-
-      {showChat && state === 'connected' && (
-        <div style={{ position: 'absolute', bottom: 90, right: 14, width: 280, maxHeight: 300, background: 'rgba(20,20,20,0.95)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', zIndex: 25, display: 'flex', flexDirection: 'column' }}>
-          {partnerProfile && (
-            <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              {partnerProfile.avatar ? <img src={partnerProfile.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} /> :
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, fontWeight: 600 }}>
-                {(partnerProfile.name || 'A')[0].toUpperCase()}
-              </div>}
-              <div>
-                <p style={{ color: '#fff', fontSize: 12, fontWeight: 600, margin: 0 }}>{partnerProfile.name}</p>
-                <p style={{ color: '#888', fontSize: 10, margin: 0 }}>{partnerProfile.bio}</p>
-              </div>
-            </div>
-          )}
-          <div style={{ padding: '4px 12px', background: 'rgba(255,152,0,0.1)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <p style={{ color: '#ff9800', fontSize: 10, margin: 0, textAlign: 'center' }}>Messages disappear after 5 seconds</p>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 8, display: 'flex', flexDirection: 'column', gap: 4, minHeight: 80 }}>
-            {chatMessages.map((m, i) => (
-              <div key={i} style={{ alignSelf: m.me ? 'flex-end' : 'flex-start', background: m.me ? '#6c63ff' : 'rgba(255,255,255,0.08)', padding: '6px 10px', borderRadius: 12, maxWidth: '80%', fontSize: 12, color: '#fff', wordBreak: 'break-word', animation: 'fadeIn 0.2s' }}>
-                {m.text}
-              </div>
-            ))}
-          </div>
-          <form onSubmit={(e) => { e.preventDefault(); sendChat(); }} style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-            <input value={chatInput} onChange={e => setChatInput(e.target.value)} placeholder="Type a message..." maxLength={200} style={{ flex: 1, background: 'transparent', border: 'none', padding: '8px 10px', color: '#fff', fontSize: 12, outline: 'none' }} />
-            <button type="submit" style={{ background: 'transparent', border: 'none', color: '#6c63ff', padding: '8px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>Send</button>
-          </form>
-        </div>
-      )}
-
-      <p style={{ position: 'absolute', bottom: 3, left: 6, color: '#555', fontSize: 10, margin: 0, zIndex: 20, fontFamily: 'system-ui, sans-serif' }}>ID: {id}</p>
     </div>
   );
 }

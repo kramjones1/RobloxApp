@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, markAllMessagesRead } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -73,15 +73,8 @@ export default function WebApp() {
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
-  async function handleNav(p: string) {
+  function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
-    if (p === 'messages') {
-      setUnreadCount(0);
-      await markAllMessagesRead();
-      getConversations().then(({ conversations }) => {
-        if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0));
-      });
-    }
     setPage(p);
   }
 

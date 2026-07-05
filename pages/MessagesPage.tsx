@@ -51,6 +51,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     fetchProfile(selectedId);
     getMessages(selectedId).then(({ messages: msgs }) => { if (msgs) setMessages(msgs); });
     const iv = setInterval(() => {
+      markMessagesRead(selectedId);
       getMessages(selectedId).then(({ messages: msgs }) => { if (msgs) setMessages(msgs); });
     }, 2000);
     return () => clearInterval(iv);

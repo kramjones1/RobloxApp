@@ -110,7 +110,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
           ))}
           <div ref={bottomRef} />
         </div>
-        <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
+        <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 14px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <input style={inp} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
           <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, padding: '11px 18px', opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>Send</button>
         </form>
@@ -184,7 +184,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
               ))}
               <div ref={bottomRef} />
             </div>
-            <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
+            <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
               <input style={inp} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
               <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, padding: '11px 18px', opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>Send</button>
             </form>

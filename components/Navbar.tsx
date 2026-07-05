@@ -111,27 +111,30 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
 
   if (mobile) {
     return (
-      <div ref={menuRef} style={{ fontFamily: 'system-ui, sans-serif' }}>
+        <div ref={menuRef} style={{ fontFamily: 'system-ui, sans-serif' }}>
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-          height: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 14px',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
+          height: 'calc(48px + env(safe-area-inset-top, 0px))',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+          paddingLeft: 14, paddingRight: 14, paddingBottom: 0,
           background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(255,255,255,0.06)',
         }}>
           <span style={{
-            fontSize: 18, fontWeight: 700, cursor: 'pointer',
+            marginBottom: 12, fontSize: 18, fontWeight: 700, cursor: 'pointer',
             background: 'linear-gradient(135deg, #6c63ff, #2a6eff)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }} onClick={() => nav('home')}>LiveMe</span>
           <button onClick={() => setMenuOpen(o => !o)} style={{
             background: 'none', border: 'none', color: '#fff', fontSize: 24,
-            cursor: 'pointer', padding: '4px 8px', fontFamily: 'inherit', lineHeight: 1,
+            cursor: 'pointer', marginBottom: 10, padding: '0 0 0 8px',
+            fontFamily: 'inherit', lineHeight: 1,
           }}>{menuOpen ? '✕' : '☰'}</button>
         </div>
         {menuOpen && (
           <div style={{
-            position: 'fixed', top: 48, left: 0, right: 0, zIndex: 99,
+            position: 'fixed', top: 'calc(48px + env(safe-area-inset-top, 0px))', left: 0, right: 0, zIndex: 99,
             background: 'rgba(15,15,15,0.97)', backdropFilter: 'blur(16px)',
             borderBottom: '1px solid rgba(255,255,255,0.08)',
             padding: '8px 0', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',

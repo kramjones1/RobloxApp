@@ -162,8 +162,8 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
                     <p style={s.authSub}>{forgotSent ? 'Check your email' : 'Enter your email to receive a reset link'}</p>
                     {forgotSent ? (
                       <>
-                        <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', lineHeight: 1.5, margin: '0 0 16px' }}>
-                          We've sent a password reset link to <b style={{ color: '#fff' }}>{forgotEmail}</b>.
+                        <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', lineHeight: 1.5, margin: '0 0 16px', wordBreak: 'break-word' }}>
+                          If an account exists at <b style={{ color: '#fff' }}>{forgotEmail}</b>, we've sent a password reset link.
                         </p>
                         <button onClick={onBackToSignIn} style={s.submitBtn}>Back to Sign In</button>
                       </>

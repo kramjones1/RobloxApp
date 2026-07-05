@@ -418,7 +418,7 @@ export default function WebApp() {
               {forgotSent ? (
                 <>
                   <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16, wordBreak: 'break-word' }}>
-                    We've sent a password reset link to <b style={{ color: '#fff' }}>{forgotEmail}</b>. Check your inbox (and spam folder). Didn't get it? Make sure the email address is correct.
+                    If an account exists at <b style={{ color: '#fff' }}>{forgotEmail}</b>, we've sent a password reset link. Check your inbox and spam folder.
                   </p>
                   <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }} style={mobileBtn}>
                     Back to Sign In

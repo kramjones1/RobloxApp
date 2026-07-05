@@ -402,7 +402,7 @@ export default function WebApp() {
         if (profile) { pName = profile.display_name || ''; pBio = profile.bio || ''; pAvatar = profile.avatar_url || ''; }
       } catch {}
     }
-    if (uid) {
+    if (uid && uid !== user?.id) {
       try {
         const recent = JSON.parse(localStorage.getItem('recent_live') || '[]');
         recent.unshift({ id: uid, name: pName, bio: pBio, avatar: pAvatar, time: Date.now() });
@@ -411,7 +411,7 @@ export default function WebApp() {
       } catch (e) { console.log('cleanup: error saving', e); }
       try { await saveRecentLive(uid, pName, pBio, pAvatar); } catch {}
     } else {
-      console.log('cleanup: no userId, not saving. partnerProfile=', partnerProfile);
+      console.log('cleanup: no userId or own userId, not saving. uid=', uid, 'user.id=', user?.id);
     }
   }
 

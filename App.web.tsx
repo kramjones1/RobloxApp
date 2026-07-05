@@ -68,6 +68,8 @@ export default function WebApp() {
   const [chatInput, setChatInput] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
 
+  function addLog(msg: string) { console.log(msg); setLog(msg); }
+
   useEffect(() => {
     if (!user) { setUnreadCount(0); return; }
     function pollUnread() {
@@ -82,50 +84,17 @@ export default function WebApp() {
     return () => clearInterval(iv);
   }, [user]);
 
-  function addLog(msg: string) { console.log(msg); setLog(msg); }
-
+  // Re-attach streams to video elements when returning to chat page
   useEffect(() => {
-    let oauthLogin = false;
-    let oauthSignup = false;
-    const hash = window.location.hash;
-    if (hash.includes('access_token=')) {
-      const params = new URLSearchParams(hash.slice(1));
-      const token = params.get('access_token');
-      const type = params.get('type');
-      if (token) {
-        setSessionToken(token);
-        history.replaceState(null, '', window.location.pathname + window.location.search);
-        if (type === 'recovery') setRecoveryMode(true);
-        else {
-          oauthLogin = true;
-          if (type === 'signup') oauthSignup = true;
-        }
+    if (page !== 'chat') return;
+    if (lsRef.current && localRef.current) localRef.current.srcObject = lsRef.current;
+    const pc = pcRef.current;
+    if (pc && remoteRef.current) {
+      for (const r of pc.getReceivers()) {
+        if (r.streams?.[0]) { remoteRef.current.srcObject = r.streams[0]; break; }
       }
     }
-    const u = getSession();
-    setUser(u);
-    setAuthLoading(false);
-    if (u?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
-    if (u && oauthLogin) {
-      if (oauthSignup) setOnboardingStep('name');
-      else setPage('profile');
-    }
-    return onAuthChange(u2 => {
-      setUser(u2);
-      if (u2?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
-      else setMyProfile(null);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (user && page === 'auth') setPage('home');
-  }, [user, page]);
-
-  useEffect(() => {
-    if (!user) return;
-    connect();
-    return () => { wsRef.current?.close(); lsRef.current?.getTracks().forEach((t: any) => t.stop()); };
-  }, [user]);
+  }, [page]);
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();

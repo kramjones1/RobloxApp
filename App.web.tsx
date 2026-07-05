@@ -15,7 +15,7 @@ meta.content = '#1a1a1a';
 document.head.appendChild(meta);
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;min-height:100vh;background:#0a0a0a;overflow-x:hidden}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}.hero-left{text-align:center}@media(min-width:800px){.hero-left{text-align:left}}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@media(max-width:699px){.desktop-layout{display:none!important}}@media(min-width:700px){.mobile-auth{display:none!important}}';
 document.head.appendChild(style);
 
 export default function WebApp() {
@@ -460,9 +460,9 @@ export default function WebApp() {
 
   if (!user) {
     return (
-      <>
+      <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Mobile: clean auth form only (shown on < 700px) */}
-        <div className="mobile-auth" style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <div className="mobile-auth" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', flexShrink: 0 }}>
           {showForgot ? (
             <>
               <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
@@ -512,37 +512,39 @@ export default function WebApp() {
         </div>
 
         {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
-        <div className="desktop-layout" style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
+        <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
-          <LandingPage
-            onStart={() => {}}
-            authMode={authMode}
-            authMsg={authMsg}
-            submitting={submitting}
-            email={email}
-            password={password}
-            onEmailChange={setEmail}
-            onPasswordChange={setPassword}
-            onSubmit={handleAuth}
-            onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
-            showForgot={showForgot}
-            forgotSent={forgotSent}
-            forgotEmail={forgotEmail}
-            forgotCooldown={forgotCooldown}
-            onForgotEmailChange={setForgotEmail}
-            onForgotSubmit={handleForgotPassword}
-            onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
-            onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
-          />
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
+            <LandingPage
+              onStart={() => {}}
+              authMode={authMode}
+              authMsg={authMsg}
+              submitting={submitting}
+              email={email}
+              password={password}
+              onEmailChange={setEmail}
+              onPasswordChange={setPassword}
+              onSubmit={handleAuth}
+              onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
+              showForgot={showForgot}
+              forgotSent={forgotSent}
+              forgotEmail={forgotEmail}
+              forgotCooldown={forgotCooldown}
+              onForgotEmailChange={setForgotEmail}
+              onForgotSubmit={handleForgotPassword}
+              onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
+              onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
+            />
+          </div>
           <Footer setPage={setPage} />
         </div>
-      </>
+      </div>
     );
   }
 
   if (page === 'home') {
     return (
-      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="page-content" style={{ background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <LandingPage onStart={() => {
           setPage('chat');

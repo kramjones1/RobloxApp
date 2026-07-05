@@ -263,7 +263,7 @@ export default function WebApp() {
     pc.ontrack = (e) => {
       if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0];
     };
-    pc.oniceconnectionstatechange = () => { addLog('ICE: ' + pc.iceConnectionState); };
+    pc.oniceconnectionstatechange = () => { addLog('ICE: ' + pc.iceConnectionState); if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') setPartnerLeft(true); };
     pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') addLog('Connected!'); };
 
     function onDcMessage(e: any) {

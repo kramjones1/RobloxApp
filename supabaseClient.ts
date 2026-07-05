@@ -325,7 +325,7 @@ export async function markAllMessagesRead(): Promise<void> {
   if (!user) { console.log('markAllMessagesRead: no user'); return; }
   try {
     const res = await supabaseFetch(
-      `${SUPABASE_URL}/rest/v1/chat_messages?receiver_id.eq.${user.id}&read.eq.false`,
+      `${SUPABASE_URL}/rest/v1/chat_messages?receiver_id=eq.${user.id}&read=eq.false`,
       {
         method: 'PATCH',
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
@@ -344,7 +344,7 @@ export async function markMessagesRead(partnerId: string): Promise<void> {
   if (!user) return;
   try {
     await supabaseFetch(
-      `${SUPABASE_URL}/rest/v1/chat_messages?receiver_id.eq.${user.id}&sender_id.eq.${partnerId}&read.eq.false`,
+      `${SUPABASE_URL}/rest/v1/chat_messages?receiver_id=eq.${user.id}&sender_id=eq.${partnerId}&read=eq.false`,
       {
         method: 'PATCH',
         headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },

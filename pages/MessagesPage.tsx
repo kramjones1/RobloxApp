@@ -12,7 +12,7 @@ const inp = {
   outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const,
 };
 
-export default function MessagesPage({ onNav, user, messagePartner, onViewProfile }: { onNav: (p: any) => void; user: any; messagePartner?: string; onViewProfile?: (userId: string) => void }) {
+export default function MessagesPage({ onNav, user, messagePartner, onViewProfile, onChatOpened }: { onNav: (p: any) => void; user: any; messagePartner?: string; onViewProfile?: (userId: string) => void; onChatOpened?: () => void }) {
   const [conversations, setConversations] = useState<{ partnerId: string; lastMessage: ChatMessage; unread: number }[]>([]);
   const [selectedId, setSelectedId] = useState(messagePartner || '');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -47,7 +47,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   useEffect(() => {
     if (!selectedId) return;
-    markMessagesRead(selectedId);
+    markMessagesRead(selectedId); onChatOpened?.();
     fetchProfile(selectedId);
     getMessages(selectedId).then(({ messages: msgs }) => { if (msgs) setMessages(msgs); });
     const iv = setInterval(() => {
@@ -79,7 +79,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   function openChat(partnerId: string) {
     setSelectedId(partnerId);
-    markMessagesRead(partnerId);
+    markMessagesRead(partnerId); onChatOpened?.();
   }
 
   function Avatar({ uid, size = 34, onClick }: { uid: string; size?: number; onClick?: () => void }) {

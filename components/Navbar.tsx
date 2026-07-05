@@ -134,7 +134,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               cursor: 'pointer', marginBottom: 10, padding: '0 0 0 8px',
               fontFamily: 'inherit', lineHeight: 1,
             }}>{menuOpen ? '✕' : '☰'}</button>
-            {page !== 'messages' && unreadCount > 0 && !menuOpen && <span style={{
+            {unreadCount > 0 && !menuOpen && <span style={{
               position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16,
               borderRadius: 8, background: '#f44336', color: '#fff', fontSize: 10,
               fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -176,7 +176,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
                 {t.label}
-                {t.id === 'messages' && page !== 'messages' && unreadCount > 0 && <span style={{
+                {t.id === 'messages' && unreadCount > 0 && <span style={{
                   marginLeft: 8, background: '#f44336', color: '#fff', fontSize: 11,
                   fontWeight: 700, borderRadius: 8, padding: '1px 6px', lineHeight: 1.3,
                 }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
@@ -203,7 +203,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
         {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
         {user && <button style={{ position: 'relative', ...(page === 'messages' ? styles.linkActive : styles.link) }} onClick={() => setPage('messages')}>
           Messages
-          {page !== 'messages' && unreadCount > 0 && <span style={{
+          {unreadCount > 0 && <span style={{
             position: 'absolute', top: -6, right: -14, minWidth: 16, height: 16,
             borderRadius: 8, background: '#f44336', color: '#fff', fontSize: 10,
             fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',

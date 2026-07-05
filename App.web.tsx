@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, getSession, onAuthChange, getChatProfile } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, getSession, onAuthChange, getChatProfile } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -27,6 +27,9 @@ export default function WebApp() {
   const [password, setPassword] = useState('');
   const [authMsg, setAuthMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -82,6 +85,16 @@ export default function WebApp() {
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPage('profile');
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthMsg('');
+    setSubmitting(true);
+    const { error } = await resetPassword(forgotEmail);
+    setSubmitting(false);
+    if (error) setAuthMsg(error);
+    else setForgotSent(true);
   }
 
   async function handleLogout() {
@@ -285,7 +298,7 @@ export default function WebApp() {
   const input: React.CSSProperties = {
     background: 'rgba(255,255,255,0.06)',
     color: '#fff', border: '1px solid rgba(255,255,255,0.12)',
-    padding: '12px 16px', borderRadius: 10, fontSize: 16, width: '100%',
+    padding: '14px 18px', borderRadius: 12, fontSize: 17, width: '100%',
     outline: 'none', fontFamily: 'system-ui, sans-serif', boxSizing: 'border-box',
     transition: 'border-color 0.2s',
   };
@@ -339,17 +352,50 @@ export default function WebApp() {
       <>
         {/* Mobile: clean auth form only (shown on < 700px) */}
         <div className="mobile-auth" style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-          <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
-          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
-            <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-            <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-            <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
-          </form>
-          {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
-          <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
-            {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-          </p>
+          {showForgot ? (
+            <>
+              <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+              <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{forgotSent ? 'Check your email' : 'Reset password'}</p>
+              {forgotSent ? (
+                <>
+                  <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16 }}>
+                    We've sent a password reset link to <b style={{ color: '#fff' }}>{forgotEmail}</b>. Check your inbox and click the link to reset your password.
+                  </p>
+                  <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }} style={mobileBtn}>
+                    Back to Sign In
+                  </button>
+                </>
+              ) : (
+                <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
+                  <input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
+                  <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Sending...' : 'Send Reset Link'}</button>
+                  {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+                  <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setShowForgot(false); setAuthMsg(''); }}>
+                    ← Back to Sign In
+                  </p>
+                </form>
+              )}
+            </>
+          ) : (
+            <>
+              <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+              <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
+              <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+                <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+                <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+                <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+              </form>
+              {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+              {authMode === 'login' && (
+                <p style={{ color: '#6c63ff', fontSize: 13, marginTop: 12, cursor: 'pointer' }} onClick={() => { setShowForgot(true); setAuthMsg(''); }}>
+                  Forgot password?
+                </p>
+              )}
+              <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}>
+                {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+              </p>
+            </>
+          )}
         </div>
 
         {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
@@ -366,6 +412,13 @@ export default function WebApp() {
             onPasswordChange={setPassword}
             onSubmit={handleAuth}
             onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
+            showForgot={showForgot}
+            forgotSent={forgotSent}
+            forgotEmail={forgotEmail}
+            onForgotEmailChange={setForgotEmail}
+            onForgotSubmit={handleForgotPassword}
+            onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
+            onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
           />
           <Footer setPage={setPage} />
         </div>

@@ -86,9 +86,9 @@ const s = {
     background: 'rgba(255,255,255,0.06)',
     color: '#fff',
     border: '1px solid rgba(255,255,255,0.12)',
-    padding: '11px 14px',
-    borderRadius: 10,
-    fontSize: 15,
+    padding: '14px 16px',
+    borderRadius: 12,
+    fontSize: 16,
     width: '100%',
     outline: 'none',
     fontFamily: 'inherit',
@@ -132,9 +132,16 @@ interface Props {
   onPasswordChange?: (v: string) => void;
   onSubmit?: (e: React.FormEvent) => void;
   onToggleAuth?: () => void;
+  showForgot?: boolean;
+  forgotSent?: boolean;
+  forgotEmail?: string;
+  onForgotEmailChange?: (v: string) => void;
+  onForgotSubmit?: (e: React.FormEvent) => void;
+  onShowForgot?: () => void;
+  onBackToSignIn?: () => void;
 }
 
-export default function LandingPage({ onStart, authMode, authMsg, submitting, email, password, onEmailChange, onPasswordChange, onSubmit, onToggleAuth }: Props) {
+export default function LandingPage({ onStart, authMode, authMsg, submitting, email, password, onEmailChange, onPasswordChange, onSubmit, onToggleAuth, showForgot, forgotSent, forgotEmail, onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn }: Props) {
   const showAuth = !!onSubmit;
   return (
     <>
@@ -148,19 +155,52 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
           {showAuth && (
             <div style={s.heroRight}>
               <div style={s.authBox}>
-                <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
-                <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
-                <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
-                  <input style={s.input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={6} />
-                  <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
-                    {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
-                  </button>
-                  {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>{authMsg}</p>}
-                  <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onToggleAuth}>
-                    {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
-                  </p>
-                </form>
+                {showForgot ? (
+                  <>
+                    <p style={s.authTitle}>Reset password</p>
+                    <p style={s.authSub}>{forgotSent ? 'Check your email' : 'Enter your email to receive a reset link'}</p>
+                    {forgotSent ? (
+                      <>
+                        <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', lineHeight: 1.5, margin: '0 0 16px' }}>
+                          We've sent a password reset link to <b style={{ color: '#fff' }}>{forgotEmail}</b>.
+                        </p>
+                        <button onClick={onBackToSignIn} style={s.submitBtn}>Back to Sign In</button>
+                      </>
+                    ) : (
+                      <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
+                        <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
+                          {submitting ? 'Sending...' : 'Send Reset Link'}
+                        </button>
+                        <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onBackToSignIn}>
+                          ← Back to Sign In
+                        </p>
+                      </form>
+                    )}
+                    {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: '12px 0 0' }}>{authMsg}</p>}
+                  </>
+                ) : (
+                  <>
+                    <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
+                    <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
+                    <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
+                      <input style={s.input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={6} />
+                      <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
+                        {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
+                      </button>
+                      {authMode === 'login' && (
+                        <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: '0 0 8px' }} onClick={onShowForgot}>
+                          Forgot password?
+                        </p>
+                      )}
+                      {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>{authMsg}</p>}
+                      <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onToggleAuth}>
+                        {authMode === 'login' ? "Don't have an account? Sign Up" : 'Already have an account? Sign In'}
+                      </p>
+                    </form>
+                  </>
+                )}
               </div>
             </div>
           )}

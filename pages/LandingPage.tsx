@@ -8,10 +8,18 @@ const s = {
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: 'system-ui, sans-serif',
-    padding: '100px 0 60px',
+    padding: '100px 0 0',
+    flex: 1,
   },
   hero: {
     background: 'linear-gradient(135deg, #0a0a0a 0%, #111128 50%, #0a0a0a 100%)',
+    flex: 1,
+  },
+  heroCenter: {
+    flex: 1,
+    display: 'flex',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   heroInner: {
     display: 'flex',
@@ -114,11 +122,7 @@ const s = {
     cursor: 'pointer',
   },
   sectionTitle: { color: '#fff', fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, margin: 0, textAlign: 'center' as const },
-  about: { background: '#0a0a0a' },
-  aboutContent: { textAlign: 'center' as const, padding: '0 40px' },
-  aboutTitle: { color: '#fff', fontSize: 'clamp(28px, 5vw, 44px)', fontWeight: 700, margin: '0 0 20px' },
-  aboutText: { color: '#888', fontSize: 17, lineHeight: 1.9, margin: 0 },
-  credit: { color: '#555', fontSize: 14, textAlign: 'center' as const, padding: '40px 20px 0' },
+  credit: { color: '#555', fontSize: 14, textAlign: 'center' as const, padding: '40px 20px 0', marginTop: 'auto' },
 };
 
 interface Props {
@@ -147,16 +151,17 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
   return (
     <>
       <section style={{ ...s.section, ...s.hero }}>
-        <div style={s.heroInner}>
-          <div className="hero-left" style={s.heroLeft}>
-            <h1 style={s.heroTitle}>LiveMe</h1>
-            <p style={s.heroTagline}>Random video chat. Meet new people.</p>
-            {!showAuth && <button style={s.cta} onClick={onStart}>Start Chatting</button>}
-          </div>
-          {showAuth && (
-            <div style={s.heroRight}>
-              <div style={s.authBox}>
-                {showForgot ? (
+        <div style={s.heroCenter}>
+          <div style={s.heroInner}>
+            <div className="hero-left" style={s.heroLeft}>
+              <h1 style={s.heroTitle}>LiveMe</h1>
+              <p style={s.heroTagline}>Random video chat. Meet new people.</p>
+              {!showAuth && <button style={s.cta} onClick={onStart}>Start Chatting</button>}
+            </div>
+            {showAuth && (
+              <div style={s.heroRight}>
+                <div style={s.authBox}>
+                  {showForgot ? (
                   <>
                     <p style={s.authTitle}>Reset password</p>
                     <p style={s.authSub}>{forgotSent ? 'Check your email' : 'Enter your email to receive a reset link'}</p>
@@ -206,9 +211,9 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
             </div>
           )}
         </div>
-      </section>
-
-      <p style={s.credit}>© 2026 Anito MJI</p>
+          </div>
+          <p style={s.credit}>© 2026 Anito MJI</p>
+        </section>
     </>
   );
 }

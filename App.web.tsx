@@ -512,7 +512,7 @@ export default function WebApp() {
         </div>
 
         {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
-        <div className="desktop-layout" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+        <div className="desktop-layout" style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
           <LandingPage
             onStart={() => {}}
@@ -542,7 +542,7 @@ export default function WebApp() {
 
   if (page === 'home') {
     return (
-      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <LandingPage onStart={() => {
           setPage('chat');

@@ -235,7 +235,7 @@ export default function WebApp() {
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
         case 'matched': inCallRef.current = true; setPartnerId(msg.partner); console.log('matched: partnerId=', msg.partner, 'userId=', msg.userId); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); setReportSent(false); startCall(ws, msg.role); break;
-        case 'partner_left': setPartnerLeft(true); addLog('Partner ended the call'); setPartnerId(''); break;
+        case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
         case 'sdp': handleSDP(ws, msg); break;
@@ -243,7 +243,7 @@ export default function WebApp() {
       }
     };
     ws.onerror = () => { setWsStatus('error'); addLog('WS error'); };
-    ws.onclose = () => { setWsStatus('disconnected'); addLog('Disconnected'); if (inCallRef.current) setPartnerLeft(true); };
+    ws.onclose = () => { setWsStatus('disconnected'); addLog('Disconnected'); };
   }
 
   async function startCall(ws: WebSocket, role?: string) {

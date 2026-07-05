@@ -479,7 +479,7 @@ export default function WebApp() {
 
   if (page === 'privacy') {
     return (
-      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <PrivacyPage />
       </div>
@@ -488,7 +488,7 @@ export default function WebApp() {
 
   if (page === 'terms') {
     return (
-      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh' }}>
+      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <TermsPage />
         <Footer setPage={setPage} />
@@ -498,7 +498,7 @@ export default function WebApp() {
 
   if (page === 'profile') {
     return (
-      <div className="page-content" style={{ background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <ProfilePage onNav={setPage as any} user={user} />
         <Footer setPage={setPage} />
@@ -651,7 +651,7 @@ export default function WebApp() {
 
   if (page === 'home') {
     return (
-      <div className="page-content" style={{ background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
         <LandingPage onStart={() => {
           setPage('chat');

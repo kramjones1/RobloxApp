@@ -658,14 +658,15 @@ export default function WebApp() {
             </div>
           )}
 
-          {partnerLeft && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 40, background: 'rgba(0,0,0,0.85)' }}>
-              <p style={{ color: '#fff', fontSize: 20, fontWeight: 600, marginBottom: 24 }}>Your partner has ended the call</p>
-              <button onClick={() => { setPartnerLeft(false); cleanup(); findStranger(); }} style={sBtn}>Find New Partner</button>
-              <button onClick={() => { setPartnerLeft(false); cleanup(); setPage('home'); }} style={{ ...sBtn, marginTop: 12, background: '#555', boxShadow: 'none' }}>Leave</button>
-            </div>
-          )}
           <p style={{ position: 'absolute', bottom: 3, left: 6, color: '#555', fontSize: 10, margin: 0, zIndex: 20, fontFamily: 'system-ui, sans-serif' }}>ID: {id}</p>
+        </div>
+      )}
+
+      {partnerLeft && (
+        <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 200, background: 'rgba(0,0,0,0.85)' }}>
+          <p style={{ color: '#fff', fontSize: 20, fontWeight: 600, marginBottom: 24 }}>Your partner has ended the call</p>
+          <button onClick={() => { setPartnerLeft(false); cleanup(); findStranger(); }} style={sBtn}>Find New Partner</button>
+          <button onClick={() => { setPartnerLeft(false); cleanup(); setPage('home'); }} style={{ ...sBtn, marginTop: 12, background: '#555', boxShadow: 'none' }}>Leave</button>
         </div>
       )}
 

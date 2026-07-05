@@ -512,7 +512,7 @@ export default function WebApp() {
         </div>
 
         {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
-        <div className="desktop-layout" style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="desktop-layout" style={{ background: '#0a0a0a', minHeight: '100vh', display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
           <LandingPage
             onStart={() => {}}

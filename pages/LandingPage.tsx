@@ -6,9 +6,8 @@ const s = {
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
-    justifyContent: 'center',
     fontFamily: 'system-ui, sans-serif',
-    padding: '100px 0 0',
+    padding: 0,
     flex: 1,
   },
   hero: {

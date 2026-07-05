@@ -666,7 +666,6 @@ export default function WebApp() {
         <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 200, background: 'rgba(0,0,0,0.85)' }}>
           <p style={{ color: '#fff', fontSize: 20, fontWeight: 600, marginBottom: 24 }}>Your partner has ended the call</p>
           <button onClick={() => { setPartnerLeft(false); cleanup(); findStranger(); }} style={sBtn}>Find New Partner</button>
-          <button onClick={() => { setPartnerLeft(false); cleanup(); setPage('home'); }} style={{ ...sBtn, marginTop: 12, background: '#555', boxShadow: 'none' }}>Leave</button>
         </div>
       )}
 

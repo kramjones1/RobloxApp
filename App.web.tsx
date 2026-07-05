@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -66,6 +66,21 @@ export default function WebApp() {
   const [partnerProfile, setPartnerProfile] = useState<{ userId: string; name: string; bio: string; avatar: string } | null>(null);
   const [myProfile, setMyProfile] = useState<{ userId: string; name: string; bio: string; avatar: string } | null>(null);
   const [chatInput, setChatInput] = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) { setUnreadCount(0); return; }
+    function pollUnread() {
+      getConversations().then(({ conversations }) => {
+        if (conversations) {
+          setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0));
+        }
+      });
+    }
+    pollUnread();
+    const iv = setInterval(pollUnread, 5000);
+    return () => clearInterval(iv);
+  }, [user]);
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
@@ -502,7 +517,7 @@ export default function WebApp() {
   if (page === 'privacy') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <PrivacyPage />
       </div>
     );
@@ -511,7 +526,7 @@ export default function WebApp() {
   if (page === 'terms') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <TermsPage />
         <Footer setPage={setPage} />
       </div>
@@ -521,7 +536,7 @@ export default function WebApp() {
   if (page === 'profile') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
         <Footer setPage={setPage} />
       </div>
@@ -531,7 +546,7 @@ export default function WebApp() {
   if (page === 'messages') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
       </div>
     );
@@ -637,7 +652,7 @@ export default function WebApp() {
 
         {/* Desktop: full landing page with inline auth (shown on >= 700px) */}
         <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+          <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
             <LandingPage
               onNav={setPage}
@@ -684,7 +699,7 @@ export default function WebApp() {
   if (page === 'home') {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} />
         <LandingPage onNav={setPage} onStart={() => {
           setPage('chat');
           setTimeout(findStranger, 100);

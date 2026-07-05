@@ -5,6 +5,7 @@ interface NavbarProps {
   setPage: (p: string) => void;
   user: any;
   onLogout: () => void;
+  unreadCount?: number;
 }
 
 const styles = {
@@ -84,7 +85,7 @@ const styles = {
   },
 };
 
-export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
+export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0 }: NavbarProps) {
   const [mobile, setMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -126,11 +127,19 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
             background: 'linear-gradient(135deg, #6c63ff, #2a6eff)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }} onClick={() => nav('home')}>LiveMe</span>
-          <button onClick={() => setMenuOpen(o => !o)} style={{
-            background: 'none', border: 'none', color: '#fff', fontSize: 24,
-            cursor: 'pointer', marginBottom: 10, padding: '0 0 0 8px',
-            fontFamily: 'inherit', lineHeight: 1,
-          }}>{menuOpen ? '✕' : '☰'}</button>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setMenuOpen(o => !o)} style={{
+              background: 'none', border: 'none', color: '#fff', fontSize: 24,
+              cursor: 'pointer', marginBottom: 10, padding: '0 0 0 8px',
+              fontFamily: 'inherit', lineHeight: 1,
+            }}>{menuOpen ? '✕' : '☰'}</button>
+            {unreadCount > 0 && !menuOpen && <span style={{
+              position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16,
+              borderRadius: 8, background: '#f44336', color: '#fff', fontSize: 10,
+              fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 4px', lineHeight: 1,
+            }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+          </div>
         </div>
         {menuOpen && (
           <div style={{
@@ -151,7 +160,13 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
                 background: page === t.id ? 'rgba(108,99,255,0.12)' : 'transparent',
                 border: 'none', color: page === t.id ? '#fff' : '#bbb', fontSize: 15,
                 cursor: 'pointer', fontFamily: 'inherit',
-              }}>{t.label}</button>
+              }}>
+                {t.label}
+                {t.id === 'messages' && unreadCount > 0 && <span style={{
+                  marginLeft: 8, background: '#f44336', color: '#fff', fontSize: 11,
+                  fontWeight: 700, borderRadius: 8, padding: '1px 6px', lineHeight: 1.3,
+                }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+              </button>
             ))}
             {user && (
               <button onClick={() => { onLogout(); setMenuOpen(false); }} style={{
@@ -171,7 +186,15 @@ export default function Navbar({ page, setPage, user, onLogout }: NavbarProps) {
       <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
       <div style={styles.topLinks}>
         <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
-        {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>Messages</button>}
+        {user && <button style={{ position: 'relative', ...(page === 'messages' ? styles.linkActive : styles.link) }} onClick={() => setPage('messages')}>
+          Messages
+          {unreadCount > 0 && <span style={{
+            position: 'absolute', top: -6, right: -14, minWidth: 16, height: 16,
+            borderRadius: 8, background: '#f44336', color: '#fff', fontSize: 10,
+            fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 4px', lineHeight: 1,
+          }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+        </button>}
         {user && <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}>Profile</button>}
         <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
         <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>

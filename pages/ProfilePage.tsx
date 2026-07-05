@@ -19,15 +19,17 @@ function readFileAsDataURL(file: File): Promise<string> {
 
 const s = {
   page: { background: '#0a0a0a', fontFamily: 'system-ui, sans-serif' },
-  wrap: { maxWidth: 600, margin: '0 auto', padding: '24px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 20 },
-  coverWrap: { position: 'relative' as const, width: '100%', height: 180, borderRadius: 14, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
-  coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
+  wrap: { maxWidth: 700, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
+  coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/312' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
+  coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block', position: 'absolute' as const, inset: 0 },
   coverOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', width: '100%', opacity: 0, transition: 'opacity 0.2s' },
-  avatarWrap: { display: 'flex', justifyContent: 'center', marginTop: -52 },
-  avatar: { width: 96, height: 96, borderRadius: '50%', border: '4px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
+  avatarWrap: { display: 'flex', justifyContent: 'center', marginTop: -64 },
+  avatar: { width: 140, height: 140, borderRadius: '50%', border: '5px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   avatarOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0, transition: 'opacity 0.2s' },
-  name: { color: '#fff', fontSize: 20, fontWeight: 700, textAlign: 'center' as const, margin: 0 },
+  nameSection: { padding: '8px 16px 0', textAlign: 'center' as const },
+  name: { color: '#fff', fontSize: 24, fontWeight: 700, margin: 0 },
+  contentArea: { padding: '12px 16px 40px', display: 'flex', flexDirection: 'column' as const, gap: 16 },
   card: { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: 20 },
   cardTitle: { color: '#fff', fontSize: 16, fontWeight: 600, margin: '0 0 16px' },
   label: { color: '#aaa', fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' },
@@ -54,6 +56,10 @@ hoverStyles.textContent = `
   @media (hover: none) {
     .cover-overlay { opacity: 1 !important; }
     .av-overlay { opacity: 0.8 !important; }
+  }
+  @media (max-width: 699px) {
+    .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
+    .profile-avatar-wrap { margin-top: -48px !important; }
   }
 `;
 if (!document.getElementById('profile-hover-styles')) {
@@ -148,15 +154,19 @@ export default function ProfilePage({ onNav, user }: Props) {
         </div>
         <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} style={s.hiddenInput} />
 
-        <div style={s.avatarWrap}>
-          <div className="avatar-circle" style={s.avatar} onClick={() => avatarInputRef.current?.click()}>
+        <div className="profile-avatar-wrap" style={s.avatarWrap}>
+          <div className="avatar-circle profile-avatar" style={s.avatar} onClick={() => avatarInputRef.current?.click()}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
             <span className="av-overlay" style={s.avatarOverlay}>{uploadingAvatar ? '...' : 'Edit'}</span>
           </div>
         </div>
         <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
 
-        <h1 style={s.name}>{displayName}</h1>
+        <div style={s.nameSection}>
+          <h1 style={s.name}>{displayName}</h1>
+        </div>
+
+        <div style={s.contentArea}>
 
         <div style={s.card}>
           <h2 style={s.cardTitle}>About</h2>
@@ -203,6 +213,7 @@ export default function ProfilePage({ onNav, user }: Props) {
           {recent.length > 0 && (
             <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={() => { localStorage.removeItem('recent_live'); setRecent([]); }}>Clear history</p>
           )}
+        </div>
         </div>
       </div>
     </div>

@@ -20,6 +20,7 @@ async function supabaseFetch(url: string, opts: RequestInit) {
 export interface SupabaseUser {
   id: string;
   email?: string;
+  exp?: number;
 }
 
 type Listener = (user: SupabaseUser | null) => void;
@@ -47,7 +48,7 @@ function parseJwt(token: string): SupabaseUser | null {
   try {
     const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(base64));
-    return { id: payload.sub, email: payload.email };
+    return { id: payload.sub, email: payload.email, exp: payload.exp };
   } catch { return null; }
 }
 
@@ -174,15 +175,18 @@ export function signInWithGitHub() {
 }
 
 export function getSession(): SupabaseUser | null {
-  const token = getStoredSession();
-  if (!token) return null;
-  const user = parseJwt(token);
-  const exp = JSON.parse(atob(token.split('.')[1])).exp;
-  if (Date.now() >= exp * 1000) {
-    setStoredSession(null);
-    return null;
-  }
-  return user;
+  try {
+    const token = getStoredSession();
+    if (!token) return null;
+    const user = parseJwt(token);
+    if (!user) return null;
+    const exp = user.exp || 0;
+    if (Date.now() >= exp * 1000) {
+      setStoredSession(null);
+      return null;
+    }
+    return user;
+  } catch { return null; }
 }
 
 export function onAuthChange(fn: Listener) {

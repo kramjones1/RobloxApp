@@ -34,6 +34,12 @@ function setStoredSession(token: string | null) {
   try { if (token) localStorage.setItem('supa_session', token); else localStorage.removeItem('supa_session'); } catch {}
 }
 
+export function setSessionToken(token: string | null) {
+  setStoredSession(token);
+  if (token) notify(parseJwt(token));
+  else notify(null);
+}
+
 function parseJwt(token: string): SupabaseUser | null {
   try {
     const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -84,6 +90,22 @@ export async function resetPassword(email: string): Promise<{ error?: string }> 
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ email }),
+    });
+    if (data.error) return { error: data.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Network error' };
+  }
+}
+
+export async function updatePassword(newPassword: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/user`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ password: newPassword }),
     });
     if (data.error) return { error: data.error };
     return {};

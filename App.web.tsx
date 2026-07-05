@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, getSession, onAuthChange, getChatProfile } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -30,6 +30,9 @@ export default function WebApp() {
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordUpdated, setPasswordUpdated] = useState(false);
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -54,6 +57,16 @@ export default function WebApp() {
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
   useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') && hash.includes('access_token=')) {
+      const params = new URLSearchParams(hash.slice(1));
+      const token = params.get('access_token');
+      if (token) {
+        setSessionToken(token);
+        window.location.hash = '';
+        setRecoveryMode(true);
+      }
+    }
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
@@ -95,6 +108,17 @@ export default function WebApp() {
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setForgotSent(true);
+  }
+
+  async function handlePasswordReset(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthMsg('');
+    if (newPassword.length < 6) { setAuthMsg('Password must be at least 6 characters'); return; }
+    setSubmitting(true);
+    const { error } = await updatePassword(newPassword);
+    setSubmitting(false);
+    if (error) setAuthMsg(error);
+    else setPasswordUpdated(true);
   }
 
   async function handleLogout() {
@@ -309,6 +333,34 @@ export default function WebApp() {
     fontFamily: 'system-ui, sans-serif', width: '100%',
     boxShadow: '0 4px 20px rgba(108,99,255,0.3)',
   };
+
+  if (recoveryMode) {
+    return (
+      <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+        {passwordUpdated ? (
+          <>
+            <p style={{ color: '#4caf50', fontSize: 16, marginBottom: 16, textAlign: 'center' }}>Password updated successfully!</p>
+            <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16 }}>
+              Your password has been changed. You can now sign in with your new password.
+            </p>
+            <button onClick={() => { setRecoveryMode(false); setPasswordUpdated(false); setNewPassword(''); signOut(); }} style={mobileBtn}>
+              Go to Sign In
+            </button>
+          </>
+        ) : (
+          <>
+            <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>Set a new password</p>
+            <form onSubmit={handlePasswordReset} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
+              <input style={input} type="password" placeholder="New password (min 6 chars)" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} />
+              <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Updating...' : 'Update Password'}</button>
+            </form>
+            {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
+          </>
+        )}
+      </div>
+    );
+  }
 
   if (authLoading) {
     return (

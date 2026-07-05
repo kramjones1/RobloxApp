@@ -73,9 +73,15 @@ export default function WebApp() {
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
-  function handleNav(p: string) {
+  async function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
-    if (p === 'messages') { markAllMessagesRead(); setUnreadCount(0); }
+    if (p === 'messages') {
+      setUnreadCount(0);
+      await markAllMessagesRead();
+      getConversations().then(({ conversations }) => {
+        if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0));
+      });
+    }
     setPage(p);
   }
 

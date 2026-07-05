@@ -320,19 +320,21 @@ export async function getMessages(partnerId: string): Promise<{ messages?: ChatM
 
 export async function markAllMessagesRead(): Promise<void> {
   const token = getStoredSession();
-  if (!token) return;
+  if (!token) { console.log('markAllMessagesRead: no token'); return; }
   const user = parseJwt(token);
-  if (!user) return;
+  if (!user) { console.log('markAllMessagesRead: no user'); return; }
   try {
-    await supabaseFetch(
+    const res = await supabaseFetch(
       `${SUPABASE_URL}/rest/v1/chat_messages?receiver_id.eq.${user.id}&read.eq.false`,
       {
         method: 'PATCH',
-        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
         body: JSON.stringify({ read: true }),
       }
     );
-  } catch {}
+    if (res?.error) console.log('markAllMessagesRead error:', res.error);
+    else console.log('markAllMessagesRead success for user', user.id);
+  } catch (e) { console.log('markAllMessagesRead catch:', e); }
 }
 
 export async function markMessagesRead(partnerId: string): Promise<void> {

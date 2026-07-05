@@ -150,7 +150,7 @@ export default function WebApp() {
       const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true });
       setSubmitting(false);
       if (error) setAuthMsg(error);
-      else setOnboardingStep(null);
+      else { setOnboardingStep(null); setPage('profile'); }
     }
   }
 

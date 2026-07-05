@@ -819,11 +819,9 @@ export default function WebApp() {
           )}
 
           {page === 'messages' && (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
-              <div style={{ flex: 1, overflow: 'hidden' }}>
-                <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
-              </div>
+              <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
               <Footer setPage={setPage} />
             </div>
           )}

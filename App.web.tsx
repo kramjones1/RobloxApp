@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub } from './supabaseClient';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -610,6 +610,7 @@ export default function WebApp() {
               onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
               onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
               onGoogleSignIn={() => signInWithGoogle()}
+              onGitHubSignIn={() => signInWithGitHub()}
               phoneStep={phoneStep}
               phone={phone}
               onPhoneChange={setPhone}

@@ -168,6 +168,11 @@ export function signInWithGoogle() {
   window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
 }
 
+export function signInWithGitHub() {
+  const redirectTo = window.location.origin;
+  window.location.href = `${SUPABASE_URL}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
+}
+
 export function getSession(): SupabaseUser | null {
   const token = getStoredSession();
   if (!token) return null;

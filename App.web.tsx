@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -367,21 +367,37 @@ export default function WebApp() {
     addLog('Report sent. Thank you.');
   }
 
-  function cleanup() {
+  async function cleanup() {
     console.log('cleanup: partnerProfile=', partnerProfile, 'partnerId=', partnerId);
-    if (partnerProfile?.userId) {
+    const pUserId = partnerProfile?.userId;
+    let pName = partnerProfile?.name || '';
+    let pBio = partnerProfile?.bio || '';
+    let pAvatar = partnerProfile?.avatar || '';
+    const uid = pUserId;
+    const savedName = pName;
+
+    // Critical teardown first (sync)
+    lsRef.current?.getTracks().forEach((t: any) => t.stop());
+    lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
+    setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); setPartnerId('');
+
+    // Save to recent_live with profile fallback if name is missing
+    if (uid && !savedName) {
+      try {
+        const { profile } = await getUserProfile(uid);
+        if (profile) { pName = profile.display_name || ''; pBio = profile.bio || ''; pAvatar = profile.avatar_url || ''; }
+      } catch {}
+    }
+    if (uid) {
       try {
         const recent = JSON.parse(localStorage.getItem('recent_live') || '[]');
-        recent.unshift({ id: partnerProfile.userId, name: partnerProfile.name, bio: partnerProfile.bio, avatar: partnerProfile.avatar, time: Date.now() });
+        recent.unshift({ id: uid, name: pName, bio: pBio, avatar: pAvatar, time: Date.now() });
         localStorage.setItem('recent_live', JSON.stringify(recent.slice(0, 20)));
-        console.log('cleanup: saved to recent_live', partnerProfile.userId);
+        console.log('cleanup: saved to recent_live', uid);
       } catch (e) { console.log('cleanup: error saving', e); }
     } else {
       console.log('cleanup: no userId, not saving. partnerProfile=', partnerProfile);
     }
-    lsRef.current?.getTracks().forEach((t: any) => t.stop());
-    lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
-    setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); setPartnerId('');
   }
 
   function skip() { cleanup(); setPartnerId(''); wsRef.current?.send(JSON.stringify({ type: 'next' })); }

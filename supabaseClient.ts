@@ -205,6 +205,25 @@ export interface ChatProfile {
   share_bio: boolean;
 }
 
+export async function getUserProfile(userId: string): Promise<{ profile?: ChatProfile; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const data = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${userId}&select=*`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (data.error) return { error: data.error };
+    if (Array.isArray(data) && data.length > 0) {
+      const p = data[0];
+      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio } };
+    }
+    return { profile: { display_name: '', bio: '', avatar_url: '', cover_url: '', share_name: false, share_bio: false } };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
 export async function getChatProfile(): Promise<{ profile?: ChatProfile; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };

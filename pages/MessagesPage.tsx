@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getConversations, getMessages, sendMessage, markMessagesRead, ChatMessage, SUPABASE_URL, SUPABASE_ANON_KEY } from '../supabaseClient';
+import { getConversations, getMessages, sendMessage, markMessagesRead, getUserProfile, ChatMessage } from '../supabaseClient';
 
 const btn = {
   background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none',
@@ -19,30 +19,28 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [partnerNames, setPartnerNames] = useState<Record<string, string>>({});
+  const [partnerInfo, setPartnerInfo] = useState<Record<string, { name: string; avatar: string }>>({});
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const myId = user?.id;
 
-  function fetchName(uid: string) {
-    if (partnerNames[uid]) return;
-    fetch(`${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${uid}&select=display_name`, {
-      headers: { 'apikey': SUPABASE_ANON_KEY },
-    }).then(r => r.json()).then((d: any) => {
-      if (d?.[0]?.display_name) setPartnerNames(p => ({ ...p, [uid]: d[0].display_name }));
-    }).catch(() => {});
+  function fetchProfile(uid: string) {
+    if (partnerInfo[uid]) return;
+    getUserProfile(uid).then(({ profile }) => {
+      if (profile) setPartnerInfo(p => ({ ...p, [uid]: { name: profile.display_name || '', avatar: profile.avatar_url || '' } }));
+    });
   }
 
   function loadConvs() {
     getConversations().then(({ conversations: c }) => {
-      if (c) { setConversations(c); c.forEach(conv => fetchName(conv.partnerId)); }
+      if (c) { setConversations(c); c.forEach(conv => fetchProfile(conv.partnerId)); }
       setLoading(false);
     });
   }
 
   useEffect(() => {
     loadConvs();
-    if (messagePartner) fetchName(messagePartner);
+    if (messagePartner) fetchProfile(messagePartner);
     const iv = setInterval(loadConvs, 3000);
     return () => clearInterval(iv);
   }, []);
@@ -50,7 +48,7 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
   useEffect(() => {
     if (!selectedId) return;
     markMessagesRead(selectedId);
-    fetchName(selectedId);
+    fetchProfile(selectedId);
     getMessages(selectedId).then(({ messages: msgs }) => { if (msgs) setMessages(msgs); });
     const iv = setInterval(() => {
       getMessages(selectedId).then(({ messages: msgs }) => { if (msgs) setMessages(msgs); });
@@ -79,35 +77,65 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
     markMessagesRead(partnerId);
   }
 
+  function Avatar({ uid, size = 34 }: { uid: string; size?: number }) {
+    const info = partnerInfo[uid];
+    if (info?.avatar) {
+      return <img src={info.avatar} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />;
+    }
+    return (
+      <div style={{ width: size, height: size, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: size * 0.42, fontWeight: 600, flexShrink: 0 }}>
+        {(info?.name || 'U')[0].toUpperCase()}
+      </div>
+    );
+  }
+
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 700;
 
   if (loading) return <div style={{ background: '#161616', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
+
+  function renderMessages(withAvatars: boolean) {
+    return messages.map((m, i) => {
+      const isMe = m.sender_id === myId;
+      const showAvatar = withAvatars && !isMe && (i === 0 || messages[i - 1]?.sender_id !== m.sender_id);
+      const isFirstBySender = i === 0 || messages[i - 1]?.sender_id !== m.sender_id;
+      return (
+        <div key={m.id} style={{
+          alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: withAvatars && !isMe ? '85%' : '80%',
+          display: 'flex', alignItems: 'flex-end', gap: 6, flexDirection: isMe ? 'row-reverse' : 'row',
+        }}>
+          {!isMe && withAvatars && (
+            <div style={{ width: 28, flexShrink: 0, visibility: showAvatar ? 'visible' : 'hidden' }}>
+              {showAvatar ? <Avatar uid={m.sender_id} size={28} /> : <div style={{ width: 28 }} />}
+            </div>
+          )}
+          <div>
+            <div style={{
+              background: isMe ? '#6c63ff' : '#1f1f1f',
+              padding: '8px 12px',
+              borderRadius: isMe ? '14px 14px 4px 14px' : isFirstBySender ? '14px 14px 14px 4px' : '4px 14px 14px 4px',
+              color: '#fff', fontSize: 14, wordBreak: 'break-word', lineHeight: 1.4,
+            }}>
+              {m.content}
+            </div>
+            <div style={{ fontSize: 10, color: '#555', marginTop: 2, textAlign: isMe ? 'right' : 'left' }}>
+              {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </div>
+          </div>
+        </div>
+      );
+    });
+  }
 
   if (selectedId && isMobile) {
     return (
       <div style={{ background: '#161616', minHeight: '100vh', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
-            {(partnerNames[selectedId] || 'U')[0].toUpperCase()}
-          </div>
-          <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerNames[selectedId] || 'User'}</span>
+          <Avatar uid={selectedId} size={34} />
+          <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
         </div>
         <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {messages.map(m => (
-            <div key={m.id} style={{ alignSelf: m.sender_id === myId ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
-              <div style={{
-                background: m.sender_id === myId ? '#6c63ff' : '#1f1f1f',
-                padding: '8px 12px', borderRadius: m.sender_id === myId ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                color: '#fff', fontSize: 14, wordBreak: 'break-word', lineHeight: 1.4,
-              }}>
-                {m.content}
-              </div>
-              <div style={{ fontSize: 10, color: '#555', marginTop: 2, textAlign: m.sender_id === myId ? 'right' : 'left' }}>
-                {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
-            </div>
-          ))}
+          {renderMessages(true)}
           <div ref={bottomRef} />
         </div>
         <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 14px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
@@ -140,13 +168,13 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
                 border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)',
                 cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%',
               }}>
-                <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 17, fontWeight: 600, flexShrink: 0, position: 'relative' }}>
-                  {(partnerNames[conv.partnerId] || 'U')[0].toUpperCase()}
+                <div style={{ position: 'relative' }}>
+                  <Avatar uid={conv.partnerId} size={44} />
                   {conv.unread > 0 && <span style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: '#6c63ff', border: '2px solid #161616' }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                    <span style={{ color: '#fff', fontSize: 14, fontWeight: conv.unread > 0 ? 700 : 500 }}>{partnerNames[conv.partnerId] || 'User'}</span>
+                    <span style={{ color: '#fff', fontSize: 14, fontWeight: conv.unread > 0 ? 700 : 500 }}>{partnerInfo[conv.partnerId]?.name || 'User'}</span>
                     <span style={{ color: '#666', fontSize: 11 }}>{new Date(conv.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <span style={{ color: conv.unread > 0 ? '#ccc' : '#888', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', fontWeight: conv.unread > 0 ? 600 : 400 }}>
@@ -162,26 +190,41 @@ export default function MessagesPage({ onNav, user, messagePartner }: { onNav: (
         {selectedId && !isMobile && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
-              <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 14, fontWeight: 600, flexShrink: 0 }}>
-                {(partnerNames[selectedId] || 'U')[0].toUpperCase()}
-              </div>
-              <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerNames[selectedId] || 'User'}</span>
+              <Avatar uid={selectedId} size={34} />
+              <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {messages.map(m => (
-                <div key={m.id} style={{ alignSelf: m.sender_id === myId ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
-                  <div style={{
-                    background: m.sender_id === myId ? '#6c63ff' : '#1f1f1f',
-                    padding: '8px 12px', borderRadius: m.sender_id === myId ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-                    color: '#fff', fontSize: 14, wordBreak: 'break-word', lineHeight: 1.4,
+              {messages.map((m, i) => {
+                const isMe = m.sender_id === myId;
+                const showAvatar = !isMe && (i === 0 || messages[i - 1]?.sender_id !== m.sender_id);
+                const isFirstBySender = i === 0 || messages[i - 1]?.sender_id !== m.sender_id;
+                return (
+                  <div key={m.id} style={{
+                    alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '70%',
+                    display: 'flex', alignItems: 'flex-end', gap: 6,
+                    flexDirection: isMe ? 'row-reverse' : 'row',
                   }}>
-                    {m.content}
+                    {!isMe && (
+                      <div style={{ width: 28, flexShrink: 0, visibility: showAvatar ? 'visible' : 'hidden' }}>
+                        {showAvatar ? <Avatar uid={m.sender_id} size={28} /> : <div style={{ width: 28 }} />}
+                      </div>
+                    )}
+                    <div>
+                      <div style={{
+                        background: isMe ? '#6c63ff' : '#1f1f1f',
+                        padding: '8px 12px',
+                        borderRadius: isMe ? '14px 14px 4px 14px' : isFirstBySender ? '14px 14px 14px 4px' : '4px 14px 14px 4px',
+                        color: '#fff', fontSize: 14, wordBreak: 'break-word', lineHeight: 1.4,
+                      }}>
+                        {m.content}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#555', marginTop: 2, textAlign: isMe ? 'right' : 'left' }}>
+                        {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 10, color: '#555', marginTop: 2, textAlign: m.sender_id === myId ? 'right' : 'left' }}>
-                    {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <div ref={bottomRef} />
             </div>
             <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>

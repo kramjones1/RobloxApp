@@ -53,6 +53,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     const iv = setInterval(() => {
       markMessagesRead(selectedId);
       getMessages(selectedId).then(({ messages: msgs }) => { if (msgs) setMessages(msgs); });
+      onChatOpened?.();
     }, 2000);
     return () => clearInterval(iv);
   }, [selectedId]);

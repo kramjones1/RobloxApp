@@ -625,14 +625,14 @@ export default function WebApp() {
 
       {/* NON-CHAT PAGES - mutually exclusive groups (same priority as old early returns) */}
       {page === 'privacy' && (
-        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+        <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
           <PrivacyPage />
         </div>
       )}
 
       {page === 'terms' && (
-        <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh' }}>
+        <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
           <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
           <TermsPage />
           <Footer setPage={setPage} />
@@ -780,7 +780,7 @@ export default function WebApp() {
         /* Authenticated user pages */
         <>
           {page === 'profile' && (
-            <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
               <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
               <Footer setPage={setPage} />
@@ -788,7 +788,7 @@ export default function WebApp() {
           )}
 
           {page === 'messages' && (
-            <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
               <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
             </div>

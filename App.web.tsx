@@ -68,6 +68,8 @@ export default function WebApp() {
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
   useEffect(() => {
+    let oauthLogin = false;
+    let oauthSignup = false;
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
@@ -75,14 +77,22 @@ export default function WebApp() {
       const type = params.get('type');
       if (token) {
         setSessionToken(token);
-        window.location.hash = '';
+        history.replaceState(null, '', window.location.pathname + window.location.search);
         if (type === 'recovery') setRecoveryMode(true);
+        else {
+          oauthLogin = true;
+          if (type === 'signup') oauthSignup = true;
+        }
       }
     }
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
     if (u) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
+    if (u && oauthLogin) {
+      if (oauthSignup) setOnboardingStep('name');
+      else setPage('profile');
+    }
     return onAuthChange(u2 => {
       setUser(u2);
       if (u2) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });

@@ -69,6 +69,7 @@ export default function WebApp() {
   const [chatInput, setChatInput] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [partnerLeft, setPartnerLeft] = useState(false);
+  const inCallRef = useRef(false);
 
   function addLog(msg: string) { console.log(msg); setLog(msg); }
 
@@ -233,7 +234,7 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': setPartnerId(msg.partner); console.log('matched: partnerId=', msg.partner, 'userId=', msg.userId); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); setReportSent(false); startCall(ws, msg.role); break;
+        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); console.log('matched: partnerId=', msg.partner, 'userId=', msg.userId); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); setReportSent(false); startCall(ws, msg.role); break;
         case 'partner_left': setPartnerLeft(true); addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
@@ -242,7 +243,7 @@ export default function WebApp() {
       }
     };
     ws.onerror = () => { setWsStatus('error'); addLog('WS error'); };
-    ws.onclose = () => { if (wsStatus === 'connected') { setWsStatus('disconnected'); addLog('Disconnected'); } };
+    ws.onclose = () => { setWsStatus('disconnected'); addLog('Disconnected'); if (inCallRef.current) setPartnerLeft(true); };
   }
 
   async function startCall(ws: WebSocket, role?: string) {
@@ -388,6 +389,7 @@ export default function WebApp() {
     const uid = pUserId;
     const savedName = pName;
 
+    inCallRef.current = false;
     // Critical teardown first (sync)
     lsRef.current?.getTracks().forEach((t: any) => t.stop());
     lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
@@ -685,8 +687,8 @@ export default function WebApp() {
       )}
 
       {!user ? (
-        <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <div className="mobile-auth" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', flexShrink: 0 }}>
+        <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
+          <div className="mobile-auth" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', flexShrink: 0 }}>
             {showForgot ? (
               <>
                 <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
@@ -779,6 +781,7 @@ export default function WebApp() {
               </>
             )}
           </div>
+          <div style={{ flexShrink: 0 }}><Footer setPage={handleNav} /></div>
           <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
@@ -841,12 +844,13 @@ export default function WebApp() {
           )}
 
           {page === 'home' && (
-            <div className="page-content" style={{ width: '100%', background: '#0a0a0a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
               <LandingPage onNav={setPage} onStart={() => {
                 setPage('chat');
                 setTimeout(findStranger, 100);
               }} />
+              <Footer setPage={handleNav} />
             </div>
           )}
         </>

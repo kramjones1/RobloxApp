@@ -689,7 +689,8 @@ export default function WebApp() {
 
       {!user ? (
         <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
-          <div className="mobile-auth" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px', flexShrink: 0 }}>
+          <div className="mobile-auth" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', flexShrink: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             {showForgot ? (
               <>
                 <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
@@ -781,8 +782,9 @@ export default function WebApp() {
                 </p>
               </>
             )}
+            </div>
+            <Footer setPage={handleNav} />
           </div>
-          <div style={{ flexShrink: 0 }}><Footer setPage={handleNav} /></div>
           <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>

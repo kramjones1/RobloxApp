@@ -95,7 +95,7 @@ export default function WebApp() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (password.length < 6) { setAuthMsg('Password must be at least 6 characters'); return; }
+    if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     setSubmitting(true);
     const fn = authMode === 'login' ? signIn : signUp;
     const { error } = await fn(email, password);
@@ -127,7 +127,7 @@ export default function WebApp() {
   async function handlePasswordReset(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (newPassword.length < 6) { setAuthMsg('Password must be at least 6 characters'); return; }
+    if (newPassword.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     setSubmitting(true);
     const { error } = await updatePassword(newPassword);
     setSubmitting(false);
@@ -385,7 +385,7 @@ export default function WebApp() {
           <>
             <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>Set a new password</p>
             <form onSubmit={handlePasswordReset} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
-              <input style={input} type="password" placeholder="New password (min 6 chars)" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={6} />
+              <input style={input} type="password" placeholder="New password (min 8 chars)" value={newPassword} onChange={e => setNewPassword(e.target.value)} required minLength={8} />
               <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Updating...' : 'Update Password'}</button>
             </form>
             {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
@@ -495,7 +495,7 @@ export default function WebApp() {
               <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
               <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
                 <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-                <input style={input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+                <input style={input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
                 <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
               </form>
               {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}

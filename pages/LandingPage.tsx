@@ -186,7 +186,7 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
                     <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
                     <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
-                      <input style={s.input} type="password" placeholder="Password (min 6 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={6} />
+                      <input style={s.input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={8} />
                       <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
                         {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                       </button>

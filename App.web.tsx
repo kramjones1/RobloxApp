@@ -677,6 +677,7 @@ export default function WebApp() {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
           <p style={{ color: '#888', marginBottom: 20 }}>Preview</p>
           <button onClick={findStranger} style={sBtn}>Start Chatting</button>
+          <button onClick={() => setPage('profile')} style={{ ...sBtn, marginTop: 10, background: '#555', boxShadow: 'none' }}>Profile</button>
           {camError && (
             <div style={{ marginTop: 16, padding: '12px 20px', background: 'rgba(244,67,54,0.12)', borderRadius: 10, maxWidth: 320, textAlign: 'center' }}>
               <p style={{ color: '#f44336', fontSize: 13, margin: 0, lineHeight: 1.4 }}>{camError}</p>
@@ -725,6 +726,12 @@ export default function WebApp() {
               boxShadow: 'none', fontSize: 12,
             }}>
               Next →
+            </button>
+            <button onClick={() => setPage('profile')} style={{
+              ...sBtn, width: 'auto', padding: '8px 16px', background: '#6c63ff',
+              boxShadow: 'none', fontSize: 12,
+            }}>
+              Profile
             </button>
             <button onClick={() => { skip(); setPage('home'); }} style={{
               ...sBtn, width: 'auto', padding: '8px 16px', background: '#555',

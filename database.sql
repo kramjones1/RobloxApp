@@ -94,3 +94,34 @@ ALTER TABLE chat_profiles ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "profiles select" ON chat_profiles FOR SELECT TO authenticated USING (true);
 CREATE POLICY "own chat profile insert" ON chat_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "own chat profile update" ON chat_profiles FOR UPDATE USING (auth.uid() = user_id);
+
+-- Persistent inbox messages (auto-cleared after 1 hour)
+CREATE TABLE chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  receiver_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  read BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE INDEX idx_chat_messages_participants ON chat_messages(sender_id, receiver_id);
+CREATE INDEX idx_chat_messages_created_at ON chat_messages(created_at DESC);
+CREATE INDEX idx_chat_messages_unread ON chat_messages(receiver_id, read) WHERE read = false;
+
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "msg select" ON chat_messages FOR SELECT TO authenticated USING (
+  (auth.uid() = sender_id OR auth.uid() = receiver_id)
+  AND created_at > now() - interval '1 hour'
+);
+
+CREATE POLICY "msg insert" ON chat_messages FOR INSERT TO authenticated WITH CHECK (
+  auth.uid() = sender_id
+);
+
+CREATE POLICY "msg update read" ON chat_messages FOR UPDATE TO authenticated USING (
+  auth.uid() = receiver_id
+) WITH CHECK (
+  auth.uid() = receiver_id AND read = true
+);

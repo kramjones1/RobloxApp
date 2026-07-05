@@ -1,5 +1,5 @@
-const SUPABASE_URL = 'https://btkcubibosbtpxcronnd.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0a2N1Ymlib3NidHB4Y3Jvbm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzI1ODAsImV4cCI6MjA5ODYwODU4MH0.IqR7dJbZJm83c_XHz923GQrBWdf5GCaNDYMPg6z8kj0';
+export const SUPABASE_URL = 'https://btkcubibosbtpxcronnd.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0a2N1Ymlib3NidHB4Y3Jvbm5kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMzI1ODAsImV4cCI6MjA5ODYwODU4MH0.IqR7dJbZJm83c_XHz923GQrBWdf5GCaNDYMPg6z8kj0';
 
 async function supabaseFetch(url: string, opts: RequestInit) {
   const res = await fetch(url, opts);
@@ -222,6 +222,96 @@ export async function getChatProfile(): Promise<{ profile?: ChatProfile; error?:
   } catch (e: any) {
     return { error: e.message };
   }
+}
+
+export interface ChatMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  created_at: string;
+  read: boolean;
+}
+
+export async function sendMessage(receiverId: string, content: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  if (!content.trim()) return { error: 'Message is empty' };
+  try {
+    const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_messages`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sender_id: user.id, receiver_id: receiverId, content: content.trim() }),
+    });
+    if (res?.error) return { error: res.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function getConversations(): Promise<{ conversations?: { partnerId: string; lastMessage: ChatMessage; unread: number }[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const res = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_messages?or=(sender_id.eq.${user.id},receiver_id.eq.${user.id})&order=created_at.desc`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (res?.error) return { error: res.error };
+    const messages = res as ChatMessage[];
+    const convMap = new Map<string, { partnerId: string; lastMessage: ChatMessage; unread: number }>();
+    for (const m of messages) {
+      const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
+      if (!convMap.has(otherId)) {
+        convMap.set(otherId, { partnerId: otherId, lastMessage: m, unread: 0 });
+      }
+      if (!m.read && m.sender_id !== user.id) {
+        convMap.get(otherId)!.unread++;
+      }
+    }
+    return { conversations: Array.from(convMap.values()) };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function getMessages(partnerId: string): Promise<{ messages?: ChatMessage[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const res = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_messages?sender_id=in.(${user.id},${partnerId})&receiver_id=in.(${user.id},${partnerId})&order=created_at.asc`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (res?.error) return { error: res.error };
+    return { messages: res as ChatMessage[] };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}
+
+export async function markMessagesRead(partnerId: string): Promise<void> {
+  const token = getStoredSession();
+  if (!token) return;
+  const user = parseJwt(token);
+  if (!user) return;
+  try {
+    await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_messages?receiver_id.eq.${user.id}&sender_id.eq.${partnerId}&read.eq.false`,
+      {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ read: true }),
+      }
+    );
+  } catch {}
 }
 
 export async function upsertChatProfile(profile: ChatProfile): Promise<{ error?: string }> {

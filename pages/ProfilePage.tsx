@@ -6,6 +6,7 @@ type Page = 'profile' | 'terms' | 'privacy' | 'home';
 interface Props {
   onNav: (p: Page) => void;
   user: any;
+  onMessage?: (userId: string) => void;
 }
 
 function readFileAsDataURL(file: File): Promise<string> {
@@ -68,7 +69,7 @@ if (!document.getElementById('profile-hover-styles')) {
   document.head.appendChild(hoverStyles);
 }
 
-export default function ProfilePage({ onNav, user }: Props) {
+export default function ProfilePage({ onNav, user, onMessage }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
   const [bio, setBio] = useState('');
   const [shareName, setShareName] = useState(false);
@@ -204,11 +205,14 @@ export default function ProfilePage({ onNav, user }: Props) {
           ) : recent.map((r, i) => (
             <div key={i} style={s.friendCard}>
               {r.avatar ? <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>}
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={s.friendName}>{r.name || 'Unknown'}</p>
                 <p style={s.friendBio}>{r.bio || ''}</p>
                 <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
               </div>
+              {onMessage && r.id && (
+                <button onClick={() => onMessage(r.id)} style={{ background: 'rgba(108,99,255,0.15)', color: '#6c63ff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Message</button>
+              )}
             </div>
           ))}
           {recent.length > 0 && (

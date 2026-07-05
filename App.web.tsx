@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub } from './supabaseClient';
+import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -35,6 +36,7 @@ export default function WebApp() {
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'name' | 'bio' | null>(null);
+  const [messagePartner, setMessagePartner] = useState('');
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
   const [phoneStep, setPhoneStep] = useState(false);
@@ -500,8 +502,17 @@ export default function WebApp() {
     return (
       <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
         <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
-        <ProfilePage onNav={setPage as any} user={user} />
+        <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} />
         <Footer setPage={setPage} />
+      </div>
+    );
+  }
+
+  if (page === 'messages') {
+    return (
+      <div className="page-content" style={{ width: '100%', background: '#0a0a0a', minHeight: '100vh', overflowY: 'auto' as const }}>
+        <Navbar page={page} setPage={setPage} user={user} onLogout={handleLogout} />
+        <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} />
       </div>
     );
   }

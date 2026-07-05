@@ -209,18 +209,6 @@ export default function LandingPage({ onStart, authMode, authMsg, submitting, em
       </section>
 
       <p style={s.credit}>© 2026 Anito MJI</p>
-
-      <section style={{ ...s.section, ...s.about }}>
-        <div style={s.aboutContent}>
-          <h2 style={s.aboutTitle}>About LiveMe</h2>
-          <p style={s.aboutText}>
-            LiveMe is a free, anonymous video chat platform that connects you with random people from around the world.
-            Our mission is to break down barriers and bring people together through spontaneous face-to-face conversations.
-            Whether you want to make new friends, practice a language, or just have fun, LiveMe provides a safe and
-            welcoming space for genuine human connection. No sign-ups, no tracking — just real conversations.
-          </p>
-        </div>
-      </section>
     </>
   );
 }

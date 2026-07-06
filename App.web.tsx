@@ -122,7 +122,7 @@ export default function WebApp() {
       else {
         const u2 = getSession();
         setUser(u2);
-        if (u2?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
+        if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); }); }
         if (oauthType === 'signup') setOnboardingStep('name');
         else setPage('profile');
       }
@@ -130,14 +130,15 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); });
-      else setMyProfile(null);
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); }); }
+      else { setAdmin(false); setMyProfile(null); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
   }, []);
 
   useEffect(() => {
-    if (!user) { setUnreadCount(0); return; }
+    if (!user) { setAdmin(false); setUnreadCount(0); return; }
+    isAdmin().then(setAdmin);
     function pollUnread() {
       getConversations().then(({ conversations }) => {
         if (conversations) {

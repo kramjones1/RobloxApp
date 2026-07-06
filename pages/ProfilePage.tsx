@@ -290,14 +290,16 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           {recent.length > 0 && (
             <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={async () => { await clearRecentLive(); setRecent([]); }}>Clear history</p>
           )}
-          <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 8, textAlign: 'center' }} onClick={async () => {
-            const { data, error } = await getAllMessagesForDownload();
-            if (error || !data) return;
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url; a.download = 'my_messages.json'; a.click();
-            URL.revokeObjectURL(url);
-          }}>Download Messages</p>
+          {!isViewingOther && (
+            <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 8, textAlign: 'center' }} onClick={async () => {
+              const { data, error } = await getAllMessagesForDownload();
+              if (error || !data) return;
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = 'my_messages.json'; a.click();
+              URL.revokeObjectURL(url);
+            }}>Download Messages</p>
+          )}
         </div>
         </div>
       </div>

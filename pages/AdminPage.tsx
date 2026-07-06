@@ -39,10 +39,10 @@ export default function AdminPage() {
 
   useEffect(() => { if (tab === 'dashboard') loadStats(); if (tab === 'bans') loadBans(); if (tab === 'reports') loadReports(); if (tab === 'logs') loadLogs(); }, [tab]);
 
-  async function loadStats() { setLoading(true); const r = await getAdminStats(); if (r.stats) setStats(r.stats); setLoading(false); }
-  async function loadBans() { setLoading(true); const r = await adminGetBannedUsers(); if (r.users) setBannedUsers(r.users); setLoading(false); }
-  async function loadReports() { setLoading(true); const r = await adminGetReportedMessages(); if (r.reports) setReports(r.reports); setLoading(false); }
-  async function loadLogs() { setLoading(true); const r = await adminGetLogs(); if (r.logs) setLogs(r.logs); setLoading(false); }
+  async function loadStats() { setLoading(true); const r = await getAdminStats(); console.log('admin stats:', r); if (r.stats) setStats(r.stats); setLoading(false); }
+  async function loadBans() { setLoading(true); const r = await adminGetBannedUsers(); console.log('admin bans:', r); if (r.users) setBannedUsers(r.users); setLoading(false); }
+  async function loadReports() { setLoading(true); const r = await adminGetReportedMessages(); console.log('admin reports:', r); if (r.reports) setReports(r.reports); setLoading(false); }
+  async function loadLogs() { setLoading(true); const r = await adminGetLogs(); console.log('admin logs:', r); if (r.logs) setLogs(r.logs); setLoading(false); }
 
   async function doSearch() {
     if (!search.trim()) return;

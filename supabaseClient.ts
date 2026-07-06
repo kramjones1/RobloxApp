@@ -486,7 +486,7 @@ function rpcToken() {
 async function adminRpc(fn: string, body?: any) {
   const headers = rpcToken();
   if (!headers) return { error: 'Not authenticated' };
-  return supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: body ? JSON.stringify(body) : undefined });
+  return supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body ?? {}) });
 }
 
 export async function getAdminStats(): Promise<{ stats?: any; error?: string }> {

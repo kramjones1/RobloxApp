@@ -476,3 +476,137 @@ export async function getAllProfiles(): Promise<{ profiles?: any[]; error?: stri
     return { error: e.message };
   }
 }
+
+function rpcToken() {
+  const token = getStoredSession();
+  if (!token) return null;
+  return { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+async function adminRpc(fn: string, body?: any) {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  return supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: body ? JSON.stringify(body) : undefined });
+}
+
+export async function getAdminStats(): Promise<{ stats?: any; error?: string }> {
+  const res = await adminRpc('get_admin_stats');
+  if (res?.error) return { error: res.error };
+  return { stats: res };
+}
+
+export async function adminSearchUsers(term: string): Promise<{ users?: any[]; error?: string }> {
+  const res = await adminRpc('search_users', { search_term: term });
+  if (res?.error) return { error: res.error };
+  return { users: Array.isArray(res) ? res : [] };
+}
+
+export async function adminGetUserMessages(userId: string): Promise<{ messages?: any[]; error?: string }> {
+  const res = await adminRpc('get_user_messages', { target_user_id: userId });
+  if (res?.error) return { error: res.error };
+  return { messages: Array.isArray(res) ? res : [] };
+}
+
+export async function adminFlagUser(userId: string, reason: string): Promise<{ error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${userId}`,
+    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ flagged: true, flag_reason: reason }) }
+  );
+  if (res?.error) return { error: res.error };
+  await adminLog('flag_user', userId, reason);
+  return {};
+}
+
+export async function adminUnflagUser(userId: string): Promise<{ error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${userId}`,
+    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ flagged: false, flag_reason: '' }) }
+  );
+  if (res?.error) return { error: res.error };
+  await adminLog('unflag_user', userId, '');
+  return {};
+}
+
+export async function adminBanUser(userId: string, reason: string): Promise<{ error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const u = parseJwt(headers.Authorization.replace('Bearer ', ''));
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/banned_users`,
+    { method: 'POST', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ user_id: userId, reason, banned_by: u!.id }) }
+  );
+  if (res?.error) return { error: res.error };
+  await adminLog('ban_user', userId, reason);
+  return {};
+}
+
+export async function adminUnbanUser(userId: string): Promise<{ error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/banned_users?user_id=eq.${userId}`,
+    { method: 'DELETE', headers: { ...headers } }
+  );
+  if (res?.error) return { error: res.error };
+  await adminLog('unban_user', userId, '');
+  return {};
+}
+
+export async function adminGetBannedUsers(): Promise<{ users?: any[]; error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/banned_users?order=created_at.desc`,
+    { headers }
+  );
+  if (res?.error) return { error: res.error };
+  return { users: Array.isArray(res) ? res : [] };
+}
+
+export async function adminGetReportedMessages(): Promise<{ reports?: any[]; error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/reported_messages?dismissed=eq.false&order=created_at.desc`,
+    { headers }
+  );
+  if (res?.error) return { error: res.error };
+  return { reports: Array.isArray(res) ? res : [] };
+}
+
+export async function adminDismissReport(reportId: string): Promise<{ error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/reported_messages?id=eq.${reportId}`,
+    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ dismissed: true }) }
+  );
+  if (res?.error) return { error: res.error };
+  return {};
+}
+
+export async function adminGetLogs(): Promise<{ logs?: any[]; error?: string }> {
+  const headers = rpcToken();
+  if (!headers) return { error: 'Not authenticated' };
+  const res = await supabaseFetch(
+    `${SUPABASE_URL}/rest/v1/action_logs?order=created_at.desc&limit=100`,
+    { headers }
+  );
+  if (res?.error) return { error: res.error };
+  return { logs: Array.isArray(res) ? res : [] };
+}
+
+async function adminLog(action: string, targetId: string, details: string) {
+  const headers = rpcToken();
+  if (!headers) return;
+  const u = parseJwt(headers.Authorization.replace('Bearer ', ''));
+  if (!u) return;
+  await supabaseFetch(`${SUPABASE_URL}/rest/v1/action_logs`, {
+    method: 'POST', headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ admin_id: u.id, action, target_id: targetId, details }),
+  });
+}

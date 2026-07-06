@@ -62,6 +62,7 @@ export default function WebApp() {
   const lsRef = useRef<any>(null);
   const wsRef = useRef<WebSocket>(null);
   const dcRef = useRef<any>(null);
+  const roomRef = useRef('');
   const phoneCodeRef = useRef('');
   const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
   const [showChat, setShowChat] = useState(false);
@@ -258,10 +259,11 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); console.log('matched: partnerId=', msg.partner, 'userId=', msg.userId); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); setReportSent(false); startCall(ws, msg.role); break;
+        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); console.log('matched: partnerId=', msg.partner, 'userId=', msg.userId, 'room=', msg.room); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); startCall(ws, msg.role); break;
         case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
+        case 'banned': addLog('BANNED: ' + msg.reason); alert('Your account has been suspended: ' + msg.reason); setId(''); break;
         case 'sdp': handleSDP(ws, msg); break;
         case 'ice': handleICE(msg); break;
       }
@@ -399,7 +401,8 @@ export default function WebApp() {
 
   function reportUser() {
     if (!partnerId || reportSent) return;
-    wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId }));
+    const lastMsg = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].text : '';
+    wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
     setReportSent(true);
     addLog('Report sent. Thank you.');
   }

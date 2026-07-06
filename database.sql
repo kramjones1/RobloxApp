@@ -95,6 +95,68 @@ CREATE POLICY "profiles select" ON chat_profiles FOR SELECT TO authenticated USI
 CREATE POLICY "own chat profile insert" ON chat_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "own chat profile update" ON chat_profiles FOR UPDATE USING (auth.uid() = user_id);
 
+ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS flagged BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS flag_reason TEXT NOT NULL DEFAULT '';
+
+CREATE POLICY "admin update chat profiles" ON chat_profiles FOR UPDATE TO authenticated USING (
+  EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
+);
+
+-- Banned users (checked on every find)
+CREATE TABLE banned_users (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  reason TEXT NOT NULL DEFAULT '',
+  banned_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE banned_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "admins banned_users" ON banned_users FOR ALL TO authenticated USING (
+  EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
+);
+
+-- Action logs for admin accountability
+CREATE TABLE action_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  target_id UUID,
+  details TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_action_logs_admin ON action_logs(admin_id, created_at DESC);
+
+ALTER TABLE action_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "admins action_logs" ON action_logs FOR SELECT TO authenticated USING (
+  EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
+);
+CREATE POLICY "admins action_logs insert" ON action_logs FOR INSERT TO authenticated WITH CHECK (
+  EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
+);
+
+-- Reported messages from live calls
+CREATE TABLE reported_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  reported_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  message_text TEXT NOT NULL,
+  call_session_id TEXT NOT NULL DEFAULT '',
+  dismissed BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_reported_messages_undismissed ON reported_messages(dismissed, created_at DESC);
+
+ALTER TABLE reported_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "insert own reports" ON reported_messages FOR INSERT TO authenticated WITH CHECK (auth.uid() = reporter_id);
+CREATE POLICY "admins view reports" ON reported_messages FOR SELECT TO authenticated USING (
+  EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
+);
+CREATE POLICY "admins update reports" ON reported_messages FOR UPDATE TO authenticated USING (
+  EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
+);
+
 -- Persistent inbox messages (auto-cleared after 1 hour)
 CREATE TABLE chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -200,5 +262,89 @@ BEGIN
     WHERE m.sender_id = auth.uid() OR m.receiver_id = auth.uid();
     RETURN COALESCE(result, '[]'::json);
   END IF;
+END;
+$$;
+
+-- Admin: get dashboard stats
+CREATE OR REPLACE FUNCTION get_admin_stats()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result JSON;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()) THEN
+    RETURN '{"error":"unauthorized"}'::json;
+  END IF;
+  SELECT json_build_object(
+    'total_users', (SELECT count(*) FROM chat_profiles),
+    'total_messages', (SELECT count(*) FROM chat_messages),
+    'messages_today', (SELECT count(*) FROM chat_messages WHERE created_at > now() - interval '24 hours'),
+    'flagged_users', (SELECT count(*) FROM chat_profiles WHERE flagged = true),
+    'banned_users', (SELECT count(*) FROM banned_users),
+    'pending_reports', (SELECT count(*) FROM reported_messages WHERE dismissed = false)
+  ) INTO result;
+  RETURN result;
+END;
+$$;
+
+-- Admin: search users by name or id
+CREATE OR REPLACE FUNCTION search_users(search_term TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result JSON;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()) THEN
+    RETURN '{"error":"unauthorized"}'::json;
+  END IF;
+  SELECT json_agg(json_build_object(
+    'user_id', cp.user_id,
+    'display_name', cp.display_name,
+    'bio', cp.bio,
+    'avatar_url', cp.avatar_url,
+    'flagged', cp.flagged,
+    'flag_reason', cp.flag_reason,
+    'updated_at', cp.updated_at
+  ) ORDER BY cp.updated_at DESC)
+  INTO result
+  FROM chat_profiles cp
+  WHERE cp.display_name ILIKE '%' || search_term || '%' OR cp.user_id::text ILIKE '%' || search_term || '%';
+  RETURN COALESCE(result, '[]'::json);
+END;
+$$;
+
+-- Admin: get messages for a specific user
+CREATE OR REPLACE FUNCTION get_user_messages(target_user_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result JSON;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()) THEN
+    RETURN '{"error":"unauthorized"}'::json;
+  END IF;
+  SELECT json_agg(json_build_object(
+    'id', m.id,
+    'sender_id', m.sender_id,
+    'receiver_id', m.receiver_id,
+    'content', m.content,
+    'created_at', m.created_at,
+    'read', m.read,
+    'sender_name', (SELECT display_name FROM chat_profiles WHERE user_id = m.sender_id),
+    'receiver_name', (SELECT display_name FROM chat_profiles WHERE user_id = m.receiver_id)
+  ) ORDER BY m.created_at DESC)
+  INTO result
+  FROM chat_messages m
+  WHERE m.sender_id = target_user_id OR m.receiver_id = target_user_id;
+  RETURN COALESCE(result, '[]'::json);
 END;
 $$;

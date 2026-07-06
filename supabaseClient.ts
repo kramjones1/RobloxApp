@@ -427,3 +427,20 @@ export async function clearRecentLive(): Promise<{ error?: string }> {
     return { error: e.message };
   }
 }
+
+export async function getAllMessagesForDownload(): Promise<{ data?: any[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const res = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/rpc/get_my_all_messages`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (res?.error) return { error: res.error };
+    return { data: Array.isArray(res) ? res : [] };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}

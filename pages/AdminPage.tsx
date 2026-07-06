@@ -37,12 +37,14 @@ export default function AdminPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const [error, setError] = useState('');
+
   useEffect(() => { if (tab === 'dashboard') loadStats(); if (tab === 'bans') loadBans(); if (tab === 'reports') loadReports(); if (tab === 'logs') loadLogs(); }, [tab]);
 
-  async function loadStats() { setLoading(true); const r = await getAdminStats(); console.log('admin stats:', r); if (r.stats) setStats(r.stats); setLoading(false); }
-  async function loadBans() { setLoading(true); const r = await adminGetBannedUsers(); console.log('admin bans:', r); if (r.users) setBannedUsers(r.users); setLoading(false); }
-  async function loadReports() { setLoading(true); const r = await adminGetReportedMessages(); console.log('admin reports:', r); if (r.reports) setReports(r.reports); setLoading(false); }
-  async function loadLogs() { setLoading(true); const r = await adminGetLogs(); console.log('admin logs:', r); if (r.logs) setLogs(r.logs); setLoading(false); }
+  async function loadStats() { setLoading(true); setError(''); const r = await getAdminStats(); console.log('admin stats:', r); if (r.error) setError(r.error); if (r.stats) setStats(r.stats); setLoading(false); }
+  async function loadBans() { setLoading(true); setError(''); const r = await adminGetBannedUsers(); console.log('admin bans:', r); if (r.error) setError(r.error); if (r.users) setBannedUsers(r.users); setLoading(false); }
+  async function loadReports() { setLoading(true); setError(''); const r = await adminGetReportedMessages(); console.log('admin reports:', r); if (r.error) setError(r.error); if (r.reports) setReports(r.reports); setLoading(false); }
+  async function loadLogs() { setLoading(true); setError(''); const r = await adminGetLogs(); console.log('admin logs:', r); if (r.error) setError(r.error); if (r.logs) setLogs(r.logs); setLoading(false); }
 
   async function doSearch() {
     if (!search.trim()) return;
@@ -86,6 +88,7 @@ export default function AdminPage() {
         {/* DASHBOARD */}
         {tab === 'dashboard' && (
           <>
+            {error && <div style={{ background: '#f44336', color: '#fff', padding: '10px 16px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{error}</div>}
             <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
               <div style={s.statBox}><div style={s.statNum}>{stats?.total_users ?? '-'}</div><div style={s.statLabel}>Users</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.total_messages ?? '-'}</div><div style={s.statLabel}>Total Messages</div></div>

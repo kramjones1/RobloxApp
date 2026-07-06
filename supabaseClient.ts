@@ -444,3 +444,17 @@ export async function getAllMessagesForDownload(): Promise<{ data?: any[]; error
     return { error: e.message };
   }
 }
+
+export async function isAdmin(): Promise<boolean> {
+  const token = getStoredSession();
+  if (!token) return false;
+  const user = parseJwt(token);
+  if (!user) return false;
+  try {
+    const res = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/rpc/is_admin`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    return res === true;
+  } catch { return false; }
+}

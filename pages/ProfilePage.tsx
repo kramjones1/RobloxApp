@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -87,6 +87,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [uploadingCover, setUploadingCover] = useState(false);
   const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string } | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
+  const [admin, setAdmin] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -118,6 +119,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     getRecentLive().then(({ entries }) => {
       if (entries) setRecent(entries.map(e => ({ id: e.partner_id, name: e.partner_name, bio: e.partner_bio, avatar: e.partner_avatar, time: e.created_at })));
     });
+    isAdmin().then(setAdmin);
   }, []);
 
   useEffect(() => {
@@ -290,15 +292,15 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           {recent.length > 0 && (
             <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={async () => { await clearRecentLive(); setRecent([]); }}>Clear history</p>
           )}
-          {!isViewingOther && (
+          {admin && (
             <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 8, textAlign: 'center' }} onClick={async () => {
               const { data, error } = await getAllMessagesForDownload();
               if (error || !data) return;
               const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
               const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = 'my_messages.json'; a.click();
+              const a = document.createElement('a'); a.href = url; a.download = 'all_messages.json'; a.click();
               URL.revokeObjectURL(url);
-            }}>Download Messages</p>
+            }}>Download All Messages</p>
           )}
         </div>
         </div>

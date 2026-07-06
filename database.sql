@@ -146,6 +146,23 @@ CREATE POLICY "recent_live insert" ON recent_live FOR INSERT TO authenticated WI
 CREATE POLICY "recent_live delete" ON recent_live FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- Download all messages for the current user (bypasses 1-hour RLS)
+CREATE TABLE admins (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
+);
+
+INSERT INTO admins VALUES ('YOUR-SUPABASE-USER-ID-HERE');
+
+CREATE OR REPLACE FUNCTION is_admin()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid());
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION get_my_all_messages()
 RETURNS JSON
 LANGUAGE plpgsql
@@ -155,17 +172,33 @@ AS $$
 DECLARE
   result JSON;
 BEGIN
-  SELECT json_agg(json_build_object(
-    'id', m.id,
-    'sender_id', m.sender_id,
-    'receiver_id', m.receiver_id,
-    'content', m.content,
-    'created_at', m.created_at,
-    'read', m.read
-  ) ORDER BY m.created_at DESC)
-  INTO result
-  FROM chat_messages m
-  WHERE m.sender_id = auth.uid() OR m.receiver_id = auth.uid();
-  RETURN COALESCE(result, '[]'::json);
+  IF EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()) THEN
+    SELECT json_agg(json_build_object(
+      'id', m.id,
+      'sender_id', m.sender_id,
+      'receiver_id', m.receiver_id,
+      'content', m.content,
+      'created_at', m.created_at,
+      'read', m.read,
+      'sender_name', cp.display_name
+    ) ORDER BY m.created_at DESC)
+    INTO result
+    FROM chat_messages m
+    LEFT JOIN chat_profiles cp ON cp.user_id = m.sender_id;
+    RETURN COALESCE(result, '[]'::json);
+  ELSE
+    SELECT json_agg(json_build_object(
+      'id', m.id,
+      'sender_id', m.sender_id,
+      'receiver_id', m.receiver_id,
+      'content', m.content,
+      'created_at', m.created_at,
+      'read', m.read
+    ) ORDER BY m.created_at DESC)
+    INTO result
+    FROM chat_messages m
+    WHERE m.sender_id = auth.uid() OR m.receiver_id = auth.uid();
+    RETURN COALESCE(result, '[]'::json);
+  END IF;
 END;
 $$;

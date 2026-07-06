@@ -458,3 +458,21 @@ export async function isAdmin(): Promise<boolean> {
     return res === true;
   } catch { return false; }
 }
+
+export async function getAllProfiles(): Promise<{ profiles?: any[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  if (!(await isAdmin())) return { error: 'Unauthorized' };
+  try {
+    const res = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_profiles?order=updated_at.desc`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (res?.error) return { error: res.error };
+    return { profiles: Array.isArray(res) ? res : [] };
+  } catch (e: any) {
+    return { error: e.message };
+  }
+}

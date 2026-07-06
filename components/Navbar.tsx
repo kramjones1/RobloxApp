@@ -7,6 +7,7 @@ interface NavbarProps {
   onLogout: () => void;
   unreadCount?: number;
   callActive?: boolean;
+  admin?: boolean;
 }
 
 const styles = {
@@ -86,7 +87,7 @@ const styles = {
   },
 };
 
-export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false }: NavbarProps) {
+export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false, admin = false }: NavbarProps) {
   const [mobile, setMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -166,6 +167,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               { id: 'home', label: 'Home' },
               ...(user ? [{ id: 'messages' as const, label: 'Messages' }] : []),
               ...(user ? [{ id: 'profile' as const, label: 'Profile' }] : []),
+              ...(admin ? [{ id: 'admin' as const, label: 'Admin' }] : []),
               { id: 'privacy', label: 'Privacy' },
               { id: 'terms', label: 'Terms' },
             ].map(t => (
@@ -211,6 +213,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
           }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
         </button>}
         {user && <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}>Profile</button>}
+        {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Admin</button>}
         <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
         <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>

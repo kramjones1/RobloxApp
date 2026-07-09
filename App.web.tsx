@@ -62,7 +62,7 @@ export default function WebApp() {
   const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
   const [showChat, setShowChat] = useState(false);
   const [partnerProfile, setPartnerProfile] = useState<{ userId: string; name: string; bio: string; avatar: string } | null>(null);
-  const [myProfile, setMyProfile] = useState<{ userId: string; name: string; bio: string; avatar: string } | null>(null);
+  const [myProfile, setMyProfile] = useState<{ userId: string; name: string; bio: string; avatar: string; cover: string; share_name: boolean; share_bio: boolean; date_of_birth?: string } | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [admin, setAdmin] = useState(false);
@@ -103,12 +103,12 @@ export default function WebApp() {
     setUser(u);
     setAuthLoading(false);
     let onboardingSet = false;
-    if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); else if (!onboardingSet) setOnboardingStep('name'); }); }
+    if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob'); } else if (!onboardingSet) setOnboardingStep('dob'); }); }
     if (u && oauthLogin) {
-      if (oauthSignup) { setOnboardingStep('name'); onboardingSet = true; }
+      if (oauthSignup) { setOnboardingStep('dob'); onboardingSet = true; }
       else {
         getChatProfile().then(({ profile }) => {
-          if (!profile) setOnboardingStep('name');
+          if (!profile) setOnboardingStep('dob');
           else setPage('profile');
         });
       }
@@ -127,10 +127,11 @@ export default function WebApp() {
         isAdmin().then(setAdmin);
         getChatProfile().then(({ profile }) => {
           if (profile) {
-            setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url });
-            setPage('profile');
+            setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            if (!profile.date_of_birth) setOnboardingStep('dob');
+            else setPage('profile');
           } else {
-            setOnboardingStep('name');
+            setOnboardingStep('dob');
           }
         });
       }
@@ -138,7 +139,7 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); else setOnboardingStep('name'); }); }
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth) setOnboardingStep('dob'); } else setOnboardingStep('dob'); }); }
       else { setAdmin(false); setMyProfile(null); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
@@ -223,7 +224,23 @@ export default function WebApp() {
     if (onboardingStep === 'dob') {
       if (!onboardingDob) { setAuthMsg('Please enter your date of birth'); return; }
       if (calcAge(onboardingDob) < 18) { setUnderage(true); return; }
-      setOnboardingStep('name');
+      if (myProfile) {
+        setSubmitting(true);
+        const { error } = await upsertChatProfile({
+          display_name: myProfile.name,
+          bio: myProfile.bio,
+          avatar_url: myProfile.avatar,
+          cover_url: myProfile.cover,
+          share_name: myProfile.share_name,
+          share_bio: myProfile.share_bio,
+          date_of_birth: onboardingDob,
+        });
+        setSubmitting(false);
+        if (error) setAuthMsg(error);
+        else { setOnboardingStep(null); setPage('profile'); }
+      } else {
+        setOnboardingStep('name');
+      }
     } else if (onboardingStep === 'name') {
       if (!onboardingName || onboardingName.length < 1) { setAuthMsg('Display name is required'); return; }
       setSubmitting(true);
@@ -358,7 +375,7 @@ export default function WebApp() {
     setCamError('');
     setNoAudio(false);
     const { profile } = await getChatProfile();
-    if (profile && user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url });
+    if (profile && user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
       lsRef.current = null;

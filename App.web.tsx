@@ -139,13 +139,6 @@ export default function WebApp() {
         });
       }
     }
-        if (oauthType === 'signup') setOnboardingStep('name');
-        else if (u2?.id) {
-          getChatProfile().then(({ profile }) => { if (!profile) setOnboardingStep('name'); else setPage('profile'); });
-        } else setPage('profile');
-      }
-    }
-    }
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);

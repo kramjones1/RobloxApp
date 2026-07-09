@@ -110,7 +110,12 @@ export default function WebApp() {
     if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); }); }
     if (u && oauthLogin) {
       if (oauthSignup) setOnboardingStep('name');
-      else setPage('profile');
+      else {
+        getChatProfile().then(({ profile }) => {
+          if (!profile) setOnboardingStep('name');
+          else setPage('profile');
+        });
+      }
     }
     // Listen for OAuth tokens from popup windows
     function handleOAuthMessage(e: MessageEvent) {
@@ -122,10 +127,24 @@ export default function WebApp() {
       else {
         const u2 = getSession();
         setUser(u2);
-        if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url }); }); }
-        if (oauthType === 'signup') setOnboardingStep('name');
-        else setPage('profile');
+        if (!u2?.id) { setPage('profile'); return; }
+        isAdmin().then(setAdmin);
+        getChatProfile().then(({ profile }) => {
+          if (profile) {
+            setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url });
+            setPage('profile');
+          } else {
+            setOnboardingStep('name');
+          }
+        });
       }
+    }
+        if (oauthType === 'signup') setOnboardingStep('name');
+        else if (u2?.id) {
+          getChatProfile().then(({ profile }) => { if (!profile) setOnboardingStep('name'); else setPage('profile'); });
+        } else setPage('profile');
+      }
+    }
     }
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {

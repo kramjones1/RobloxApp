@@ -222,7 +222,7 @@ export async function getUserProfile(userId: string): Promise<{ profile?: ChatPr
       const p = data[0];
       return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio } };
     }
-    return { profile: { display_name: '', bio: '', avatar_url: '', cover_url: '', share_name: false, share_bio: false } };
+    return {};
   } catch (e: any) {
     return { error: e.message };
   }
@@ -243,7 +243,7 @@ export async function getChatProfile(): Promise<{ profile?: ChatProfile; error?:
       const p = data[0];
       return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio } };
     }
-    return { profile: { display_name: 'Anonymous', bio: '', avatar_url: '', cover_url: '', share_name: false, share_bio: false } };
+    return {};
   } catch (e: any) {
     return { error: e.message };
   }

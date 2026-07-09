@@ -10,11 +10,80 @@ async function supabaseFetch(url: string, opts: RequestInit) {
     const msg = json.error_description || json.msg || json.error || `HTTP ${res.status}: ${txt.slice(0, 100)}`;
     if (res.status === 429) return { error: 'Too many requests. Please wait a minute before trying again.' };
     if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('over_limit') || msg.toLowerCase().includes('over_request_rate_limit')) return { error: 'Email rate limit exceeded. Please wait a few minutes before trying again.' };
+    if (res.status === 401 && msg === 'JWT expired') {
+      const newToken = await doRefresh();
+      if (newToken) {
+        const h = opts.headers as Record<string, string> | undefined;
+        if (h) h['Authorization'] = `Bearer ${newToken}`;
+        const retryRes = await fetch(url, opts);
+        if (retryRes.ok) {
+          const rt = await retryRes.text();
+          if (!rt) return {};
+          try { return JSON.parse(rt); } catch { return {}; }
+        }
+        const retryTxt = await retryRes.text();
+        let retryJson;
+        try { retryJson = JSON.parse(retryTxt); } catch { retryJson = {}; }
+        return { error: retryJson.error_description || retryJson.msg || retryJson.error || `HTTP ${retryRes.status}: ${retryTxt.slice(0, 100)}` };
+      }
+    }
     return { error: msg };
   }
   const text = await res.text();
   if (!text) return {};
   try { return JSON.parse(text); } catch { return {}; }
+}
+
+interface SessionTokens { access_token: string; refresh_token: string; }
+
+function getStoredTokens(): SessionTokens | null {
+  try {
+    const raw = localStorage.getItem('supa_tokens');
+    if (raw) return JSON.parse(raw);
+    const old = localStorage.getItem('supa_session');
+    if (old) { localStorage.setItem('supa_tokens', JSON.stringify({ access_token: old, refresh_token: '' })); localStorage.removeItem('supa_session'); return { access_token: old, refresh_token: '' }; }
+    return null;
+  } catch { return null; }
+}
+
+function setStoredTokens(t: SessionTokens | null) {
+  try { if (t) localStorage.setItem('supa_tokens', JSON.stringify(t)); else localStorage.removeItem('supa_tokens'); } catch {}
+}
+
+let refreshPromise: Promise<string | null> | null = null;
+
+async function doRefresh(): Promise<string | null> {
+  const tokens = getStoredTokens();
+  if (!tokens || !tokens.refresh_token) return null;
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ refresh_token: tokens.refresh_token }),
+      });
+      if (!r.ok) return null;
+      const data = await r.json();
+      if (data.access_token) {
+        setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || tokens.refresh_token });
+        notify(parseJwt(data.access_token));
+        return data.access_token;
+      }
+      return null;
+    } catch { return null; }
+  })();
+  try { return await refreshPromise; } finally { refreshPromise = null; }
+}
+
+function getStoredSession(): string | null {
+  const t = getStoredTokens();
+  return t ? t.access_token : null;
+}
+
+function setStoredSession(token: string | null) {
+  if (token) { const existing = getStoredTokens(); setStoredTokens({ access_token: token, refresh_token: existing?.refresh_token || '' }); }
+  else setStoredTokens(null);
 }
 
 export interface SupabaseUser {
@@ -30,26 +99,20 @@ function notify(user: SupabaseUser | null) {
   listeners.forEach(fn => fn(user));
 }
 
-function getStoredSession(): string | null {
-  try { return localStorage.getItem('supa_session'); } catch { return null; }
-}
-
-function setStoredSession(token: string | null) {
-  try { if (token) localStorage.setItem('supa_session', token); else localStorage.removeItem('supa_session'); } catch {}
-}
-
-export function setSessionToken(token: string | null) {
-  setStoredSession(token);
-  if (token) notify(parseJwt(token));
-  else notify(null);
-}
-
 function parseJwt(token: string): SupabaseUser | null {
   try {
     const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     const payload = JSON.parse(atob(base64));
     return { id: payload.sub, email: payload.email, exp: payload.exp };
   } catch { return null; }
+}
+
+export function setSessionToken(token: string | null) {
+  const existing = getStoredTokens();
+  if (token) setStoredTokens({ access_token: token, refresh_token: existing?.refresh_token || '' });
+  else setStoredTokens(null);
+  if (token) { const p = parseJwt(token); if (p) notify(p); }
+  else notify(null);
 }
 
 export async function signUp(email: string, password: string): Promise<{ error?: string }> {
@@ -81,7 +144,7 @@ export async function signIn(email: string, password: string): Promise<{ error?:
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
-      setStoredSession(data.access_token);
+      setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || '' });
       notify(parseJwt(data.access_token));
     }
     return {};

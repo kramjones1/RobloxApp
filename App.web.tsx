@@ -139,7 +139,7 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth) setOnboardingStep('dob'); } else setOnboardingStep('dob'); }); }
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('dob'); }); }
       else { setAdmin(false); setMyProfile(null); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };

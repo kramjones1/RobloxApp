@@ -106,7 +106,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (SELECT 1 FROM banned_users WHERE user_id = check_id);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
 
 CREATE POLICY "admin update chat profiles" ON chat_profiles FOR UPDATE TO authenticated USING (
   EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
@@ -358,3 +358,12 @@ BEGIN
   RETURN COALESCE(result, '[]'::json);
 END;
 $$;
+
+-- Fix linter warnings: restrict SECURITY DEFINER functions to appropriate roles
+REVOKE EXECUTE ON FUNCTION is_admin() FROM anon;
+REVOKE EXECUTE ON FUNCTION get_my_all_messages() FROM anon;
+REVOKE EXECUTE ON FUNCTION get_admin_stats() FROM anon;
+REVOKE EXECUTE ON FUNCTION search_users(TEXT) FROM anon;
+REVOKE EXECUTE ON FUNCTION get_user_messages(UUID) FROM anon;
+-- is_user_banned needs anon access for the signaling server (no user JWT)
+GRANT EXECUTE ON FUNCTION is_user_banned(UUID) TO anon, authenticated;

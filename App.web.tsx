@@ -41,12 +41,6 @@ export default function WebApp() {
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
-  const [phoneStep, setPhoneStep] = useState(false);
-  const [phone, setPhone] = useState('');
-  const [phoneOtp, setPhoneOtp] = useState('');
-  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [phoneError, setPhoneError] = useState('');
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -63,7 +57,6 @@ export default function WebApp() {
   const wsRef = useRef<WebSocket>(null);
   const dcRef = useRef<any>(null);
   const roomRef = useRef('');
-  const phoneCodeRef = useRef('');
   const [chatMessages, setChatMessages] = useState<{ me: boolean; text: string }[]>([]);
   const [showChat, setShowChat] = useState(false);
   const [partnerProfile, setPartnerProfile] = useState<{ userId: string; name: string; bio: string; avatar: string } | null>(null);
@@ -168,8 +161,11 @@ export default function WebApp() {
     setAuthMsg('');
     if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     if (authMode === 'register') {
-      if (!phone || phone.length < 6) { setAuthMsg('Phone number is required for signup'); return; }
-      setPhoneStep(true);
+      setSubmitting(true);
+      const res = await signUp(email, password);
+      setSubmitting(false);
+      if (res.error) { setAuthMsg(res.error); return; }
+      setAuthMsg('Check your email for a confirmation link, then sign in.');
       return;
     }
     setSubmitting(true);
@@ -177,33 +173,6 @@ export default function WebApp() {
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPage('profile');
-  }
-
-  async function handleSendPhoneOtp() {
-    setPhoneError('');
-    if (!phone || phone.length < 6) { setPhoneError('Please enter a valid phone number'); return; }
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    phoneCodeRef.current = code;
-    setPhoneOtpSent(true);
-  }
-
-  async function handleVerifyPhoneOtp() {
-    setPhoneError('');
-    if (!phoneOtp || phoneOtp.length < 6) { setPhoneError('Enter the 6-digit code'); return; }
-    if (phoneOtp !== phoneCodeRef.current) { setPhoneError('Invalid code. Try again.'); return; }
-    setPhoneVerified(true);
-    await finishSignup();
-  }
-
-  async function finishSignup() {
-    setSubmitting(true);
-    const res = await signUp(email, password);
-    setSubmitting(false);
-    if (res.error) {
-      setPhoneError('Phone verified but account creation failed: ' + res.error);
-      return;
-    }
-    setOnboardingStep('name');
   }
 
   async function handleForgotPassword(e: React.FormEvent) {
@@ -763,29 +732,6 @@ export default function WebApp() {
                   </form>
                 )}
               </>
-            ) : phoneStep ? (
-              <>
-                <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-                <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{phoneVerified ? 'Phone verified!' : (phoneOtpSent ? 'Enter the code sent to your phone' : 'Verify your phone')}</p>
-                {!phoneOtpSent ? (
-                  <>
-                    <input style={input} type="tel" placeholder="+1 (555) 123-4567" value={phone} onChange={e => setPhone(e.target.value)} />
-                    <button onClick={handleSendPhoneOtp} disabled={submitting} style={{...mobileBtn, marginTop: 10, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Sending...' : 'Send Code'}</button>
-                  </>
-                ) : !phoneVerified ? (
-                  <>
-                    <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', marginBottom: 8, background: 'rgba(108,99,255,0.1)', padding: '8px 12px', borderRadius: 8, wordBreak: 'break-all' }}>
-                      Dev mode: code is <b style={{ fontSize: 18, letterSpacing: 4 }}>{phoneCodeRef.current}</b>
-                    </p>
-                    <input style={input} type="text" placeholder="Enter 6-digit code" value={phoneOtp} onChange={e => setPhoneOtp(e.target.value)} maxLength={6} />
-                    <button onClick={handleVerifyPhoneOtp} disabled={submitting || phoneOtp.length < 6} style={{...mobileBtn, marginTop: 10, opacity: submitting || phoneOtp.length < 6 ? 0.5 : 1}}>{submitting ? 'Verifying...' : 'Verify Code'}</button>
-                  </>
-                ) : (
-                  <button onClick={finishSignup} disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : 'Complete Sign Up'}</button>
-                )}
-                {phoneError && <p style={{ color: '#f44336', fontSize: 13, marginTop: 12, textAlign: 'center' }}>{phoneError}</p>}
-                {!phoneOtpSent && <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setPhoneStep(false); setPhoneOtpSent(false); setPhoneVerified(false); setPhoneOtp(''); setPhoneError(''); }}>← Back</p>}
-              </>
             ) : (
               <>
                 <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
@@ -793,7 +739,6 @@ export default function WebApp() {
                 <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
                   <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
                   <input style={input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
-                  {authMode === 'register' && <input style={input} type="tel" placeholder="Phone number (for verification)" value={phone} onChange={e => setPhone(e.target.value)} required />}
                   <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
@@ -856,18 +801,6 @@ export default function WebApp() {
                 onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
                 onGoogleSignIn={() => signInWithGoogle()}
                 onGitHubSignIn={() => signInWithGitHub()}
-                phoneStep={phoneStep}
-                phone={phone}
-                onPhoneChange={setPhone}
-                phoneOtp={phoneOtp}
-                onPhoneOtpChange={setPhoneOtp}
-                phoneOtpSent={phoneOtpSent}
-                phoneVerified={phoneVerified}
-                phoneError={phoneError}
-                onSendPhoneOtp={handleSendPhoneOtp}
-                onFinishSignup={finishSignup}
-                onVerifyPhoneOtp={handleVerifyPhoneOtp}
-                phoneCode={phoneCodeRef.current}
               />
             </div>
             <Footer setPage={handleNav} />

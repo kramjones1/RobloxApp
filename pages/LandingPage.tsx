@@ -141,18 +141,6 @@ interface Props {
   onBackToSignIn?: () => void;
   onGoogleSignIn?: () => void;
   onGitHubSignIn?: () => void;
-  onSendPhoneOtp?: () => void;
-  onFinishSignup?: () => void;
-  phoneOtpSent?: boolean;
-  phone?: string;
-  onPhoneChange?: (v: string) => void;
-  phoneOtp?: string;
-  onPhoneOtpChange?: (v: string) => void;
-  onVerifyPhoneOtp?: () => void;
-  phoneVerified?: boolean;
-  phoneStep?: boolean;
-  phoneError?: string;
-  phoneCode?: string;
 }
 
 export default function LandingPage({
@@ -161,8 +149,6 @@ export default function LandingPage({
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
   onGoogleSignIn, onGitHubSignIn,
-  onSendPhoneOtp, onFinishSignup, phoneOtpSent, phone, onPhoneChange,
-   phoneOtp, onPhoneOtpChange, onVerifyPhoneOtp, phoneVerified, phoneStep, phoneError, phoneCode,
 }: Props) {
   const showAuth = !!onSubmit;
   return (
@@ -199,32 +185,6 @@ export default function LandingPage({
                   )}
                   {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, textAlign: 'center', wordBreak: 'break-word', margin: '12px 0 0' }}>{authMsg}</p>}
                 </>
-              ) : phoneStep ? (
-                <>
-                  <p style={s.authTitle}>Verify your phone</p>
-                  <p style={s.authSub}>{phoneVerified ? 'Phone verified!' : (phoneOtpSent ? 'Enter the code sent to your phone' : 'Enter your phone number to receive a verification code')}</p>
-                  {!phoneOtpSent ? (
-                    <>
-                      <input style={s.input} type="tel" placeholder="+1 (555) 123-4567" value={phone || ''} onChange={e => onPhoneChange?.(e.target.value)} />
-                      <button onClick={onSendPhoneOtp} disabled={submitting} style={{...s.submitBtn, marginTop: 10, opacity: submitting ? 0.5 : 1}}>
-                        {submitting ? 'Sending...' : 'Send Code'}
-                      </button>
-                    </>
-                  ) : !phoneVerified ? (
-                    <>
-                      <p style={{ color: '#6c63ff', fontSize: 13, textAlign: 'center', marginBottom: 8, background: 'rgba(108,99,255,0.1)', padding: '8px 12px', borderRadius: 8, wordBreak: 'break-all' }}>
-                        Dev mode: code is <b style={{ fontSize: 18, letterSpacing: 4 }}>{phoneCode}</b>
-                      </p>
-                      <input style={s.input} type="text" placeholder="Enter 6-digit code" value={phoneOtp || ''} onChange={e => onPhoneOtpChange?.(e.target.value)} maxLength={6} />
-                      <button onClick={onVerifyPhoneOtp} disabled={submitting || (phoneOtp?.length || 0) < 6} style={{...s.submitBtn, marginTop: 10, opacity: submitting || (phoneOtp?.length || 0) < 6 ? 0.5 : 1}}>
-                        {submitting ? 'Verifying...' : 'Verify Code'}
-                      </button>
-                    </>
-                  ) : (
-                    <button onClick={onFinishSignup as any} style={s.submitBtn}>Complete Sign Up</button>
-                  )}
-                  {phoneError && <p style={{ color: '#f44336', fontSize: 13, textAlign: 'center', margin: '12px 0 0' }}>{phoneError}</p>}
-                </>
               ) : (
                 <>
                   <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
@@ -232,9 +192,6 @@ export default function LandingPage({
                   <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
                     <input style={s.input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={8} />
-                    {authMode === 'register' && (
-                      <input style={s.input} type="tel" placeholder="Phone number (for verification)" value={phone || ''} onChange={e => onPhoneChange?.(e.target.value)} required />
-                    )}
                     <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
                       {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>

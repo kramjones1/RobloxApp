@@ -65,18 +65,8 @@ export async function signUp(email: string, password: string): Promise<{ error?:
       notify(parseJwt(data.access_token));
       return {};
     }
-    const signInData = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password }),
-    });
-    if (signInData.error) return { error: signInData.error };
-    if (signInData.access_token) {
-      setStoredSession(signInData.access_token);
-      notify(parseJwt(signInData.access_token));
-      return {};
-    }
-    return { error: 'Signup succeeded but could not establish session. Please try signing in.' };
+    // Email confirmation is ON — signup succeeded, user needs to confirm email
+    return {};
   } catch (e: any) {
     return { error: e.message || 'Network error' };
   }

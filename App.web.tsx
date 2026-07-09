@@ -36,11 +36,13 @@ export default function WebApp() {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState<'name' | 'bio' | null>(null);
+  const [onboardingStep, setOnboardingStep] = useState<'dob' | 'name' | 'bio' | null>(null);
   const [messagePartner, setMessagePartner] = useState('');
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
+  const [onboardingDob, setOnboardingDob] = useState('');
+  const [underage, setUnderage] = useState(false);
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -206,19 +208,32 @@ export default function WebApp() {
     else setPasswordUpdated(true);
   }
 
+  function calcAge(dob: string): number {
+    const bd = new Date(dob);
+    const t = new Date();
+    let age = t.getFullYear() - bd.getFullYear();
+    const m = t.getMonth() - bd.getMonth();
+    if (m < 0 || (m === 0 && t.getDate() < bd.getDate())) age--;
+    return age;
+  }
+
   async function handleOnboardingSubmit(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (onboardingStep === 'name') {
+    if (onboardingStep === 'dob') {
+      if (!onboardingDob) { setAuthMsg('Please enter your date of birth'); return; }
+      if (calcAge(onboardingDob) < 18) { setUnderage(true); return; }
+      setOnboardingStep('name');
+    } else if (onboardingStep === 'name') {
       if (!onboardingName || onboardingName.length < 1) { setAuthMsg('Display name is required'); return; }
       setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: '', avatar_url: '', cover_url: '', share_name: true, share_bio: true });
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: '', avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
       setSubmitting(false);
       if (error) setAuthMsg(error);
       else setOnboardingStep('bio');
     } else {
       setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true });
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
       setSubmitting(false);
       if (error) setAuthMsg(error);
       else { setOnboardingStep(null); setPage('profile'); }
@@ -492,12 +507,30 @@ export default function WebApp() {
   }
 
   if (onboardingStep) {
+    if (underage) {
+      return (
+        <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+          <p style={{ color: '#f44336', fontSize: 16, marginBottom: 16, textAlign: 'center' }}>You must be 18 or older to use LiveMe.</p>
+          <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 24 }}>
+            We take age restrictions seriously. This application is only available to users aged 18 and above.
+          </p>
+          <button onClick={() => { signOut(); setUnderage(false); setOnboardingStep(null); setPage('home'); }} style={mobileBtn}>
+            Back to Sign In
+          </button>
+        </div>
+      );
+    }
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-        <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}</p>
+        <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
+          {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}
+        </p>
         <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
-          {onboardingStep === 'name' ? (
+          {onboardingStep === 'dob' ? (
+            <input style={input} type="date" value={onboardingDob} onChange={e => setOnboardingDob(e.target.value)} required />
+          ) : onboardingStep === 'name' ? (
             <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
           ) : (
             <>
@@ -506,7 +539,7 @@ export default function WebApp() {
             </>
           )}
           <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
-            {submitting ? 'Saving...' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
+            {submitting ? 'Saving...' : onboardingStep === 'dob' ? 'Next' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
           </button>
         </form>
         {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}

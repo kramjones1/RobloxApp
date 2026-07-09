@@ -197,6 +197,7 @@ export interface ChatProfile {
   cover_url: string;
   share_name: boolean;
   share_bio: boolean;
+  date_of_birth?: string;
 }
 
 export async function getUserProfile(userId: string): Promise<{ profile?: ChatProfile; error?: string }> {
@@ -210,7 +211,7 @@ export async function getUserProfile(userId: string): Promise<{ profile?: ChatPr
     if (data.error) return { error: data.error };
     if (Array.isArray(data) && data.length > 0) {
       const p = data[0];
-      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio } };
+      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio, date_of_birth: p.date_of_birth } };
     }
     return {};
   } catch (e: any) {
@@ -231,7 +232,7 @@ export async function getChatProfile(): Promise<{ profile?: ChatProfile; error?:
     if (data.error) return { error: data.error };
     if (Array.isArray(data) && data.length > 0) {
       const p = data[0];
-      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio } };
+      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio, date_of_birth: p.date_of_birth } };
     }
     return {};
   } catch (e: any) {

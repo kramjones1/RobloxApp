@@ -86,6 +86,7 @@ CREATE TABLE chat_profiles (
   cover_url TEXT NOT NULL DEFAULT '',
   share_name BOOLEAN NOT NULL DEFAULT false,
   share_bio BOOLEAN NOT NULL DEFAULT false,
+  date_of_birth DATE,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -97,6 +98,7 @@ CREATE POLICY "own chat profile update" ON chat_profiles FOR UPDATE USING (auth.
 
 ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS flagged BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS flag_reason TEXT NOT NULL DEFAULT '';
+ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 
 CREATE POLICY "admin update chat profiles" ON chat_profiles FOR UPDATE TO authenticated USING (
   EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())

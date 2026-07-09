@@ -549,59 +549,28 @@ export default function WebApp() {
     );
   }
 
-  if (onboardingStep) {
+  if (onboardingStep && onboardingStep !== 'welcome') {
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-        {onboardingStep === 'welcome' ? (
-          <>
-            <p style={{ color: '#888', fontSize: 14, marginBottom: 8 }}>Welcome to LiveMe</p>
-            <div style={{ color: '#ccc', fontSize: 13, maxWidth: 400, textAlign: 'left', lineHeight: 1.6, marginBottom: 16 }}>
-              <p style={{ marginBottom: 10 }}>LiveMe connects you with people around the world through live video chat and instant messaging.</p>
-              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Your Security</p>
-              <p style={{ marginBottom: 8 }}>• All messages are encrypted in transit. Your personal data is never shared with third parties.</p>
-              <p style={{ marginBottom: 8 }}>• You control what appears on your public profile. Display name and bio sharing can be toggled on/off.</p>
-              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Account Safety</p>
-              <p style={{ marginBottom: 8 }}>• Never share your password or personal information with strangers.</p>
-              <p style={{ marginBottom: 8 }}>• Report any suspicious or abusive behavior immediately — we take action on every report.</p>
-              <p style={{ marginBottom: 8 }}>• You can block and report users directly from the chat or messaging interface.</p>
-              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Age Requirement</p>
-              <p style={{ marginBottom: 8 }}>• Live video chat is restricted to users aged 18 and older.</p>
-              <p style={{ marginBottom: 8 }}>• If you are under 18, you can still use the text messaging system to chat with other users.</p>
-              <p style={{ marginTop: 12, padding: 10, background: 'rgba(108,99,255,0.1)', borderRadius: 8, border: '1px solid rgba(108,99,255,0.2)' }}>
-                By continuing, you confirm that you have read and understand the above. You agree to use LiveMe responsibly and in accordance with our terms.
-              </p>
-            </div>
-            <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ccc', fontSize: 13, cursor: 'pointer' }}>
-                <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
-                I agree to the terms above
-              </label>
-              <button type="submit" disabled={submitting || !agreedToTerms} style={{...mobileBtn, opacity: submitting || !agreedToTerms ? 0.5 : 1}}>Continue</button>
-            </form>
-          </>
-        ) : (
-          <>
-            <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
-              {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}
-            </p>
-            <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
-              {onboardingStep === 'dob' ? (
-                <input style={input} type="date" value={onboardingDob} onChange={e => setOnboardingDob(e.target.value)} required />
-              ) : onboardingStep === 'name' ? (
-                <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
-              ) : (
-                <>
-                  <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>Display name: <b style={{ color: '#fff' }}>{onboardingName}</b></p>
-                  <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} maxLength={200} />
-                </>
-              )}
-              <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
-                {submitting ? 'Saving...' : onboardingStep === 'dob' ? 'Next' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
-              </button>
-            </form>
-          </>
-        )}
+        <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
+          {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}
+        </p>
+        <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+          {onboardingStep === 'dob' ? (
+            <input style={input} type="date" value={onboardingDob} onChange={e => setOnboardingDob(e.target.value)} required />
+          ) : onboardingStep === 'name' ? (
+            <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
+          ) : (
+            <>
+              <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>Display name: <b style={{ color: '#fff' }}>{onboardingName}</b></p>
+              <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} maxLength={200} />
+            </>
+          )}
+          <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
+            {submitting ? 'Saving...' : onboardingStep === 'dob' ? 'Next' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
+          </button>
+        </form>
         {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
         {onboardingStep === 'bio' && (
           <p style={{ color: '#6c63ff', fontSize: 12, marginTop: 12, cursor: 'pointer' }} onClick={handleOnboardingSubmit}>Skip</p>
@@ -936,6 +905,39 @@ export default function WebApp() {
             </div>
           )}
         </>
+      )}
+
+      {onboardingStep === 'welcome' && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#1a1a1a', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}>
+            <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, marginBottom: 4, textAlign: 'center', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+            <p style={{ color: '#888', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>Welcome! Before you start...</p>
+            <div style={{ color: '#ccc', fontSize: 13, textAlign: 'left', lineHeight: 1.6, marginBottom: 12 }}>
+              <p style={{ marginBottom: 10 }}>LiveMe connects you with people around the world through live video chat and instant messaging.</p>
+              <p style={{ marginBottom: 8, color: '#6c63ff', fontWeight: 600 }}>Your Security</p>
+              <p style={{ marginBottom: 6 }}>• All messages are encrypted in transit. Your personal data is never shared with third parties.</p>
+              <p style={{ marginBottom: 6 }}>• You control what appears on your public profile. Display name and bio sharing can be toggled on/off.</p>
+              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Account Safety</p>
+              <p style={{ marginBottom: 6 }}>• Never share your password or personal information with strangers.</p>
+              <p style={{ marginBottom: 6 }}>• Report any suspicious or abusive behavior immediately — we take action on every report.</p>
+              <p style={{ marginBottom: 6 }}>• You can block and report users directly from the chat or messaging interface.</p>
+              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Age Requirement</p>
+              <p style={{ marginBottom: 6 }}>• Live video chat is restricted to users aged 18 and older.</p>
+              <p style={{ marginBottom: 6 }}>• If you are under 18, you can still use the text messaging system to chat with other users.</p>
+              <p style={{ marginTop: 10, padding: 10, background: 'rgba(108,99,255,0.1)', borderRadius: 8, border: '1px solid rgba(108,99,255,0.2)' }}>
+                By continuing, you confirm that you have read and understand the above. You agree to use LiveMe responsibly and in accordance with our terms.
+              </p>
+            </div>
+            <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ccc', fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                I agree to the terms above
+              </label>
+              <button type="submit" disabled={submitting || !agreedToTerms} style={{...mobileBtn, opacity: submitting || !agreedToTerms ? 0.5 : 1}}>Continue</button>
+            </form>
+            {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 10, textAlign: 'center' }}>{authMsg}</p>}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -100,6 +100,14 @@ ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS flagged BOOLEAN NOT NULL DEFA
 ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS flag_reason TEXT NOT NULL DEFAULT '';
 ALTER TABLE chat_profiles ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 
+-- Server-side age check: SECURITY DEFINER so signaling server (no JWT) can check bans
+CREATE OR REPLACE FUNCTION is_user_banned(check_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (SELECT 1 FROM banned_users WHERE user_id = check_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 CREATE POLICY "admin update chat profiles" ON chat_profiles FOR UPDATE TO authenticated USING (
   EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
 );

@@ -36,7 +36,8 @@ export default function WebApp() {
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState<'dob' | 'name' | 'bio' | null>(null);
+  const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'dob' | 'name' | 'bio' | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [messagePartner, setMessagePartner] = useState('');
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
@@ -69,7 +70,7 @@ export default function WebApp() {
   const [partnerLeft, setPartnerLeft] = useState(false);
   const inCallRef = useRef(false);
 
-  function addLog(msg: string) { console.log(msg); setLog(msg); }
+  function addLog(msg: string) { setLog(msg); }
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
@@ -103,12 +104,12 @@ export default function WebApp() {
     setUser(u);
     setAuthLoading(false);
     let onboardingSet = false;
-    if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob'); } else if (!onboardingSet) setOnboardingStep('dob'); }); }
+    if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob'); } else if (!onboardingSet) setOnboardingStep('welcome'); }); }
     if (u && oauthLogin) {
-      if (oauthSignup) { setOnboardingStep('dob'); onboardingSet = true; }
+      if (oauthSignup) { setOnboardingStep('welcome'); onboardingSet = true; }
       else {
         getChatProfile().then(({ profile }) => {
-          if (!profile) setOnboardingStep('dob');
+          if (!profile) setOnboardingStep('welcome');
           else setPage('profile');
         });
       }
@@ -131,7 +132,7 @@ export default function WebApp() {
             if (!profile.date_of_birth) setOnboardingStep('dob');
             else setPage('profile');
           } else {
-            setOnboardingStep('dob');
+            setOnboardingStep('welcome');
           }
         });
       }
@@ -139,7 +140,7 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('dob'); }); }
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('welcome'); }); }
       else { setAdmin(false); setMyProfile(null); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
@@ -221,9 +222,37 @@ export default function WebApp() {
   async function handleOnboardingSubmit(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (onboardingStep === 'dob') {
+    if (onboardingStep === 'welcome') {
+      if (!agreedToTerms) { setAuthMsg('You must agree to the terms to continue.'); return; }
+      setOnboardingStep('dob');
+    } else if (onboardingStep === 'dob') {
       if (!onboardingDob) { setAuthMsg('Please enter your date of birth'); return; }
-      if (calcAge(onboardingDob) < 18) { setUnderage(true); return; }
+      const age = calcAge(onboardingDob);
+      if (age < 18) {
+        setSubmitting(true);
+        const { error } = await upsertChatProfile({
+          display_name: myProfile?.name || '',
+          bio: myProfile?.bio || '',
+          avatar_url: myProfile?.avatar || '',
+          cover_url: myProfile?.cover || '',
+          share_name: myProfile?.share_name !== undefined ? myProfile.share_name : true,
+          share_bio: myProfile?.share_bio !== undefined ? myProfile.share_bio : true,
+          date_of_birth: onboardingDob,
+        });
+        setSubmitting(false);
+        if (error) setAuthMsg(error);
+        else {
+          setUnderage(true);
+          if (myProfile) {
+            setMyProfile({ ...myProfile, date_of_birth: onboardingDob });
+            setOnboardingStep(null);
+            setPage('profile');
+          } else {
+            setOnboardingStep('name');
+          }
+        }
+        return;
+      }
       if (myProfile) {
         setSubmitting(true);
         const { error } = await upsertChatProfile({
@@ -274,11 +303,12 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); console.log('matched: partnerId=', msg.partner, 'userId=', msg.userId, 'room=', msg.room); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); startCall(ws, msg.role); break;
+        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); startCall(ws, msg.role); break;
         case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
         case 'banned': addLog('BANNED: ' + msg.reason); alert('Your account has been suspended: ' + msg.reason); setId(''); break;
+        case 'age_restricted': setUnderage(true); setCamError('Video chat is restricted to users 18+.'); setState('idle'); break;
         case 'sdp': handleSDP(ws, msg); break;
         case 'ice': handleICE(msg); break;
       }
@@ -315,7 +345,7 @@ export default function WebApp() {
           setChatMessages(prev => [...prev, msg]);
           setTimeout(() => setChatMessages(prev => prev.filter(m => m !== msg)), 5000);
         } else if (data.type === 'profile') {
-          setPartnerProfile(prev => { console.log('DC profile: userId=', data.userId, 'prev=', prev); return { userId: data.userId || prev?.userId || '', name: data.name, bio: data.bio, avatar: data.avatar || '' }; });
+          setPartnerProfile(prev => ({ userId: data.userId || prev?.userId || '', name: data.name, bio: data.bio, avatar: data.avatar || '' }));
         }
       } catch {}
     }
@@ -372,9 +402,9 @@ export default function WebApp() {
   }
 
   async function findStranger() {
-    setCamError('');
-    setNoAudio(false);
+    if (underage) { setCamError('Video chat is not available for users under 18. You can use the messaging system instead.'); return; }
     const { profile } = await getChatProfile();
+    if (profile?.date_of_birth && calcAge(profile.date_of_birth) < 18) { setUnderage(true); setCamError('Video chat is not available for users under 18. You can use the messaging system instead.'); return; }
     if (profile && user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
@@ -423,7 +453,6 @@ export default function WebApp() {
   }
 
   async function cleanup() {
-    console.log('cleanup: partnerProfile=', partnerProfile, 'partnerId=', partnerId);
     const pUserId = partnerProfile?.userId;
     let pName = partnerProfile?.name || '';
     let pBio = partnerProfile?.bio || '';
@@ -449,11 +478,8 @@ export default function WebApp() {
         const recent = JSON.parse(localStorage.getItem('recent_live') || '[]');
         recent.unshift({ id: uid, name: pName, bio: pBio, avatar: pAvatar, time: Date.now() });
         localStorage.setItem('recent_live', JSON.stringify(recent.slice(0, 20)));
-        console.log('cleanup: saved to recent_live', uid);
-      } catch (e) { console.log('cleanup: error saving', e); }
+      } catch (e) {} // ignore localStorage errors
       try { await saveRecentLive(uid, pName, pBio, pAvatar); } catch {}
-    } else {
-      console.log('cleanup: no userId or own userId, not saving. uid=', uid, 'user.id=', user?.id);
     }
   }
 
@@ -524,41 +550,58 @@ export default function WebApp() {
   }
 
   if (onboardingStep) {
-    if (underage) {
-      return (
-        <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-          <p style={{ color: '#f44336', fontSize: 16, marginBottom: 16, textAlign: 'center' }}>You must be 18 or older to use LiveMe.</p>
-          <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 24 }}>
-            We take age restrictions seriously. This application is only available to users aged 18 and above.
-          </p>
-          <button onClick={() => { signOut(); setUnderage(false); setOnboardingStep(null); setPage('home'); }} style={mobileBtn}>
-            Back to Sign In
-          </button>
-        </div>
-      );
-    }
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-        <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
-          {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}
-        </p>
-        <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
-          {onboardingStep === 'dob' ? (
-            <input style={input} type="date" value={onboardingDob} onChange={e => setOnboardingDob(e.target.value)} required />
-          ) : onboardingStep === 'name' ? (
-            <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
-          ) : (
-            <>
-              <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>Display name: <b style={{ color: '#fff' }}>{onboardingName}</b></p>
-              <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} maxLength={200} />
-            </>
-          )}
-          <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
-            {submitting ? 'Saving...' : onboardingStep === 'dob' ? 'Next' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
-          </button>
-        </form>
+        {onboardingStep === 'welcome' ? (
+          <>
+            <p style={{ color: '#888', fontSize: 14, marginBottom: 8 }}>Welcome to LiveMe</p>
+            <div style={{ color: '#ccc', fontSize: 13, maxWidth: 400, textAlign: 'left', lineHeight: 1.6, marginBottom: 16 }}>
+              <p style={{ marginBottom: 10 }}>LiveMe connects you with people around the world through live video chat and instant messaging.</p>
+              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Your Security</p>
+              <p style={{ marginBottom: 8 }}>• All messages are encrypted in transit. Your personal data is never shared with third parties.</p>
+              <p style={{ marginBottom: 8 }}>• You control what appears on your public profile. Display name and bio sharing can be toggled on/off.</p>
+              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Account Safety</p>
+              <p style={{ marginBottom: 8 }}>• Never share your password or personal information with strangers.</p>
+              <p style={{ marginBottom: 8 }}>• Report any suspicious or abusive behavior immediately — we take action on every report.</p>
+              <p style={{ marginBottom: 8 }}>• You can block and report users directly from the chat or messaging interface.</p>
+              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Age Requirement</p>
+              <p style={{ marginBottom: 8 }}>• Live video chat is restricted to users aged 18 and older.</p>
+              <p style={{ marginBottom: 8 }}>• If you are under 18, you can still use the text messaging system to chat with other users.</p>
+              <p style={{ marginTop: 12, padding: 10, background: 'rgba(108,99,255,0.1)', borderRadius: 8, border: '1px solid rgba(108,99,255,0.2)' }}>
+                By continuing, you confirm that you have read and understand the above. You agree to use LiveMe responsibly and in accordance with our terms.
+              </p>
+            </div>
+            <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ccc', fontSize: 13, cursor: 'pointer' }}>
+                <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
+                I agree to the terms above
+              </label>
+              <button type="submit" disabled={submitting || !agreedToTerms} style={{...mobileBtn, opacity: submitting || !agreedToTerms ? 0.5 : 1}}>Continue</button>
+            </form>
+          </>
+        ) : (
+          <>
+            <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
+              {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}
+            </p>
+            <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+              {onboardingStep === 'dob' ? (
+                <input style={input} type="date" value={onboardingDob} onChange={e => setOnboardingDob(e.target.value)} required />
+              ) : onboardingStep === 'name' ? (
+                <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
+              ) : (
+                <>
+                  <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>Display name: <b style={{ color: '#fff' }}>{onboardingName}</b></p>
+                  <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} maxLength={200} />
+                </>
+              )}
+              <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
+                {submitting ? 'Saving...' : onboardingStep === 'dob' ? 'Next' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
+              </button>
+            </form>
+          </>
+        )}
         {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
         {onboardingStep === 'bio' && (
           <p style={{ color: '#6c63ff', fontSize: 12, marginTop: 12, cursor: 'pointer' }} onClick={handleOnboardingSubmit}>Skip</p>
@@ -879,10 +922,16 @@ export default function WebApp() {
           {page === 'home' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
+              {underage && (
+                <div style={{ padding: '10px 16px', background: 'rgba(244,67,54,0.1)', borderBottom: '1px solid rgba(244,67,54,0.2)', textAlign: 'center' }}>
+                  <p style={{ color: '#f44336', fontSize: 13, margin: 0 }}>Video chat is restricted to users 18+. You can browse profiles and send messages.</p>
+                </div>
+              )}
               <LandingPage onNav={setPage} onStart={() => {
+                if (underage) return;
                 setPage('chat');
                 setTimeout(findStranger, 100);
-              }} />
+              }} underage={underage} />
               <Footer setPage={handleNav} />
             </div>
           )}

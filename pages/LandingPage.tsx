@@ -121,6 +121,7 @@ const s = {
 
 interface Props {
   onStart: () => void;
+  underage?: boolean;
   onNav?: (p: Page) => void;
   authMode?: 'login' | 'register';
   authMsg?: string;
@@ -144,7 +145,7 @@ interface Props {
 }
 
 export default function LandingPage({
-  onNav, onStart, authMode, authMsg, submitting, email, password,
+  onNav, onStart, underage, authMode, authMsg, submitting, email, password,
   onEmailChange, onPasswordChange, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
@@ -157,7 +158,15 @@ export default function LandingPage({
         <div style={s.left}>
           <h1 style={s.heroTitle}>LiveMe</h1>
           <p style={s.heroTagline}>Random video chat. Meet new people.</p>
-          {!showAuth && <button style={s.cta} onClick={onStart}>Start Chatting</button>}
+          {!showAuth && (
+            underage ? (
+              <p style={{ color: '#f44336', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 360, lineHeight: 1.5 }}>
+                Video chat is restricted to users 18+.<br/>Browse profiles or send messages instead.
+              </p>
+            ) : (
+              <button style={s.cta} onClick={onStart}>Start Chatting</button>
+            )
+          )}
         </div>
 
         {showAuth && (

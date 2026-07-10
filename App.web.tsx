@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 
 const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
+const API_URL = 'https://omegle-signaling-server-251a.onbelmo.uk';
 
 const meta = document.createElement('meta');
 meta.name = 'theme-color';
@@ -38,12 +39,22 @@ export default function WebApp() {
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'dob' | 'name' | 'bio' | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [liveUsers, setLiveUsers] = useState<{ id: string; user_id: string; name: string; avatar: string; bio: string }[]>([]);
   const [messagePartner, setMessagePartner] = useState('');
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
   const [onboardingDob, setOnboardingDob] = useState('');
   const [underage, setUnderage] = useState(false);
+
+  useEffect(() => {
+    function fetchLive() {
+      fetch(`${API_URL}/api/live`).then(r => r.json()).then(d => { if (Array.isArray(d)) setLiveUsers(d); }).catch(() => {});
+    }
+    fetchLive();
+    const iv = setInterval(fetchLive, 5000);
+    return () => clearInterval(iv);
+  }, []);
 
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
@@ -918,6 +929,36 @@ export default function WebApp() {
                   <button onClick={() => setPage('chat')} style={{
                     background: 'none', border: '1px solid #4caf50', color: '#4caf50', borderRadius: 6, padding: '4px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
                   }}>Return to Live</button>
+                </div>
+              )}
+              {liveUsers.length > 0 && (
+                <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f44336', boxShadow: '0 0 6px #f44336' }} />
+                    Live Now
+                  </h2>
+                  <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
+                    {liveUsers.map(l => (
+                      <div key={l.user_id} onClick={() => {}} style={{
+                        flexShrink: 0, width: 120, background: '#1a1a1a', borderRadius: 12,
+                        border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', cursor: 'pointer',
+                      }}>
+                        <div style={{ width: '100%', height: 140, background: '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {l.avatar ? <img src={l.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
+                            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 700 }}>
+                              {(l.name || 'A')[0].toUpperCase()}
+                            </div>}
+                        </div>
+                        <div style={{ padding: '8px 10px' }}>
+                          <p style={{ color: '#fff', fontSize: 12, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f44336' }} />
+                            <span style={{ color: '#f44336', fontSize: 10 }}>LIVE</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               <LandingPage onNav={setPage} onStart={() => {

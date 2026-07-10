@@ -925,7 +925,7 @@ export default function WebApp() {
           )}
 
           {page === 'home' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
+            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const, overflowX: 'hidden' as const, maxWidth: '100%' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               {underage && (
                 <div style={{ padding: '10px 16px', background: 'rgba(244,67,54,0.1)', borderBottom: '1px solid rgba(244,67,54,0.2)', textAlign: 'center' }}>

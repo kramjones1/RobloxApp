@@ -367,3 +367,17 @@ REVOKE EXECUTE ON FUNCTION search_users(TEXT) FROM anon;
 REVOKE EXECUTE ON FUNCTION get_user_messages(UUID) FROM anon;
 -- is_user_banned needs anon access for the signaling server (no user JWT)
 GRANT EXECUTE ON FUNCTION is_user_banned(UUID) TO anon, authenticated;
+
+-- RPC for signaling server to check date_of_birth (bypasses RLS)
+CREATE OR REPLACE FUNCTION get_dob(target_id UUID)
+RETURNS DATE
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  RETURN (SELECT date_of_birth FROM chat_profiles WHERE user_id = target_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_dob(UUID) TO anon;

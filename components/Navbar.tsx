@@ -89,16 +89,8 @@ const styles = {
 };
 
 export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false, admin = false, avatar }: NavbarProps) {
-  const [mobile, setMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function check() { setMobile(window.innerWidth < 700); }
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -113,9 +105,10 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
     setMenuOpen(false);
   }
 
-  if (mobile) {
-    return (
-        <div ref={menuRef} style={{ fontFamily: 'system-ui, sans-serif' }}>
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif' }}>
+      {/* Mobile navbar */}
+      <div ref={menuRef} className="mobile-nav" style={{ display: 'none' }}>
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
           paddingTop: 'env(safe-area-inset-top, 0px)',
@@ -195,37 +188,36 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
           </div>
         )}
       </div>
-    );
-  }
 
-  return (
-    <nav style={styles.topNav}>
-      <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
-      <div style={styles.topLinks}>
-        <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
-        {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
-        {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>
-          Messages
-          {unreadCount > 0 && <span style={{
-            position: 'absolute', top: -6, right: -14, minWidth: 16, height: 16,
-            borderRadius: 8, background: '#f44336', color: '#fff', fontSize: 10,
-            fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '0 4px', lineHeight: 1,
-          }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
-        </button>}
-        {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Admin</button>}
-        <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
-        <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
-      </div>
-      {user && (
-        <div style={styles.userSection}>
-          <div style={{ cursor: 'pointer' }} onClick={() => setPage('profile')}>
-            {avatar ? <img src={avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#333', flexShrink: 0 }} />}
-          </div>
-          <span style={styles.email}>{user.email}</span>
-          <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
+      {/* Desktop navbar */}
+      <nav className="desktop-nav" style={{ ...styles.topNav, display: 'none' }}>
+        <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
+        <div style={styles.topLinks}>
+          <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
+          {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
+          {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>
+            Messages
+            {unreadCount > 0 && <span style={{
+              position: 'absolute', top: -6, right: -14, minWidth: 16, height: 16,
+              borderRadius: 8, background: '#f44336', color: '#fff', fontSize: 10,
+              fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 4px', lineHeight: 1,
+            }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
+          </button>}
+          {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Admin</button>}
+          <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
+          <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
         </div>
-      )}
-    </nav>
+        {user && (
+          <div style={styles.userSection}>
+            <div style={{ cursor: 'pointer' }} onClick={() => setPage('profile')}>
+              {avatar ? <img src={avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#333', flexShrink: 0 }} />}
+            </div>
+            <span style={styles.email}>{user.email}</span>
+            <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
+          </div>
+        )}
+      </nav>
+    </div>
   );
 }

@@ -17,7 +17,7 @@ meta.content = '#1a1a1a';
 document.head.appendChild(meta);
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.page-content{padding-top:60px}.mobile-nav{display:none!important}.desktop-nav{display:none!important}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}.mobile-nav{display:block!important}}@media(min-width:700px){.mobile-auth{display:none!important}.desktop-nav{display:flex!important}}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes spin{to{transform:rotate(360deg)}}.page-content{padding-top:60px}.mobile-nav{display:none!important}.desktop-nav{display:none!important}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}.mobile-nav{display:block!important}}@media(min-width:700px){.mobile-auth{display:none!important}.desktop-nav{display:flex!important}}';
 document.head.appendChild(style);
 
 export default function WebApp() {
@@ -631,7 +631,6 @@ export default function WebApp() {
           {(state === 'searching' || state === 'connecting') && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 20, background: 'rgba(0,0,0,0.6)' }}>
               <div style={{ width: 40, height: 40, border: '3px solid #333', borderTopColor: '#6c63ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 20 }} />
-              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
               <p style={{ color: '#aaa', fontSize: 18 }}>{log || (state === 'connecting' ? 'Connecting...' : 'Searching...')}</p>
               <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{ ...sBtn, marginTop: 20, background: '#555', boxShadow: 'none' }}>Cancel</button>
             </div>
@@ -896,8 +895,34 @@ export default function WebApp() {
                   <p style={{ color: '#f44336', fontSize: 13, margin: 0 }}>Video chat is restricted to users 18+. You can browse profiles and send messages.</p>
                 </div>
               )}
+              {(state === 'searching' || state === 'connecting') && (
+                <div style={{ padding: '12px 16px', background: 'rgba(108,99,255,0.08)', borderBottom: '1px solid rgba(108,99,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 12, height: 12, border: '2px solid #6c63ff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>Looking for a partner</span>
+                  </div>
+                  <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); }} style={{
+                    background: 'none', border: '1px solid #d32f2f', color: '#d32f2f', borderRadius: 6, padding: '4px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                  }}>Cancel</button>
+                </div>
+              )}
+              {state === 'connected' && (
+                <div style={{ padding: '12px 16px', background: 'rgba(76,175,80,0.08)', borderBottom: '1px solid rgba(76,175,80,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#4caf50', boxShadow: '0 0 6px #4caf50' }} />
+                    <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>
+                      Live with {partnerProfile?.name || 'a partner'}
+                    </span>
+                    {partnerProfile?.avatar && <img src={partnerProfile.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />}
+                  </div>
+                  <button onClick={() => setPage('chat')} style={{
+                    background: 'none', border: '1px solid #4caf50', color: '#4caf50', borderRadius: 6, padding: '4px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+                  }}>Return to Live</button>
+                </div>
+              )}
               <LandingPage onNav={setPage} onStart={() => {
                 if (underage) return;
+                if (state === 'connected' || state === 'searching') { setPage('chat'); return; }
                 setPage('chat');
                 setTimeout(findStranger, 100);
               }} underage={underage} />

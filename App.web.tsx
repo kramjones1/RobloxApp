@@ -966,8 +966,8 @@ export default function WebApp() {
                   <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
                     {liveUsers.map(l => (
                       <div key={l.user_id} onClick={() => {}} style={{
-                        flexShrink: 0, width: 200, background: '#1a1a1a', borderRadius: 12,
-                        border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', cursor: 'pointer',
+                        flexShrink: 0, width: 200, background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', borderRadius: 12,
+                        border: 'none', overflow: 'hidden', cursor: 'pointer',
                       }}>
                         <div style={{ width: '100%', height: 150, background: '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
                           {l.avatar ? <img src={l.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} className="live-fallback" />
@@ -979,11 +979,11 @@ export default function WebApp() {
                             onLoad={(e) => { (e.target as HTMLImageElement).style.display = 'block'; }}
                             alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'none', position: 'absolute', inset: 0 }} />
                         </div>
-                        <div style={{ padding: '10px 12px' }}>
+                        <div style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.15)' }}>
                           <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f44336' }} />
-                            <span style={{ color: '#f44336', fontSize: 10 }}>LIVE</span>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+                            <span style={{ color: '#fff', fontSize: 10, fontWeight: 700 }}>LIVE</span>
                           </div>
                         </div>
                       </div>

@@ -8,6 +8,7 @@ interface NavbarProps {
   unreadCount?: number;
   callActive?: boolean;
   admin?: boolean;
+  avatar?: string;
 }
 
 const styles = {
@@ -87,7 +88,7 @@ const styles = {
   },
 };
 
-export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false, admin = false }: NavbarProps) {
+export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false, admin = false, avatar }: NavbarProps) {
   const [mobile, setMobile] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -219,6 +220,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
       </div>
       {user && (
         <div style={styles.userSection}>
+          {avatar ? <img src={avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#333', flexShrink: 0 }} />}
           <span style={styles.email}>{user.email}</span>
           <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
         </div>

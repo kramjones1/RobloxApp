@@ -17,7 +17,7 @@ meta.content = '#1a1a1a';
 document.head.appendChild(meta);
 
 const style = document.createElement('style');
-style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.page-content{padding-top:60px}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}}@media(min-width:700px){.mobile-auth{display:none!important}}';
+style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.page-content{padding-top:60px}.page-inner{max-width:1100px;margin:0 auto;width:100%;height:100%}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}.page-inner{max-width:none}}@media(min-width:700px){.mobile-auth{display:none!important}}';
 document.head.appendChild(style);
 
 export default function WebApp() {
@@ -743,24 +743,24 @@ export default function WebApp() {
 
       {/* NON-CHAT PAGES - mutually exclusive groups (same priority as old early returns) */}
       {page === 'privacy' && (
-        <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
-          <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
+        <div className="page-content page-inner" style={{ background: '#0a0a0a', overflowY: 'auto' as const }}>
+          <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
           <PrivacyPage />
           <Footer setPage={handleNav} />
         </div>
       )}
 
       {page === 'terms' && (
-        <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
-          <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
+        <div className="page-content page-inner" style={{ background: '#0a0a0a', overflowY: 'auto' as const }}>
+          <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
           <TermsPage />
           <Footer setPage={handleNav} />
         </div>
       )}
 
       {page === 'admin' && admin && (
-        <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
+        <div className="page-content page-inner" style={{ display: 'flex', flexDirection: 'column' }}>
+          <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
           <AdminPage />
         </div>
       )}
@@ -873,24 +873,24 @@ export default function WebApp() {
         /* Authenticated user pages */
         <>
           {page === 'profile' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
-              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
+            <div className="page-content page-inner" style={{ background: '#0a0a0a', overflowY: 'auto' as const }}>
+              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} />
               <Footer setPage={handleNav} />
             </div>
           )}
 
           {page === 'messages' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
+            <div className="page-content page-inner" style={{ display: 'flex', flexDirection: 'column' }}>
+              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} onChatOpened={() => getConversations().then(({ conversations }) => { if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0)); })} />
               {window.innerWidth >= 700 && <Footer setPage={handleNav} />}
             </div>
           )}
 
           {page === 'home' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
-              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
+            <div className="page-content page-inner" style={{ background: '#0a0a0a', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
+              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               {underage && (
                 <div style={{ padding: '10px 16px', background: 'rgba(244,67,54,0.1)', borderBottom: '1px solid rgba(244,67,54,0.2)', textAlign: 'center' }}>
                   <p style={{ color: '#f44336', fontSize: 13, margin: 0 }}>Video chat is restricted to users 18+. You can browse profiles and send messages.</p>

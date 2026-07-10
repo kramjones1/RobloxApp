@@ -40,22 +40,13 @@ export default function WebApp() {
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'dob' | 'name' | 'bio' | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [liveUsers, setLiveUsers] = useState<{ id: string; user_id: string; name: string; avatar: string; bio: string }[]>([]);
+  const [liveTs, setLiveTs] = useState(0);
   const [messagePartner, setMessagePartner] = useState('');
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
   const [onboardingDob, setOnboardingDob] = useState('');
   const [underage, setUnderage] = useState(false);
-
-  useEffect(() => {
-    function fetchLive() {
-      fetch(`${API_URL}/api/live`).then(r => r.json()).then(d => { if (Array.isArray(d)) setLiveUsers(d); }).catch(() => {});
-    }
-    fetchLive();
-    const iv = setInterval(fetchLive, 5000);
-    return () => clearInterval(iv);
-  }, []);
-
   const [state, setState] = useState('idle');
   const [id, setId] = useState('');
   const [log, setLog] = useState('');
@@ -80,8 +71,43 @@ export default function WebApp() {
   const [admin, setAdmin] = useState(false);
   const [partnerLeft, setPartnerLeft] = useState(false);
   const inCallRef = useRef(false);
+  const frameIntervalRef = useRef<any>(null);
 
   function addLog(msg: string) { setLog(msg); }
+
+  useEffect(() => {
+    function fetchLive() {
+      fetch(`${API_URL}/api/live`).then(r => r.json()).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
+    }
+    fetchLive();
+    const iv = setInterval(fetchLive, 5000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Frame capture for live preview
+  useEffect(() => {
+    if (state === 'connected' && localRef.current) {
+      const capture = () => {
+        const video = localRef.current;
+        if (!video || !video.videoWidth) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = 160;
+        canvas.height = 120;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0, 160, 120);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.3);
+        const base64 = dataUrl.split(',')[1];
+        wsRef.current?.send(JSON.stringify({ type: 'frame', data: base64 }));
+      };
+      capture();
+      frameIntervalRef.current = setInterval(capture, 1000);
+    } else {
+      clearInterval(frameIntervalRef.current);
+      frameIntervalRef.current = null;
+    }
+    return () => { clearInterval(frameIntervalRef.current); frameIntervalRef.current = null; };
+  }, [state]);
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
@@ -943,11 +969,15 @@ export default function WebApp() {
                         flexShrink: 0, width: 120, background: '#1a1a1a', borderRadius: 12,
                         border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden', cursor: 'pointer',
                       }}>
-                        <div style={{ width: '100%', height: 140, background: '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {l.avatar ? <img src={l.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
-                            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 700 }}>
+                        <div style={{ width: '100%', height: 140, background: '#2a2a2a', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+                          {l.avatar ? <img src={l.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} className="live-fallback" />
+                            : <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 700, position: 'absolute' }}>
                               {(l.name || 'A')[0].toUpperCase()}
                             </div>}
+                          <img src={`${API_URL}/api/live/frame/${l.user_id}?t=${liveTs}`}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            onLoad={(e) => { (e.target as HTMLImageElement).style.display = 'block'; }}
+                            alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'none', position: 'absolute', inset: 0 }} />
                         </div>
                         <div style={{ padding: '8px 10px' }}>
                           <p style={{ color: '#fff', fontSize: 12, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</p>

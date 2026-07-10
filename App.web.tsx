@@ -628,7 +628,7 @@ export default function WebApp() {
   return (
     <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', position: 'relative', overflow: 'hidden' }}>
       {/* Always-mounted video elements - hidden on non-chat pages so stream stays alive */}
-      <div style={page === 'chat' ? {} : { display: 'none' }}>
+      <div style={page === 'chat' ? { position: 'fixed', inset: 0, zIndex: 0 } : { position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}>
         <video ref={remoteRef} autoPlay playsInline style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
         <video ref={localRef} autoPlay playsInline muted style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top, 0px))', right: 10, width: 100, height: 140, borderRadius: 10, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
       </div>

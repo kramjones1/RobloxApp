@@ -204,7 +204,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
       <div style={styles.topLinks}>
         <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
         {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
-        {user && <button style={{ position: 'relative', ...(page === 'messages' ? styles.linkActive : styles.link) }} onClick={() => setPage('messages')}>
+        {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>
           Messages
           {unreadCount > 0 && <span style={{
             position: 'absolute', top: -6, right: -14, minWidth: 16, height: 16,
@@ -213,14 +213,15 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
             padding: '0 4px', lineHeight: 1,
           }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
         </button>}
-        {user && <button style={page === 'profile' ? styles.linkActive : styles.link} onClick={() => setPage('profile')}>Profile</button>}
         {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Admin</button>}
         <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
         <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>
       {user && (
         <div style={styles.userSection}>
-          {avatar ? <img src={avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#333', flexShrink: 0 }} />}
+          <div style={{ cursor: 'pointer' }} onClick={() => setPage('profile')}>
+            {avatar ? <img src={avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#333', flexShrink: 0 }} />}
+          </div>
           <span style={styles.email}>{user.email}</span>
           <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
         </div>

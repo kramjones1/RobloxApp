@@ -462,8 +462,14 @@ export default function WebApp() {
       setState('searching');
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         addLog('WS not open, reconnecting...');
-        connect();
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise<void>((resolve) => {
+          connect();
+          const ws = wsRef.current;
+          if (!ws) { setTimeout(resolve, 3000); return; }
+          if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
+          ws.addEventListener('open', () => resolve(), { once: true });
+          setTimeout(resolve, 5000);
+        });
       }
       wsRef.current?.send(JSON.stringify({ type: 'find', userId: user?.id }));
       addLog('Searching for partner...');

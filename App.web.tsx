@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -72,6 +72,8 @@ export default function WebApp() {
   const [partnerLeft, setPartnerLeft] = useState(false);
   const inCallRef = useRef(false);
   const frameIntervalRef = useRef<any>(null);
+  const [banned, setBanned] = useState(false);
+  const [bannedReason, setBannedReason] = useState('');
 
   function addLog(msg: string) { setLog(msg); }
 
@@ -184,8 +186,12 @@ export default function WebApp() {
   }, []);
 
   useEffect(() => {
-    if (!user) { setAdmin(false); setUnreadCount(0); return; }
+    if (!user) { setAdmin(false); setUnreadCount(0); setBanned(false); setBannedReason(''); return; }
     isAdmin().then(setAdmin);
+    checkIsBanned(user.id).then(b => {
+      setBanned(b);
+      if (b) getBanReason(user.id).then(r => setBannedReason(r));
+    });
     function pollUnread() {
       getConversations().then(({ conversations }) => {
         if (conversations) {
@@ -635,6 +641,21 @@ export default function WebApp() {
     return (
       <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, sans-serif' }}>
         <p style={{ color: '#888' }}>Loading...</p>
+      </div>
+    );
+  }
+
+  if (banned) {
+    return (
+      <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+        <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#f44336', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, fontSize: 28 }}>🚫</div>
+        <h1 style={{ color: '#fff', fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Account Banned</h1>
+        <p style={{ color: '#f44336', fontSize: 14, marginBottom: 16, maxWidth: 360, lineHeight: 1.5 }}>
+          {bannedReason ? `Reason: ${bannedReason}` : 'Your account has been suspended.'}
+        </p>
+        <p style={{ color: '#888', fontSize: 13, maxWidth: 360, lineHeight: 1.5 }}>
+          If you believe this was a mistake, please contact support.
+        </p>
       </div>
     );
   }

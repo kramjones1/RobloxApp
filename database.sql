@@ -396,3 +396,53 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION submit_report(UUID, UUID, TEXT, TEXT) TO anon;
+
+-- Admin: get all banned users with banner name
+CREATE OR REPLACE FUNCTION get_banned_users()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result JSON;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid()) THEN
+    RETURN '{"error":"unauthorized"}'::json;
+  END IF;
+  SELECT json_agg(json_build_object(
+    'user_id', bu.user_id,
+    'reason', bu.reason,
+    'banned_by', bu.banned_by,
+    'created_at', bu.created_at,
+    'banned_by_name', (SELECT display_name FROM chat_profiles WHERE user_id = bu.banned_by)
+  ) ORDER BY bu.created_at DESC)
+  INTO result
+  FROM banned_users bu;
+  RETURN COALESCE(result, '[]'::json);
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION get_banned_users() FROM anon;
+
+-- Get ban info for a user (reason + created_at)
+CREATE OR REPLACE FUNCTION get_ban_info(check_id UUID)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  result JSON;
+BEGIN
+  SELECT json_build_object(
+    'reason', reason,
+    'created_at', created_at
+  ) INTO result
+  FROM banned_users
+  WHERE user_id = check_id;
+  RETURN result;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_ban_info(UUID) TO anon;

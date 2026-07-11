@@ -587,14 +587,28 @@ export async function adminUnbanUser(userId: string): Promise<{ error?: string }
 }
 
 export async function adminGetBannedUsers(): Promise<{ users?: any[]; error?: string }> {
-  const headers = rpcToken();
-  if (!headers) return { error: 'Not authenticated' };
-  const res = await supabaseFetch(
-    `${SUPABASE_URL}/rest/v1/banned_users?order=created_at.desc`,
-    { headers }
-  );
+  const res = await adminRpc('get_banned_users');
   if (res?.error) return { error: res.error };
   return { users: Array.isArray(res) ? res : [] };
+}
+
+export async function checkIsBanned(userId: string): Promise<boolean> {
+  const headers = rpcToken();
+  if (!headers) return false;
+  const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/is_user_banned`, {
+    method: 'POST', headers, body: JSON.stringify({ check_id: userId })
+  });
+  return res === true;
+}
+
+export async function getBanReason(userId: string): Promise<string> {
+  const headers = rpcToken();
+  if (!headers) return '';
+  const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/get_ban_info`, {
+    method: 'POST', headers, body: JSON.stringify({ check_id: userId })
+  });
+  if (res?.error) return '';
+  return res?.reason || '';
 }
 
 export async function adminGetReportedMessages(): Promise<{ reports?: any[]; error?: string }> {

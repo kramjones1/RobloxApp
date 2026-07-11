@@ -693,7 +693,7 @@ export default function WebApp() {
                   ...sBtn, width: 52, padding: '6px 0', background: '#6c63ff',
                   boxShadow: 'none', fontSize: 10,
                 }}>Profile</button>
-                <button onClick={() => { cleanup(); setPage('home'); }} style={{
+                <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); setPage('home'); }} style={{
                   ...sBtn, width: 52, padding: '6px 0', background: '#d32f2f',
                   boxShadow: 'none', fontSize: 10,
                 }}>End</button>
@@ -722,7 +722,7 @@ export default function WebApp() {
                     ...sBtn, width: 'auto', padding: '8px 16px', background: '#6c63ff',
                     boxShadow: 'none', fontSize: 12,
                   }}>Profile</button>
-                  <button onClick={() => { cleanup(); setPage('home'); }} style={{
+                  <button onClick={() => { wsRef.current?.send(JSON.stringify({ type: 'leave' })); cleanup(); setPage('home'); }} style={{
                     ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
                     boxShadow: 'none', fontSize: 12,
                   }}>End Call</button>

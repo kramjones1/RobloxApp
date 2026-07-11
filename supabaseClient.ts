@@ -217,8 +217,6 @@ export async function verifyPhoneOtp(phone: string, token: string): Promise<{ er
 export async function signOut() {
   setStoredSession(null);
   notify(null);
-  // Clear Google OAuth session so next login shows account picker
-  try { window.open('https://accounts.google.com/Logout', 'google-logout', 'width=1,height=1'); } catch {}
 }
 
 export function signInWithGoogle() {
@@ -622,12 +620,7 @@ export async function adminGetBannedUsers(): Promise<{ users?: any[]; error?: st
 }
 
 export async function adminGetReportedMessages(): Promise<{ reports?: any[]; error?: string }> {
-  const headers = rpcToken();
-  if (!headers) return { error: 'Not authenticated' };
-  const res = await supabaseFetch(
-    `${SUPABASE_URL}/rest/v1/reported_messages?dismissed=eq.false&order=created_at.desc`,
-    { headers }
-  );
+  const res = await adminRpc('get_reported_messages');
   if (res?.error) return { error: res.error };
   return { reports: Array.isArray(res) ? res : [] };
 }

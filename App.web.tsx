@@ -483,6 +483,8 @@ export default function WebApp() {
 
   function reportUser() {
     if (!partnerId || reportSent) return;
+    var partnerName = partnerProfile?.name || 'this user';
+    if (!confirm('Report ' + partnerName + ' for abuse?')) return;
     const lastMsg = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].text : '';
     wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
     setReportSent(true);
@@ -498,6 +500,13 @@ export default function WebApp() {
     const savedName = pName;
 
     inCallRef.current = false;
+    // Ask to report partner after call ends
+    if (!reportSent && pUserId) {
+      const partnerDisplayName = savedName || 'this user';
+      if (confirm('Report ' + partnerDisplayName + ' for abuse?')) {
+        wsRef.current?.send(JSON.stringify({ type: 'report', target: pUserId, room: roomRef.current, messageText: '' }));
+      }
+    }
     // Critical teardown first (sync)
     lsRef.current?.getTracks().forEach((t: any) => t.stop());
     lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
@@ -681,10 +690,6 @@ export default function WebApp() {
                   ...sBtn, width: 52, padding: '6px 0', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
                   boxShadow: 'none', fontSize: 10, writingMode: 'vertical-rl' as any,
                 }}>Chat</button>
-                <button onClick={reportUser} style={{
-                  ...sBtn, width: 52, padding: '6px 0', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
-                  boxShadow: 'none', fontSize: 10,
-                }}>{reportSent ? 'Reported' : 'Report'}</button>
                 <button onClick={skip} style={{
                   ...sBtn, width: 52, padding: '6px 0', background: '#d32f2f',
                   boxShadow: 'none', fontSize: 10,
@@ -710,10 +715,6 @@ export default function WebApp() {
                     ...sBtn, width: 'auto', padding: '8px 16px', background: showChat ? '#6c63ff' : 'rgba(255,255,255,0.08)',
                     boxShadow: 'none', fontSize: 12,
                   }}>Chat</button>
-                  <button onClick={reportUser} style={{
-                    ...sBtn, width: 'auto', padding: '8px 16px', background: reportSent ? '#2e7d32' : 'rgba(255,255,255,0.08)',
-                    boxShadow: 'none', fontSize: 12,
-                  }}>{reportSent ? 'Reported' : 'Report'}</button>
                   <button onClick={skip} style={{
                     ...sBtn, width: 'auto', padding: '8px 16px', background: '#d32f2f',
                     boxShadow: 'none', fontSize: 12,

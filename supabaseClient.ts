@@ -217,11 +217,13 @@ export async function verifyPhoneOtp(phone: string, token: string): Promise<{ er
 export async function signOut() {
   setStoredSession(null);
   notify(null);
+  // Clear Google OAuth session so next login shows account picker
+  try { window.open('https://accounts.google.com/Logout', 'google-logout', 'width=1,height=1'); } catch {}
 }
 
 export function signInWithGoogle() {
   const redirectTo = window.location.origin;
-  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`;
+  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&prompt=select_account`;
   const w = window.open(url, 'google-oauth', 'width=600,height=700,popup=1');
   if (!w) { window.location.href = url; return; }
 }

@@ -560,37 +560,21 @@ export async function adminGetUserMessages(userId: string): Promise<{ messages?:
 }
 
 export async function adminFlagUser(userId: string, reason: string): Promise<{ error?: string }> {
-  const headers = rpcToken();
-  if (!headers) return { error: 'Not authenticated' };
-  const res = await supabaseFetch(
-    `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${userId}`,
-    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ flagged: true, flag_reason: reason }) }
-  );
+  const res = await adminRpc('flag_user', { target_id: userId, reason });
   if (res?.error) return { error: res.error };
   await adminLog('flag_user', userId, reason);
   return {};
 }
 
 export async function adminUnflagUser(userId: string): Promise<{ error?: string }> {
-  const headers = rpcToken();
-  if (!headers) return { error: 'Not authenticated' };
-  const res = await supabaseFetch(
-    `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${userId}`,
-    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ flagged: false, flag_reason: '' }) }
-  );
+  const res = await adminRpc('unflag_user', { target_id: userId });
   if (res?.error) return { error: res.error };
   await adminLog('unflag_user', userId, '');
   return {};
 }
 
 export async function adminBanUser(userId: string, reason: string): Promise<{ error?: string }> {
-  const headers = rpcToken();
-  if (!headers) return { error: 'Not authenticated' };
-  const u = parseJwt(headers.Authorization.replace('Bearer ', ''));
-  const res = await supabaseFetch(
-    `${SUPABASE_URL}/rest/v1/banned_users`,
-    { method: 'POST', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ user_id: userId, reason, banned_by: u!.id }) }
-  );
+  const res = await adminRpc('ban_user', { target_id: userId, reason });
   if (res?.error) return { error: res.error };
   await adminLog('ban_user', userId, reason);
   return {};

@@ -597,14 +597,8 @@ export async function adminBanUser(userId: string, reason: string): Promise<{ er
 }
 
 export async function adminUnbanUser(userId: string): Promise<{ error?: string }> {
-  const headers = rpcToken();
-  if (!headers) return { error: 'Not authenticated' };
-  const res = await supabaseFetch(
-    `${SUPABASE_URL}/rest/v1/banned_users?user_id=eq.${userId}`,
-    { method: 'DELETE', headers: { ...headers } }
-  );
+  const res = await adminRpc('unban_user', { target_id: userId });
   if (res?.error) return { error: res.error };
-  await adminLog('unban_user', userId, '');
   return {};
 }
 
@@ -626,12 +620,7 @@ export async function adminGetReportedMessages(): Promise<{ reports?: any[]; err
 }
 
 export async function adminDismissReport(reportId: string): Promise<{ error?: string }> {
-  const headers = rpcToken();
-  if (!headers) return { error: 'Not authenticated' };
-  const res = await supabaseFetch(
-    `${SUPABASE_URL}/rest/v1/reported_messages?id=eq.${reportId}`,
-    { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=minimal' }, body: JSON.stringify({ dismissed: true }) }
-  );
+  const res = await adminRpc('dismiss_report', { report_id: reportId });
   if (res?.error) return { error: res.error };
   return {};
 }

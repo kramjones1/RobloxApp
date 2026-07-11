@@ -381,3 +381,18 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION get_dob(UUID) TO anon;
+
+-- RPC for signaling server (anon) to submit reports without JWT
+CREATE OR REPLACE FUNCTION submit_report(p_reporter_id UUID, p_reported_id UUID, p_message_text TEXT, p_session_id TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  INSERT INTO reported_messages (reporter_id, reported_user_id, message_text, call_session_id)
+  VALUES (p_reporter_id, p_reported_id, p_message_text, p_session_id);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION submit_report(UUID, UUID, TEXT, TEXT) TO anon;

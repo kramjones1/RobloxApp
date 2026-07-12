@@ -106,7 +106,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
   RETURN EXISTS (SELECT 1 FROM banned_users WHERE user_id = check_id);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = '';
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 CREATE POLICY "admin update chat profiles" ON chat_profiles FOR UPDATE TO authenticated USING (
   EXISTS (SELECT 1 FROM admins WHERE user_id = auth.uid())
@@ -373,7 +373,7 @@ CREATE OR REPLACE FUNCTION get_dob(target_id UUID)
 RETURNS DATE
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = ''
+SET search_path = public
 AS $$
 BEGIN
   RETURN (SELECT date_of_birth FROM chat_profiles WHERE user_id = target_id);
@@ -387,7 +387,7 @@ CREATE OR REPLACE FUNCTION submit_report(p_reporter_id UUID, p_reported_id UUID,
 RETURNS VOID
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = ''
+SET search_path = public
 AS $$
 BEGIN
   INSERT INTO reported_messages (reporter_id, reported_user_id, message_text, call_session_id)

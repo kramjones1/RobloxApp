@@ -383,6 +383,7 @@ $$;
 GRANT EXECUTE ON FUNCTION get_dob(UUID) TO anon;
 
 -- RPC for signaling server (anon) to submit reports without JWT
+DROP FUNCTION IF EXISTS submit_report(UUID, UUID, TEXT, TEXT);
 CREATE OR REPLACE FUNCTION submit_report(p_reporter_id UUID, p_reported_id UUID, p_message_text TEXT, p_session_id TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -430,7 +431,7 @@ CREATE OR REPLACE FUNCTION get_ban_info(check_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = ''
+SET search_path = public
 AS $$
 DECLARE
   result JSON;

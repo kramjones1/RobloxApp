@@ -446,3 +446,18 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION get_ban_info(UUID) TO anon;
+
+-- SECURITY DEFINER helper for RLS: checks banned_users bypassing RLS
+CREATE OR REPLACE FUNCTION is_user_banned_simple(check_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (SELECT 1 FROM banned_users WHERE user_id = check_id);
+$$;
+
+DROP POLICY IF EXISTS "msg insert" ON chat_messages;
+CREATE POLICY "msg insert" ON chat_messages FOR INSERT TO authenticated WITH CHECK (
+  auth.uid() = sender_id AND NOT is_user_banned_simple(auth.uid())
+);

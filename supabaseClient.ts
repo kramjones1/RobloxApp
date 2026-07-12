@@ -319,6 +319,12 @@ export async function sendMessage(receiverId: string, content: string): Promise<
   if (!user) return { error: 'Invalid token' };
   if (!content.trim()) return { error: 'Message is empty' };
   try {
+    const banned = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/is_user_banned`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ check_id: user.id }),
+    });
+    if (banned === true) return { error: 'Your account has been suspended.' };
     const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_messages`, {
       method: 'POST',
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },

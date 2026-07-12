@@ -350,7 +350,7 @@ export default function WebApp() {
         case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
-        case 'banned': addLog('BANNED: ' + msg.reason); alert('Your account has been suspended: ' + msg.reason); setId(''); break;
+        case 'banned': addLog('BANNED: ' + msg.reason); setBanned(true); setBannedReason(msg.reason); cleanup(); break;
         case 'age_restricted': setUnderage(true); setCamError('Video chat is restricted to users 18+.'); setState('idle'); break;
         case 'sdp': handleSDP(ws, msg); break;
         case 'ice': handleICE(msg); break;

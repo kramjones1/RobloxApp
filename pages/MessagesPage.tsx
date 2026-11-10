@@ -59,10 +59,12 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }, [selectedId]);
 
   useEffect(() => {
+    // Scroll only the messages list. scrollIntoView() can scroll outer page
+    // containers too, which makes the fixed composer appear to move with messages.
     const el = bottomRef.current?.parentElement;
     if (!el) return;
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
-    if (nearBottom) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (nearBottom) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   async function handleSend(e: React.FormEvent) {

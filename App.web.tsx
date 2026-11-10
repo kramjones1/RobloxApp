@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getAccessToken } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getAccessToken, getValidAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -78,8 +78,10 @@ export default function WebApp() {
   function addLog(msg: string) { setLog(msg); }
 
   useEffect(() => {
-    function fetchLive() {
-      fetch(`${API_URL}/api/live`, { headers: { Authorization: `Bearer ${getAccessToken() || ''}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
+    async function fetchLive() {
+      const token = await getValidAccessToken();
+      if (!token) { setLiveUsers([]); setLiveTs(Date.now()); return; }
+      fetch(`${API_URL}/api/live`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
     }
     fetchLive();
     const iv = setInterval(fetchLive, 5000);
@@ -312,10 +314,10 @@ export default function WebApp() {
     setPage('home');
   }
 
-  function connect() {
+  async function connect(): Promise<WebSocket | null> {
     setWsStatus('connecting');
-    const accessToken = getAccessToken();
-    if (!accessToken) { setWsStatus('error'); addLog('Please sign in again before starting video chat.'); return; }
+    const accessToken = await getValidAccessToken();
+    if (!accessToken) { setWsStatus('error'); addLog('Your session expired. Please sign in again.'); return null; }
     const ws = new WebSocket(`${WS_URL}?access_token=${encodeURIComponent(accessToken)}`);
     wsRef.current = ws;
     ws.onopen = () => { setWsStatus('connected'); addLog('Connected'); };
@@ -338,6 +340,7 @@ export default function WebApp() {
     };
     ws.onerror = () => { setWsStatus('error'); addLog('WS error'); };
     ws.onclose = () => { setWsStatus('disconnected'); addLog('Disconnected'); };
+    return ws;
   }
 
   async function startCall(ws: WebSocket, role?: string) {
@@ -449,9 +452,13 @@ export default function WebApp() {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         addLog('WS not open, reconnecting...');
         await new Promise<void>((resolve) => {
-          connect();
-          const ws = wsRef.current;
-          if (!ws) { setTimeout(resolve, 3000); return; }
+          connect().then((ws) => {
+            if (!ws) { resolve(); return; }
+            if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
+            ws.addEventListener('open', () => resolve(), { once: true });
+            ws.addEventListener('error', () => resolve(), { once: true });
+          }).catch(() => resolve());
+          return;
           if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
           ws.addEventListener('open', () => resolve(), { once: true });
           setTimeout(resolve, 5000);

@@ -96,7 +96,17 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     );
   }
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 700;
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 700);
+
+  useEffect(() => {
+    const updateViewport = () => setIsMobile(window.innerWidth < 700);
+    window.addEventListener('resize', updateViewport);
+    window.addEventListener('orientationchange', updateViewport);
+    return () => {
+      window.removeEventListener('resize', updateViewport);
+      window.removeEventListener('orientationchange', updateViewport);
+    };
+  }, []);
 
   if (loading) return <div style={{ background: '#161616', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
 
@@ -145,11 +155,11 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           {renderMessages(true)}
           <div ref={bottomRef} />
         </div>
-        <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 14px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
-          <input style={inp} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
-          <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, padding: '11px 18px', opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>Send</button>
+        {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 14px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
+        <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '10px 14px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
+          <input aria-label="Message" style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 44, borderRadius: 24, padding: '0 16px', fontSize: 16 }} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
+          <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, height: 44, minWidth: 68, padding: '0 16px', borderRadius: 22, opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>{sending ? 'Sending…' : 'Send'}</button>
         </form>
-        {error && <p style={{ color: '#f44336', fontSize: 12, textAlign: 'center', margin: '0 0 6px' }}>{error}</p>}
       </div>
     );
   }
@@ -234,11 +244,11 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               })}
               <div ref={bottomRef} />
             </div>
-            <form onSubmit={handleSend} style={{ display: 'flex', gap: 8, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
-              <input style={inp} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
-              <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, padding: '11px 18px', opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>Send</button>
+            {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 16px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
+            <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
+              <input aria-label="Message" style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 44, borderRadius: 24, padding: '0 16px', fontSize: 16 }} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
+              <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, height: 44, minWidth: 68, padding: '0 16px', borderRadius: 22, opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>{sending ? 'Sending…' : 'Send'}</button>
             </form>
-            {error && <p style={{ color: '#f44336', fontSize: 12, textAlign: 'center', margin: '0 0 6px' }}>{error}</p>}
           </div>
         )}
 

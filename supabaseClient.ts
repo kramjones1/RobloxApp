@@ -446,6 +446,29 @@ export async function sendMessage(receiverId: string, content: string, attachmen
     return { error: e.message };
   }
 }
+export async function hideConversation(partnerId: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_conversation_hides`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify({ user_id: user.id, partner_id: partnerId, hidden_at: new Date().toISOString() }),
+    });
+    if (result?.error) return { error: result.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Could not delete conversation' };
+  }
+}
+
 export async function getConversations(): Promise<{ conversations?: { partnerId: string; lastMessage: ChatMessage; unread: number }[]; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
@@ -458,9 +481,19 @@ export async function getConversations(): Promise<{ conversations?: { partnerId:
     );
     if (res?.error) return { error: res.error };
     const messages = res as ChatMessage[];
+    const hiddenRows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_conversation_hides?user_id=eq.${user.id}&select=partner_id,hidden_at`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (hiddenRows?.error) return { error: hiddenRows.error };
+    const hiddenAt = new Map<string, number>(
+      (Array.isArray(hiddenRows) ? hiddenRows : []).map((row: any) => [row.partner_id, new Date(row.hidden_at).getTime()])
+    );
     const convMap = new Map<string, { partnerId: string; lastMessage: ChatMessage; unread: number }>();
     for (const m of messages) {
       const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
+      const hiddenTime = hiddenAt.get(otherId);
+      if (hiddenTime !== undefined && new Date(m.created_at).getTime() <= hiddenTime) continue;
       if (!convMap.has(otherId)) {
         convMap.set(otherId, { partnerId: otherId, lastMessage: m, unread: 0 });
       }

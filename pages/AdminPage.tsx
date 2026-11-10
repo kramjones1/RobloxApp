@@ -107,33 +107,36 @@ export default function AdminPage() {
   async function doSearch() {
     setSelectedUser(null);
     setUserMessages(null);
-    setUserPage(0);
-    await loadUsers(0);
+    if (userPage === 0) await loadUsers(0);
+    else setUserPage(0);
   }
 
   async function clearUserSearch() {
     setSearch('');
     setSelectedUser(null);
     setUserMessages(null);
-    setUserPage(0);
-    setLoading(true);
-    setError('');
-    try {
-      const r = await adminListUsers(null, 0, userPageSize);
-      if (r.error) {
-        setError(r.error);
+    if (userPage === 0) {
+      setLoading(true);
+      setError('');
+      try {
+        const r = await adminListUsers(null, 0, userPageSize);
+        if (r.error) {
+          setError(r.error);
+          setSearchResults([]);
+          setUserTotal(0);
+        } else {
+          setSearchResults(r.users || []);
+          setUserTotal(r.total || 0);
+        }
+      } catch (e: any) {
+        setError(e?.message || 'Unable to load the user directory.');
         setSearchResults([]);
         setUserTotal(0);
-      } else {
-        setSearchResults(r.users || []);
-        setUserTotal(r.total || 0);
+      } finally {
+        setLoading(false);
       }
-    } catch (e: any) {
-      setError(e?.message || 'Unable to load the user directory.');
-      setSearchResults([]);
-      setUserTotal(0);
-    } finally {
-      setLoading(false);
+    } else {
+      setUserPage(0);
     }
   }
 

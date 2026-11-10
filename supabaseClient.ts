@@ -469,7 +469,7 @@ export async function hideConversation(partnerId: string): Promise<{ error?: str
   }
 }
 
-export async function getConversations(): Promise<{ conversations?: { partnerId: string; lastMessage: ChatMessage; unread: number }[]; error?: string }> {
+export async function getConversations(): Promise<{ conversations?: { partnerId: string; lastMessage: ChatMessage; unread: number }[]; presencePartnerIds?: string[]; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
@@ -489,6 +489,7 @@ export async function getConversations(): Promise<{ conversations?: { partnerId:
     const hiddenAt = new Map<string, number>(
       (Array.isArray(hiddenRows) ? hiddenRows : []).map((row: any) => [row.partner_id, new Date(row.hidden_at).getTime()])
     );
+    const presencePartnerIds = Array.from(new Set(messages.map(m => m.sender_id === user.id ? m.receiver_id : m.sender_id)));
     const convMap = new Map<string, { partnerId: string; lastMessage: ChatMessage; unread: number }>();
     for (const m of messages) {
       const otherId = m.sender_id === user.id ? m.receiver_id : m.sender_id;
@@ -501,7 +502,7 @@ export async function getConversations(): Promise<{ conversations?: { partnerId:
         convMap.get(otherId)!.unread++;
       }
     }
-    return { conversations: Array.from(convMap.values()) };
+    return { conversations: Array.from(convMap.values()), presencePartnerIds };
   } catch (e: any) {
     return { error: e.message };
   }

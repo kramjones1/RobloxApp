@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getAccessToken, getValidAccessToken } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -457,11 +457,8 @@ export default function WebApp() {
             if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
             ws.addEventListener('open', () => resolve(), { once: true });
             ws.addEventListener('error', () => resolve(), { once: true });
+            setTimeout(resolve, 5000);
           }).catch(() => resolve());
-          return;
-          if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
-          ws.addEventListener('open', () => resolve(), { once: true });
-          setTimeout(resolve, 5000);
         });
       }
       wsRef.current?.send(JSON.stringify({ type: 'find' }));

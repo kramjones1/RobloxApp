@@ -27,7 +27,8 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const myId = user?.id;
-  const conversationPartnerKey = conversations.map(conv => conv.partnerId).sort().join('|');
+  const [presencePartnerIds, setPresencePartnerIds] = useState<string[]>([]);
+  const presencePartnerKey = presencePartnerIds.slice().sort().join('|');
   const [onlinePartners, setOnlinePartners] = useState<Set<string>>(new Set());
 
   function fetchProfile(uid: string) {
@@ -38,8 +39,9 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   function loadConvs() {
-    getConversations().then(({ conversations: c }) => {
+    getConversations().then(({ conversations: c, presencePartnerIds: presenceIds }) => {
       if (c) { setConversations(c); c.forEach(conv => fetchProfile(conv.partnerId)); }
+      if (presenceIds) { setPresencePartnerIds(presenceIds); presenceIds.forEach(fetchProfile); }
       setLoading(false);
     });
   }
@@ -54,13 +56,13 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   // Presence is shared only inside existing one-to-one conversations.
   // Each private channel is authorized by the chat-presence SQL policies.
   useEffect(() => {
-    if (!myId || !conversationPartnerKey) {
+    if (!myId || !presencePartnerKey) {
       setOnlinePartners(new Set());
       return;
     }
-    const partnerIds = conversationPartnerKey.split('|').filter(Boolean);
+    const partnerIds = presencePartnerKey.split('|').filter(Boolean);
     return watchConversationPresence(myId, partnerIds, setOnlinePartners);
-  }, [myId, conversationPartnerKey]);
+  }, [myId, presencePartnerKey]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -326,13 +328,13 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               <div style={{ color: '#666', fontSize: 12 }}>No one online right now</div>
             ) : (
               <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 3 }}>
-                {conversations.filter(conv => onlinePartners.has(conv.partnerId)).map(conv => (
-                  <button key={conv.partnerId} type="button" onClick={() => openChat(conv.partnerId)} title={partnerInfo[conv.partnerId]?.name || 'Open chat'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 54, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', color: '#ccc', fontFamily: 'inherit' }}>
+                {presencePartnerIds.filter(partnerId => onlinePartners.has(partnerId)).map(partnerId => (
+                  <button key={partnerId} type="button" onClick={() => openChat(partnerId)} title={partnerInfo[partnerId]?.name || 'Open chat'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 54, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', color: '#ccc', fontFamily: 'inherit' }}>
                     <span style={{ position: 'relative', display: 'inline-flex' }}>
-                      <Avatar uid={conv.partnerId} size={48} />
+                      <Avatar uid={partnerId} size={48} />
                       <span aria-label="Online" style={{ position: 'absolute', right: 0, bottom: 1, width: 11, height: 11, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />
                     </span>
-                    <span style={{ maxWidth: 62, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{partnerInfo[conv.partnerId]?.name || 'User'}</span>
+                    <span style={{ maxWidth: 62, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{partnerInfo[partnerId]?.name || 'User'}</span>
                   </button>
                 ))}
               </div>
@@ -353,6 +355,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               }}>
                 <div style={{ position: 'relative' }}>
                   <span onClick={(e) => { e.stopPropagation(); onViewProfile?.(conv.partnerId); }}><Avatar uid={conv.partnerId} size={44} /></span>
+                  {onlinePartners.has(conv.partnerId) && <span aria-label="Online" title="Online" style={{ position: 'absolute', bottom: -1, right: -1, width: 11, height: 11, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />}
                   {conv.unread > 0 && <span style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: '#6c63ff', border: '2px solid #161616' }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>

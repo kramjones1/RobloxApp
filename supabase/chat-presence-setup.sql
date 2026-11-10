@@ -13,7 +13,30 @@ for select
 to authenticated
 using (
   case
-    when realtime.topic() ~ '^chat-presence:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}
+    when realtime.topic() ~ '^chat-presence:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+    then
+      extension = 'presence'
+      and auth.uid() in (
+        split_part(realtime.topic(), ':', 2)::uuid,
+        split_part(realtime.topic(), ':', 3)::uuid
+      )
+      and exists (
+        select 1
+        from public.chat_messages as cm
+        where least(cm.sender_id, cm.receiver_id) =
+          least(
+            split_part(realtime.topic(), ':', 2)::uuid,
+            split_part(realtime.topic(), ':', 3)::uuid
+          )
+          and greatest(cm.sender_id, cm.receiver_id) =
+          greatest(
+            split_part(realtime.topic(), ':', 2)::uuid,
+            split_part(realtime.topic(), ':', 3)::uuid
+          )
+      )
+    else false
+  end
+);
 
 drop policy if exists "chat participants can publish conversation presence" on realtime.messages;
 create policy "chat participants can publish conversation presence"
@@ -22,8 +45,7 @@ for insert
 to authenticated
 with check (
   case
-    when realtime.topic() ~ '^chat-presence:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}
-
+    when realtime.topic() ~ '^chat-presence:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
     then
       extension = 'presence'
       and auth.uid() in (
@@ -46,108 +68,4 @@ with check (
       )
     else false
   end
-);
-
-drop policy if exists "chat participants can publish conversation presence" on realtime.messages;
-create policy "chat participants can publish conversation presence"
-on realtime.messages
-for insert
-to authenticated
-with check (
-  extension = 'presence'
-  and realtime.topic() ~ '^chat-presence:[0-9a-fA-F-]{36}:[0-9a-fA-F-]{36}$'
-  and auth.uid() in (
-    split_part(realtime.topic(), ':', 2)::uuid,
-    split_part(realtime.topic(), ':', 3)::uuid
-  )
-  and exists (
-    select 1
-    from public.chat_messages as cm
-    where least(cm.sender_id, cm.receiver_id) =
-      least(
-        split_part(realtime.topic(), ':', 2)::uuid,
-        split_part(realtime.topic(), ':', 3)::uuid
-      )
-      and greatest(cm.sender_id, cm.receiver_id) =
-      greatest(
-        split_part(realtime.topic(), ':', 2)::uuid,
-        split_part(realtime.topic(), ':', 3)::uuid
-      )
-  )
-);
-
-    then
-      extension = 'presence'
-      and auth.uid() in (
-        split_part(realtime.topic(), ':', 2)::uuid,
-        split_part(realtime.topic(), ':', 3)::uuid
-      )
-      and exists (
-        select 1
-        from public.chat_messages as cm
-        where least(cm.sender_id, cm.receiver_id) =
-          least(
-            split_part(realtime.topic(), ':', 2)::uuid,
-            split_part(realtime.topic(), ':', 3)::uuid
-          )
-          and greatest(cm.sender_id, cm.receiver_id) =
-          greatest(
-            split_part(realtime.topic(), ':', 2)::uuid,
-            split_part(realtime.topic(), ':', 3)::uuid
-          )
-      )
-    else false
-  end
-);
-
-    then
-      extension = 'presence'
-      and auth.uid() in (
-        split_part(realtime.topic(), ':', 2)::uuid,
-        split_part(realtime.topic(), ':', 3)::uuid
-      )
-      and exists (
-        select 1
-        from public.chat_messages as cm
-        where least(cm.sender_id, cm.receiver_id) =
-          least(
-            split_part(realtime.topic(), ':', 2)::uuid,
-            split_part(realtime.topic(), ':', 3)::uuid
-          )
-          and greatest(cm.sender_id, cm.receiver_id) =
-          greatest(
-            split_part(realtime.topic(), ':', 2)::uuid,
-            split_part(realtime.topic(), ':', 3)::uuid
-          )
-      )
-    else false
-  end
-);
-
-drop policy if exists "chat participants can publish conversation presence" on realtime.messages;
-create policy "chat participants can publish conversation presence"
-on realtime.messages
-for insert
-to authenticated
-with check (
-  extension = 'presence'
-  and realtime.topic() ~ '^chat-presence:[0-9a-fA-F-]{36}:[0-9a-fA-F-]{36}$'
-  and auth.uid() in (
-    split_part(realtime.topic(), ':', 2)::uuid,
-    split_part(realtime.topic(), ':', 3)::uuid
-  )
-  and exists (
-    select 1
-    from public.chat_messages as cm
-    where least(cm.sender_id, cm.receiver_id) =
-      least(
-        split_part(realtime.topic(), ':', 2)::uuid,
-        split_part(realtime.topic(), ':', 3)::uuid
-      )
-      and greatest(cm.sender_id, cm.receiver_id) =
-      greatest(
-        split_part(realtime.topic(), ':', 2)::uuid,
-        split_part(realtime.topic(), ':', 3)::uuid
-      )
-  )
 );

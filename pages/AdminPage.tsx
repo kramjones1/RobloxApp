@@ -36,6 +36,7 @@ export default function AdminPage() {
   const [reports, setReports] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const [error, setError] = useState('');
 
@@ -49,18 +50,60 @@ export default function AdminPage() {
   async function doSearch() {
     if (!search.trim()) return;
     setLoading(true);
-    const r = await adminSearchUsers(search.trim());
-    setSearchResults(r.users || []);
-    setSelectedUser(null);
-    setUserMessages(null);
-    setLoading(false);
+    setError('');
+    setNotice('');
+    try {
+      const r = await adminSearchUsers(search.trim());
+      if (r.error) {
+        setError(r.error);
+        setSearchResults([]);
+      } else {
+        setSearchResults(r.users || []);
+      }
+      setSelectedUser(null);
+      setUserMessages(null);
+    } catch (e: any) {
+      setError(e?.message || 'Unable to search users.');
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function viewUser(u: any) {
     setSelectedUser(u);
     setUserMessages(null);
-    const r = await adminGetUserMessages(u.user_id);
-    setUserMessages(r.messages || []);
+    setError('');
+    setLoading(true);
+    try {
+      const r = await adminGetUserMessages(u.user_id);
+      if (r.error) setError(r.error);
+      setUserMessages(r.messages || []);
+    } catch (e: any) {
+      setError(e?.message || 'Unable to load this user\'s messages.');
+      setUserMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runAction(action: () => Promise<{ error?: string }>, after?: () => void | Promise<void>) {
+    setLoading(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await action();
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setNotice('Action completed successfully.');
+      if (after) await after();
+    } catch (e: any) {
+      setError(e?.message || 'The action could not be completed.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   function renderTabs() {
@@ -84,11 +127,12 @@ export default function AdminPage() {
         <h1 style={s.title}>Command Center</h1>
         <p style={s.sub}>Platform administration and moderation</p>
         {renderTabs()}
+        {error && <div role="alert" style={{ background: 'rgba(244,67,54,0.14)', border: '1px solid rgba(244,67,54,0.4)', color: '#ff8a80', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{error}</div>}
+        {notice && <div role="status" style={{ background: 'rgba(76,175,80,0.12)', border: '1px solid rgba(76,175,80,0.3)', color: '#81c784', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{notice}</div>}
 
         {/* DASHBOARD */}
         {tab === 'dashboard' && (
           <>
-            {error && <div style={{ background: '#f44336', color: '#fff', padding: '10px 16px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{error}</div>}
             <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
               <div style={s.statBox}><div style={s.statNum}>{stats?.total_users ?? '-'}</div><div style={s.statLabel}>Users</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.total_messages ?? '-'}</div><div style={s.statLabel}>Total Messages</div></div>
@@ -99,14 +143,27 @@ export default function AdminPage() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={s.btn} onClick={loadStats} disabled={loading}>Refresh</button>
-              <button style={s.btn} onClick={async () => {
-                const { data, error } = await getAllMessagesForDownload();
-                if (error || !data) return;
-                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = 'all_messages.json'; a.click();
-                URL.revokeObjectURL(url);
-              }}>Download All Messages</button>
+              <button style={s.btn} disabled={loading} onClick={async () => {
+                setError('');
+                setNotice('');
+                try {
+                  const result = await getAllMessagesForDownload();
+                  if (result.error || !result.data) {
+                    setError(result.error || 'No message data was returned.');
+                    return;
+                  }
+                  const blob = new Blob([JSON.stringify(result.data, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'liveme_messages_export.json';
+                  a.click();
+                  URL.revokeObjectURL(url);
+                  setNotice(`Export prepared: ${result.data.length} messages.`);
+                } catch (e: any) {
+                  setError(e?.message || 'Message export failed.');
+                }
+              }}>Export Messages</button>
             </div>
           </>
         )}
@@ -147,10 +204,10 @@ export default function AdminPage() {
                     {!selectedUser.flagged ? (
                       <>
                         <input style={{ ...s.input, width: 200 }} placeholder="Flag reason..." value={flagReason} onChange={e => setFlagReason(e.target.value)} />
-                        <button style={s.btnWarn} onClick={async () => { if (!flagReason.trim()) return; await adminFlagUser(selectedUser.user_id, flagReason.trim()); selectedUser.flagged = true; selectedUser.flag_reason = flagReason.trim(); setFlagReason(''); }}>Flag</button>
+                        <button style={s.btnWarn} disabled={loading} onClick={() => { if (!flagReason.trim()) { setError('Enter a reason before flagging this user.'); return; } const reason = flagReason.trim(); runAction(() => adminFlagUser(selectedUser.user_id, reason), () => { setSelectedUser({ ...selectedUser, flagged: true, flag_reason: reason }); setFlagReason(''); }); }}>Flag</button>
                       </>
-                    ) : <button style={s.btn} onClick={async () => { await adminUnflagUser(selectedUser.user_id); selectedUser.flagged = false; selectedUser.flag_reason = ''; setSelectedUser({ ...selectedUser }); }}>Unflag</button>}
-                    <button style={s.btnDanger} onClick={async () => { const r = prompt('Ban reason:'); if (r) { await adminBanUser(selectedUser.user_id, r); } }}>Ban</button>
+                    ) : <button style={s.btn} disabled={loading} onClick={() => runAction(() => adminUnflagUser(selectedUser.user_id), () => setSelectedUser({ ...selectedUser, flagged: false, flag_reason: '' }))}>Unflag</button>}
+                    <button style={s.btnDanger} disabled={loading} onClick={() => { const reason = prompt('Ban reason:'); if (reason?.trim()) runAction(() => adminBanUser(selectedUser.user_id, reason.trim()), loadBans); }}>Ban</button>
                   </div>
                   <p style={{ color: '#999', fontSize: 12, marginBottom: 6 }}>Messages ({userMessages ? userMessages.length : '...'})</p>
                   <div style={{ maxHeight: 300, overflowY: 'auto' }}>
@@ -186,9 +243,9 @@ export default function AdminPage() {
                 </div>
                 <p style={{ color: '#ccc', fontSize: 13, marginBottom: 8 }}>"{r.message_text}"</p>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button style={s.btnSm} onClick={async () => { await adminDismissReport(r.id); loadReports(); }}>Dismiss</button>
-                  <button style={s.btnWarn} onClick={async () => { const reason = prompt('Flag reason:'); if (reason) { await adminFlagUser(r.reported_user_id, reason); await adminDismissReport(r.id); loadReports(); } }}>Flag & Dismiss</button>
-                  <button style={s.btnDanger} onClick={async () => { const reason = prompt('Ban reason:'); if (reason) { await adminBanUser(r.reported_user_id, reason); await adminDismissReport(r.id); loadReports(); } }}>Ban & Dismiss</button>
+                  <button style={s.btnSm} disabled={loading} onClick={() => runAction(() => adminDismissReport(r.id), loadReports)}>Dismiss</button>
+                  <button style={s.btnWarn} disabled={loading} onClick={() => { const reason = prompt('Flag reason:'); if (reason?.trim()) runAction(async () => { const flagged = await adminFlagUser(r.reported_user_id, reason.trim()); if (flagged.error) return flagged; return adminDismissReport(r.id); }, loadReports); }}>Flag & Dismiss</button>
+                  <button style={s.btnDanger} disabled={loading} onClick={() => { const reason = prompt('Ban reason:'); if (reason?.trim()) runAction(async () => { const banned = await adminBanUser(r.reported_user_id, reason.trim()); if (banned.error) return banned; return adminDismissReport(r.id); }, loadReports); }}>Ban & Dismiss</button>
                 </div>
               </div>
             ))}
@@ -208,7 +265,7 @@ export default function AdminPage() {
                     <p style={{ color: '#f44336', fontSize: 12, marginTop: 2 }}>Reason: {b.reason}</p>
                     <p style={{ color: '#666', fontSize: 11 }}>{new Date(b.created_at).toLocaleString()}</p>
                   </div>
-                  <button style={s.btn} onClick={async () => { await adminUnbanUser(b.user_id); loadBans(); }}>Unban</button>
+                  <button style={s.btn} disabled={loading} onClick={() => runAction(() => adminUnbanUser(b.user_id), loadBans)}>Unban</button>
                 </div>
               </div>
             ))}

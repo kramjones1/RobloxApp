@@ -519,7 +519,18 @@ export async function getMessages(partnerId: string): Promise<{ messages?: ChatM
       { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
     );
     if (res?.error) return { error: res.error };
-    return { messages: res as ChatMessage[] };
+    const hiddenRows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_conversation_hides?user_id=eq.${user.id}&partner_id=eq.${partnerId}&select=hidden_at&limit=1`,
+      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
+    );
+    if (hiddenRows?.error) return { error: hiddenRows.error };
+    const hiddenAt = Array.isArray(hiddenRows) && hiddenRows.length
+      ? new Date(hiddenRows[0].hidden_at).getTime()
+      : null;
+    const visibleMessages = (res as ChatMessage[]).filter(message =>
+      hiddenAt === null || new Date(message.created_at).getTime() > hiddenAt
+    );
+    return { messages: visibleMessages };
   } catch (e: any) {
     return { error: e.message };
   }

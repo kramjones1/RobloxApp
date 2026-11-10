@@ -108,6 +108,26 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     };
   }, []);
 
+  const [keyboardViewport, setKeyboardViewport] = useState(() => ({
+    height: typeof window !== 'undefined' ? window.visualViewport?.height || window.innerHeight : 0,
+    top: typeof window !== 'undefined' ? window.visualViewport?.offsetTop || 0 : 0,
+  }));
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const syncKeyboardViewport = () => {
+      setKeyboardViewport({ height: viewport.height, top: viewport.offsetTop });
+    };
+    viewport.addEventListener('resize', syncKeyboardViewport);
+    viewport.addEventListener('scroll', syncKeyboardViewport);
+    syncKeyboardViewport();
+    return () => {
+      viewport.removeEventListener('resize', syncKeyboardViewport);
+      viewport.removeEventListener('scroll', syncKeyboardViewport);
+    };
+  }, []);
+
   if (loading) return <div style={{ background: '#161616', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
 
   function renderMessages(withAvatars: boolean) {
@@ -145,7 +165,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   if (selectedId && isMobile) {
     return (
-      <div style={{ background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#161616', flex: 1, minHeight: 0, height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100%', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100%', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
           <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />

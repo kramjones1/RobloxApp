@@ -226,7 +226,12 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         }}>
           {!isMe && withAvatars && (
             <div style={{ width: 28, flexShrink: 0, visibility: showAvatar ? 'visible' : 'hidden' }}>
-              {showAvatar ? <Avatar uid={m.sender_id} size={28} /> : <div style={{ width: 28 }} />}
+              {showAvatar ? (
+                <span style={{ position: 'relative', display: 'inline-flex' }}>
+                  <Avatar uid={m.sender_id} size={28} />
+                  {onlinePartners.has(m.sender_id) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: -1, bottom: -1, width: 9, height: 9, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />}
+                </span>
+              ) : <div style={{ width: 28 }} />}
             </div>
           )}
           <div>
@@ -407,7 +412,12 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                   }}>
                     {!isMe && (
                       <div style={{ width: 28, flexShrink: 0, visibility: showAvatar ? 'visible' : 'hidden' }}>
-                        {showAvatar ? <Avatar uid={m.sender_id} size={28} /> : <div style={{ width: 28 }} />}
+                        {showAvatar ? (
+                <span style={{ position: 'relative', display: 'inline-flex' }}>
+                  <Avatar uid={m.sender_id} size={28} />
+                  {onlinePartners.has(m.sender_id) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: -1, bottom: -1, width: 9, height: 9, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />}
+                </span>
+              ) : <div style={{ width: 28 }} />}
                       </div>
                     )}
                     <div>

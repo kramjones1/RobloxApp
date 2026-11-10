@@ -387,7 +387,13 @@ export async function sendMessage(receiverId: string, content: string): Promise<
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ sender_id: user.id, receiver_id: receiverId, content: content.trim() }),
     });
-    if (res?.error) return { error: res.error };
+    if (res?.error) {
+      const detail = String(res.error);
+      if (detail.includes('23503') || detail.toLowerCase().includes('foreign key')) {
+        return { error: 'This account is no longer available. Refresh Recent Live and choose an active user.' };
+      }
+      return { error: detail };
+    }
     return {};
   } catch (e: any) {
     return { error: e.message };
@@ -510,7 +516,7 @@ export async function saveRecentLive(partnerId: string, name: string, bio: strin
 }
 
 export async function getRecentLive(): Promise<{ entries?: { id: string; partner_id: string; partner_name: string; partner_bio: string; partner_avatar: string; created_at: string }[]; error?: string }> {
-  const token = getStoredSession();
+  const token = await getValidAccessToken();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
@@ -520,7 +526,18 @@ export async function getRecentLive(): Promise<{ entries?: { id: string; partner
       { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
     );
     if (res?.error) return { error: res.error };
-    return { entries: res as any[] };
+    const entries = Array.isArray(res) ? res : [];
+    const partnerIds = Array.from(new Set(entries.map((entry: any) => entry.partner_id).filter(Boolean)));
+    const checks = await Promise.all(partnerIds.map(async (partnerId: string) => {
+      const profile = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_chat_profile`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_user_id: partnerId }),
+      });
+      return [partnerId, !profile?.error && Array.isArray(profile) && profile.length > 0] as const;
+    }));
+    const activePartners = new Set(checks.filter(([, active]) => active).map(([partnerId]) => partnerId));
+    return { entries: entries.filter((entry: any) => activePartners.has(entry.partner_id)) };
   } catch (e: any) {
     return { error: e.message };
   }

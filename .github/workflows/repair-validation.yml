@@ -1,6 +1,7 @@
 name: Repair branch validation
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - repair/liveme-security-hardening

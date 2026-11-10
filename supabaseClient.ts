@@ -109,6 +109,31 @@ function parseJwt(token: string): SupabaseUser | null {
 
 export function getAccessToken(): string | null { return getStoredSession(); }
 
+export async function getValidAccessToken(): Promise<string | null> {
+  const tokens = getStoredTokens();
+  if (!tokens?.access_token) return null;
+  const user = parseJwt(tokens.access_token);
+  if (!user) {
+    setStoredTokens(null);
+    notify(null);
+    return null;
+  }
+  // Refresh shortly before expiry so WebSocket and REST requests start with a valid JWT.
+  if ((user.exp || 0) * 1000 <= Date.now() + 60_000) {
+    const refreshed = await doRefresh();
+    if (refreshed) return refreshed;
+    const latest = getStoredTokens();
+    const latestUser = latest?.access_token ? parseJwt(latest.access_token) : null;
+    if (!latestUser || (latestUser.exp || 0) * 1000 <= Date.now()) {
+      setStoredTokens(null);
+      notify(null);
+      return null;
+    }
+    return latest!.access_token;
+  }
+  return tokens.access_token;
+}
+
 export function setSessionToken(token: string | null, refreshToken?: string | null) {
   const existing = getStoredTokens();
   if (token) setStoredTokens({ access_token: token, refresh_token: refreshToken || existing?.refresh_token || '' });
@@ -246,10 +271,12 @@ export function getSession(): SupabaseUser | null {
     const user = parseJwt(token);
     if (!user) return null;
     const exp = user.exp || 0;
-    if (Date.now() >= exp * 1000) {
+    if (Date.now() >= exp * 1000 && !getStoredTokens()?.refresh_token) {
       setStoredSession(null);
       return null;
     }
+    // Keep the signed-in user during startup when a refresh token is available.
+    // Network-backed callers use getValidAccessToken()/supabaseFetch to refresh it.
     return user;
   } catch { return null; }
 }

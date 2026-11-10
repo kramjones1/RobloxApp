@@ -176,9 +176,9 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           <div ref={bottomRef} />
         </div>
         {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 14px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
-        <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '10px 14px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
-          <input aria-label="Message" style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 44, borderRadius: 24, padding: '0 16px', fontSize: 16 }} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
-          <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, height: 44, minWidth: 68, padding: '0 16px', borderRadius: 22, opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>{sending ? 'Sending…' : 'Send'}</button>
+        <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', background: '#1a1a1a' }}>
+          <input aria-label="Message" style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, borderRadius: 22, padding: '0 16px', fontSize: 16, background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onChange={e => setText(e.target.value)} placeholder="Message" maxLength={500} />
+          <button type="submit" aria-label="Send message" disabled={sending || !text.trim()} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || !text.trim() ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
         </form>
       </div>
     );
@@ -265,9 +265,9 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               <div ref={bottomRef} />
             </div>
             {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 16px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
-            <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '10px 16px', paddingBottom: 'calc(10px + env(safe-area-inset-bottom, 0px))', borderTop: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
-              <input aria-label="Message" style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 44, borderRadius: 24, padding: '0 16px', fontSize: 16 }} value={text} onChange={e => setText(e.target.value)} placeholder="Aa" maxLength={500} />
-              <button type="submit" disabled={sending || !text.trim()} style={{ ...btn, height: 44, minWidth: 68, padding: '0 16px', borderRadius: 22, opacity: sending || !text.trim() ? 0.5 : 1, flexShrink: 0 }}>{sending ? 'Sending…' : 'Send'}</button>
+            <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', background: '#1a1a1a' }}>
+              <input aria-label="Message" style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, borderRadius: 22, padding: '0 16px', fontSize: 16, background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onChange={e => setText(e.target.value)} placeholder="Message" maxLength={500} />
+              <button type="submit" aria-label="Send message" disabled={sending || !text.trim()} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || !text.trim() ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
             </form>
           </div>
         )}

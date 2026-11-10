@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getConversations, getMessages, sendMessage, uploadChatAttachment, getChatAttachmentUrl, markMessagesRead, getUserProfile, ChatMessage } from '../supabaseClient';
+import { watchConversationPresence } from '../chatPresence';
 
 const btn = {
   background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none',
@@ -26,6 +27,8 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const bottomRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const myId = user?.id;
+  const conversationPartnerKey = conversations.map(conv => conv.partnerId).sort().join('|');
+  const [onlinePartners, setOnlinePartners] = useState<Set<string>>(new Set());
 
   function fetchProfile(uid: string) {
     if (partnerInfo[uid]) return;
@@ -47,6 +50,17 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     const iv = setInterval(loadConvs, 3000);
     return () => clearInterval(iv);
   }, []);
+
+  // Presence is shared only inside existing one-to-one conversations.
+  // Each private channel is authorized by the chat-presence SQL policies.
+  useEffect(() => {
+    if (!myId || !conversationPartnerKey) {
+      setOnlinePartners(new Set());
+      return;
+    }
+    const partnerIds = conversationPartnerKey.split('|').filter(Boolean);
+    return watchConversationPresence(myId, partnerIds, setOnlinePartners);
+  }, [myId, conversationPartnerKey]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -285,6 +299,24 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         <div style={{ flex: isMobile ? 1 : undefined, width: isMobile ? '100%' : 320, borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
+          </div>
+          <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ color: '#888', fontSize: 11, fontWeight: 700, letterSpacing: 0.7, marginBottom: 9 }}>ONLINE CHATS</div>
+            {onlinePartners.size === 0 ? (
+              <div style={{ color: '#666', fontSize: 12 }}>No one online right now</div>
+            ) : (
+              <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 3 }}>
+                {conversations.filter(conv => onlinePartners.has(conv.partnerId)).map(conv => (
+                  <button key={conv.partnerId} type="button" onClick={() => openChat(conv.partnerId)} title={partnerInfo[conv.partnerId]?.name || 'Open chat'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 54, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', color: '#ccc', fontFamily: 'inherit' }}>
+                    <span style={{ position: 'relative', display: 'inline-flex' }}>
+                      <Avatar uid={conv.partnerId} size={48} />
+                      <span aria-label="Online" style={{ position: 'absolute', right: 0, bottom: 1, width: 11, height: 11, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />
+                    </span>
+                    <span style={{ maxWidth: 62, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{partnerInfo[conv.partnerId]?.name || 'User'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {conversations.length === 0 ? (

@@ -614,10 +614,24 @@ export async function getAdminStats(): Promise<{ stats?: any; error?: string }> 
   return { stats: res };
 }
 
-export async function adminSearchUsers(term: string): Promise<{ users?: any[]; error?: string }> {
-  const res = await adminRpc('search_users', { search_term: term });
+export async function adminListUsers(term: string | null = null, page = 0, pageSize = 50): Promise<{ users?: any[]; total?: number; error?: string }> {
+  const safePage = Math.max(0, Math.floor(page));
+  const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
+  const res = await adminRpc('admin_list_users', {
+    p_search: term?.trim() || null,
+    p_limit: safePageSize,
+    p_offset: safePage * safePageSize,
+  });
   if (res?.error) return { error: res.error };
-  return { users: Array.isArray(res) ? res : [] };
+  return {
+    users: Array.isArray(res?.users) ? res.users : [],
+    total: Number.isFinite(Number(res?.total)) ? Number(res.total) : 0,
+  };
+}
+
+export async function adminSearchUsers(term: string): Promise<{ users?: any[]; error?: string }> {
+  const res = await adminListUsers(term, 0, 100);
+  return { users: res.users, error: res.error };
 }
 
 export async function adminGetUserMessages(userId: string): Promise<{ messages?: any[]; error?: string }> {

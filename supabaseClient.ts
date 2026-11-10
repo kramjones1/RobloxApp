@@ -107,9 +107,11 @@ function parseJwt(token: string): SupabaseUser | null {
   } catch { return null; }
 }
 
-export function setSessionToken(token: string | null) {
+export function getAccessToken(): string | null { return getStoredSession(); }
+
+export function setSessionToken(token: string | null, refreshToken?: string | null) {
   const existing = getStoredTokens();
-  if (token) setStoredTokens({ access_token: token, refresh_token: existing?.refresh_token || '' });
+  if (token) setStoredTokens({ access_token: token, refresh_token: refreshToken || existing?.refresh_token || '' });
   else setStoredTokens(null);
   if (token) { const p = parseJwt(token); if (p) notify(p); }
   else notify(null);

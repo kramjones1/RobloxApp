@@ -257,7 +257,21 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', background: '#1a1a1a' }}>
           <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} id="chat-attachments-mobile" onChange={e => { const files = Array.from(e.target.files || []); setSelectedFiles(current => [...current, ...files].slice(0, 5)); e.currentTarget.value = ''; }} />
           <label htmlFor="chat-attachments-mobile" aria-label="Attach photos or files" title="Attach photos or files" style={{ width: 38, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 23, cursor: 'pointer', flexShrink: 0 }}>＋</label>
-          <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onChange={e => { setText(e.target.value); e.target.style.height = '42px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} placeholder="Message" maxLength={500} />
+          <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onKeyDown={e => {
+            if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              const target = e.currentTarget;
+              const start = target.selectionStart;
+              const end = target.selectionEnd;
+              const next = text.slice(0, start) + '\n' + text.slice(end);
+              setText(next);
+              requestAnimationFrame(() => {
+                target.setSelectionRange(start + 1, start + 1);
+                target.style.height = '42px';
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+              });
+            }
+          }} onChange={e => { setText(e.target.value); e.target.style.height = '42px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} placeholder="Message" maxLength={500} />
           <button type="submit" aria-label="Send message" disabled={sending || (!text.trim() && selectedFiles.length === 0)} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || (!text.trim() && selectedFiles.length === 0) ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
         </form>
       </div>
@@ -349,7 +363,21 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
             <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', background: '#1a1a1a' }}>
               <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} id="chat-attachments-desktop" onChange={e => { const files = Array.from(e.target.files || []); setSelectedFiles(current => [...current, ...files].slice(0, 5)); e.currentTarget.value = ''; }} />
               <label htmlFor="chat-attachments-desktop" aria-label="Attach photos or files" title="Attach photos or files" style={{ width: 38, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 23, cursor: 'pointer', flexShrink: 0 }}>＋</label>
-              <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onChange={e => { setText(e.target.value); e.target.style.height = '42px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} placeholder="Message" maxLength={500} />
+              <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onKeyDown={e => {
+            if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              const target = e.currentTarget;
+              const start = target.selectionStart;
+              const end = target.selectionEnd;
+              const next = text.slice(0, start) + '\n' + text.slice(end);
+              setText(next);
+              requestAnimationFrame(() => {
+                target.setSelectionRange(start + 1, start + 1);
+                target.style.height = '42px';
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+              });
+            }
+          }} onChange={e => { setText(e.target.value); e.target.style.height = '42px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} placeholder="Message" maxLength={500} />
               <button type="submit" aria-label="Send message" disabled={sending || (!text.trim() && selectedFiles.length === 0)} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || (!text.trim() && selectedFiles.length === 0) ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
             </form>
           </div>

@@ -327,7 +327,7 @@ export default function WebApp() {
         case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); startCall(ws, msg.role); break;
         case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
-        case 'report_ack': addLog('Report submitted'); break;
+        case 'report_ack': setReportSent(true); addLog('Report submitted'); break;
         case 'report_error': setReportSent(false); addLog(msg.reason || 'Report could not be submitted.'); break;
         case 'auth_error': addLog(msg.reason || 'Account verification failed. Please sign in again.'); cleanup(); break;
         case 'banned': addLog('BANNED: ' + msg.reason); setBanned(true); setBannedReason(msg.reason); cleanup(); break;
@@ -479,6 +479,7 @@ export default function WebApp() {
     if (!confirm('Report ' + partnerName + ' for abuse?')) return;
     const lastMsg = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].text : '';
     wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
+    setReportSent(true);
     addLog('Submitting report...');
   }
 

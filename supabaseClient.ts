@@ -370,7 +370,7 @@ export interface ChatMessage {
 }
 
 export async function sendMessage(receiverId: string, content: string): Promise<{ error?: string }> {
-  const token = getStoredSession();
+  const token = await getValidAccessToken();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
@@ -395,7 +395,7 @@ export async function sendMessage(receiverId: string, content: string): Promise<
 }
 
 export async function getConversations(): Promise<{ conversations?: { partnerId: string; lastMessage: ChatMessage; unread: number }[]; error?: string }> {
-  const token = getStoredSession();
+  const token = await getValidAccessToken();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
@@ -423,7 +423,7 @@ export async function getConversations(): Promise<{ conversations?: { partnerId:
 }
 
 export async function getMessages(partnerId: string): Promise<{ messages?: ChatMessage[]; error?: string }> {
-  const token = getStoredSession();
+  const token = await getValidAccessToken();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
@@ -440,7 +440,7 @@ export async function getMessages(partnerId: string): Promise<{ messages?: ChatM
 }
 
 export async function markAllMessagesRead(): Promise<void> {
-  const token = getStoredSession();
+  const token = await getValidAccessToken();
   if (!token) return;
   const user = parseJwt(token);
   if (!user) return;
@@ -457,7 +457,7 @@ export async function markAllMessagesRead(): Promise<void> {
 }
 
 export async function markMessagesRead(partnerId: string): Promise<void> {
-  const token = getStoredSession();
+  const token = await getValidAccessToken();
   if (!token) return;
   const user = parseJwt(token);
   if (!user) return;

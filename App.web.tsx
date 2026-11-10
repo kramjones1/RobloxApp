@@ -342,7 +342,7 @@ export default function WebApp() {
       }
     };
     ws.onerror = () => { setWsStatus('error'); addLog('WS error'); };
-    ws.onclose = () => { setWsStatus('disconnected'); addLog('Disconnected'); };
+    ws.onclose = (e) => { setWsStatus('disconnected'); addLog(`Disconnected (code ${e.code}${e.reason ? ': ' + e.reason : ''})`); };
     return ws;
   }
 

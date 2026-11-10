@@ -272,19 +272,43 @@ export interface ChatProfile {
 export async function getUserProfile(userId: string): Promise<{ profile?: ChatProfile; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
+  const currentUser = parseJwt(token);
+  if (!currentUser) return { error: 'Invalid token' };
   try {
-    const data = await supabaseFetch(
-      `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${userId}&select=*`,
-      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
-    );
-    if (data.error) return { error: data.error };
-    if (Array.isArray(data) && data.length > 0) {
-      const p = data[0];
-      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio, date_of_birth: p.date_of_birth } };
+    let p: any;
+    if (currentUser.id === userId) {
+      const data = await supabaseFetch(
+        `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${encodeURIComponent(userId)}&select=*`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+      );
+      if (data.error) return { error: data.error };
+      if (!Array.isArray(data) || data.length === 0) return {};
+      p = data[0];
+    } else {
+      const data = await supabaseFetch(
+        `${SUPABASE_URL}/rest/v1/rpc/get_public_chat_profile`,
+        {
+          method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_user_id: userId }),
+        }
+      );
+      if (data.error) return { error: data.error };
+      if (!Array.isArray(data) || data.length === 0) return {};
+      p = data[0];
     }
-    return {};
+    return {
+      profile: {
+        display_name: p.display_name || 'Anonymous',
+        bio: p.bio || '',
+        avatar_url: p.avatar_url || '',
+        cover_url: p.cover_url || '',
+        share_name: Boolean(p.share_name),
+        share_bio: Boolean(p.share_bio),
+      },
+    };
   } catch (e: any) {
-    return { error: e.message };
+    return { error: e.message || 'Could not load profile' };
   }
 }
 

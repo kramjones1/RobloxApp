@@ -102,11 +102,11 @@ export default function WebApp() {
       const type = params.get('type');
       if (token) {
         if (window.opener) {
-          window.opener.postMessage({ type: 'oauth_token', access_token: token, oauthType: type }, window.location.origin);
+          window.opener.postMessage({ type: 'oauth_token', access_token: token, refresh_token: params.get('refresh_token'), oauthType: type }, window.location.origin);
           window.close();
           return;
         }
-        setSessionToken(token);
+        setSessionToken(token, params.get('refresh_token'));
         history.replaceState(null, '', window.location.pathname + window.location.search);
         if (type === 'recovery') setRecoveryMode(true);
         else {
@@ -132,7 +132,7 @@ export default function WebApp() {
     // Listen for OAuth tokens from popup windows
     function handleOAuthMessage(e: MessageEvent) {
       if (e.origin !== window.location.origin || e.data?.type !== 'oauth_token') return;
-      setSessionToken(e.data.access_token);
+      setSessionToken(e.data.access_token, e.data.refresh_token);
       history.replaceState(null, '', window.location.pathname + window.location.search);
       const oauthType = e.data.oauthType;
       if (oauthType === 'recovery') setRecoveryMode(true);

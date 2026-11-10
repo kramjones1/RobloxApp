@@ -84,7 +84,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         setError(uploaded.error || 'Could not upload attachment.');
         return;
       }
-      const result = await sendMessage(selectedId, \`${file.name}\`, uploaded.attachment);
+      const result = await sendMessage(selectedId, '📎 ' + file.name, uploaded.attachment);
       if (result.error) {
         setSending(false);
         setError(result.error);

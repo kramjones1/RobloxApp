@@ -42,10 +42,42 @@ export default function AdminPage() {
 
   useEffect(() => { if (tab === 'dashboard') loadStats(); if (tab === 'bans') loadBans(); if (tab === 'reports') loadReports(); if (tab === 'logs') loadLogs(); }, [tab]);
 
-  async function loadStats() { setLoading(true); setError(''); const r = await getAdminStats(); console.log('admin stats:', r); if (r.error) setError(r.error); if (r.stats) setStats(r.stats); setLoading(false); }
-  async function loadBans() { setLoading(true); setError(''); const r = await adminGetBannedUsers(); console.log('admin bans:', r); if (r.error) setError(r.error); if (r.users) setBannedUsers(r.users); setLoading(false); }
-  async function loadReports() { setLoading(true); setError(''); const r = await adminGetReportedMessages(); console.log('admin reports:', r); if (r.error) setError(r.error); if (r.reports) setReports(r.reports); setLoading(false); }
-  async function loadLogs() { setLoading(true); setError(''); const r = await adminGetLogs(); console.log('admin logs:', r); if (r.error) setError(r.error); if (r.logs) setLogs(r.logs); setLoading(false); }
+  async function loadStats() {
+    setLoading(true); setError('');
+    try {
+      const r = await getAdminStats();
+      if (r.error) setError(r.error);
+      else if (r.stats) setStats(r.stats);
+    } catch (e: any) { setError(e?.message || 'Unable to load dashboard statistics.'); }
+    finally { setLoading(false); }
+  }
+  async function loadBans() {
+    setLoading(true); setError('');
+    try {
+      const r = await adminGetBannedUsers();
+      if (r.error) setError(r.error);
+      else setBannedUsers(r.users || []);
+    } catch (e: any) { setError(e?.message || 'Unable to load banned users.'); }
+    finally { setLoading(false); }
+  }
+  async function loadReports() {
+    setLoading(true); setError('');
+    try {
+      const r = await adminGetReportedMessages();
+      if (r.error) setError(r.error);
+      else setReports(r.reports || []);
+    } catch (e: any) { setError(e?.message || 'Unable to load reports.'); }
+    finally { setLoading(false); }
+  }
+  async function loadLogs() {
+    setLoading(true); setError('');
+    try {
+      const r = await adminGetLogs();
+      if (r.error) setError(r.error);
+      else setLogs(r.logs || []);
+    } catch (e: any) { setError(e?.message || 'Unable to load admin logs.'); }
+    finally { setLoading(false); }
+  }
 
   async function doSearch() {
     if (!search.trim()) return;

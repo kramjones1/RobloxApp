@@ -259,8 +259,14 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       <div style={{ background: '#161616', position: 'fixed', zIndex: 50, insetInline: 0, top: `${keyboardViewport.top}px`, width: '100%', height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', overflow: 'hidden', overscrollBehavior: 'none', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
-          <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
-          <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
+          <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+            <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
+            {onlinePartners.has(selectedId) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: 0, bottom: 0, width: 10, height: 10, borderRadius: '50%', background: '#31d17c', border: '2px solid #1a1a1a', pointerEvents: 'none' }} />}
+          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
+            <span style={{ color: onlinePartners.has(selectedId) ? '#31d17c' : '#777', fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
+          </div>
         </div>
         <div style={{ flex: '1 1 0%', minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {renderMessages(true)}
@@ -353,8 +359,14 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         {selectedId && !isMobile && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
-              <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
-              <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
+              <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
+                {onlinePartners.has(selectedId) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: 0, bottom: 0, width: 10, height: 10, borderRadius: '50%', background: '#31d17c', border: '2px solid #1a1a1a', pointerEvents: 'none' }} />}
+              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
+                <span style={{ color: onlinePartners.has(selectedId) ? '#31d17c' : '#777', fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
+              </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {messages.map((m, i) => {

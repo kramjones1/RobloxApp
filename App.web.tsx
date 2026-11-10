@@ -233,7 +233,7 @@ export default function WebApp() {
   }
 
   function calcAge(dob: string): number {
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dob)) return -1;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob)) return -1;
     const bd = new Date(`${dob}T00:00:00Z`);
     if (Number.isNaN(bd.getTime()) || bd.toISOString().slice(0, 10) !== dob) return -1;
     const now = new Date();

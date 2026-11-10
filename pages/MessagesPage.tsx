@@ -170,7 +170,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               background: isMe ? '#6c63ff' : '#1f1f1f',
               padding: '8px 12px',
               borderRadius: isMe ? '14px 14px 4px 14px' : isFirstBySender ? '14px 14px 14px 4px' : '4px 14px 14px 4px',
-              color: '#fff', fontSize: 14, wordBreak: 'break-word', lineHeight: 1.4,
+              color: '#fff', fontSize: 14, wordBreak: 'break-word', whiteSpace: 'pre-wrap', lineHeight: 1.4,
             }}>
               {m.content}
             </div>
@@ -271,7 +271,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                         background: isMe ? '#6c63ff' : '#1f1f1f',
                         padding: '8px 12px',
                         borderRadius: isMe ? '14px 14px 4px 14px' : isFirstBySender ? '14px 14px 14px 4px' : '4px 14px 14px 4px',
-                        color: '#fff', fontSize: 14, wordBreak: 'break-word', lineHeight: 1.4,
+                        color: '#fff', fontSize: 14, wordBreak: 'break-word', whiteSpace: 'pre-wrap', lineHeight: 1.4,
                       }}>
                         {m.content}
                       </div>

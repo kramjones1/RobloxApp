@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getConversations, getMessages, sendMessage, uploadChatAttachment, getChatAttachmentUrl, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
+import { getConversations, getMessages, sendMessage, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
 import { watchConversationPresence } from '../chatPresence';
 
 const btn = {
@@ -18,8 +18,6 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const [selectedId, setSelectedId] = useState(messagePartner || '');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [attachmentUrls, setAttachmentUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [partnerInfo, setPartnerInfo] = useState<Record<string, { name: string; avatar: string }>>({});
@@ -89,49 +87,23 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     const messageText = text.trim();
-    const filesToSend = [...selectedFiles];
-    if ((!messageText && filesToSend.length === 0) || !selectedId) return;
+    if (!messageText || !selectedId) return;
     setSending(true);
     setError('');
-    for (const file of filesToSend) {
-      const uploaded = await uploadChatAttachment(selectedId, file);
-      if (uploaded.error || !uploaded.attachment) {
-        setSending(false);
-        setError(uploaded.error || 'Could not upload attachment.');
-        return;
-      }
-      const result = await sendMessage(selectedId, '📎 ' + file.name, uploaded.attachment);
-      if (result.error) {
-        setSending(false);
-        setError(result.error);
-        return;
-      }
-      setSelectedFiles(current => current.filter(item => item !== file));
+    const result = await sendMessage(selectedId, messageText);
+    if (result.error) {
+      setSending(false);
+      setError(result.error);
+      return;
     }
-    if (messageText) {
-      const result = await sendMessage(selectedId, messageText);
-      if (result.error) {
-        setSending(false);
-        setError(result.error);
-        return;
-      }
-      setText('');
-      if (composerRef.current) composerRef.current.style.height = '42px';
-    }
+    setText('');
+    if (composerRef.current) composerRef.current.style.height = '42px';
     setSending(false);
     setError('');
     const { messages: msgs } = await getMessages(selectedId);
     if (msgs) setMessages(msgs);
     loadConvs();
   }
-  useEffect(() => {
-    messages.forEach(async message => {
-      const path = message.attachment_path;
-      if (!path || attachmentUrls[path]) return;
-      const result = await getChatAttachmentUrl(path);
-      if (result.url) setAttachmentUrls(current => current[path] ? current : { ...current, [path]: result.url! });
-    });
-  }, [messages, attachmentUrls]);
 
   function openChat(partnerId: string) {
     setSelectedId(partnerId);
@@ -241,7 +213,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               borderRadius: isMe ? '14px 14px 4px 14px' : isFirstBySender ? '14px 14px 14px 4px' : '4px 14px 14px 4px',
               color: '#fff', fontSize: 14, wordBreak: 'break-word', whiteSpace: 'pre-wrap', lineHeight: 1.4,
             }}>
-              {renderAttachment(m)}
+              {m.content}
             </div>
             <div style={{ fontSize: 10, color: '#555', marginTop: 2, textAlign: isMe ? 'right' : 'left' }}>
               {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -252,28 +224,6 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     });
   }
 
-  function renderAttachment(message: ChatMessage) {
-    if (!message.attachment_path) return message.content;
-    const url = attachmentUrls[message.attachment_path];
-    if (!url) return <span style={{ color: '#bbb' }}>Loading attachment…</span>;
-    if ((message.attachment_mime_type || '').startsWith('image/')) {
-      return <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', color: '#fff', textDecoration: 'none' }}>
-        <img src={url} alt={message.attachment_name || 'Photo'} style={{ display: 'block', maxWidth: 'min(220px, 65vw)', maxHeight: 240, objectFit: 'cover', borderRadius: 9 }} />
-        <span style={{ display: 'block', fontSize: 11, marginTop: 4 }}>{message.attachment_name}</span>
-      </a>;
-    }
-    return <a href={url} target="_blank" rel="noreferrer" download={message.attachment_name || true} style={{ color: '#fff', textDecoration: 'underline', overflowWrap: 'anywhere' }}>📎 {message.attachment_name || 'Download file'}</a>;
-  }
-
-  function renderSelectedFiles() {
-    if (!selectedFiles.length) return null;
-    return <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '8px 12px 0', background: '#1a1a1a' }}>
-      {selectedFiles.map((file, index) => <div key={index} style={{ display: 'flex', alignItems: 'center', gap: 6, maxWidth: '100%', padding: '5px 8px', borderRadius: 10, background: '#2a2a2a', color: '#ddd', fontSize: 12 }}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 190 }}>📎 {file.name}</span>
-        <button type="button" aria-label={`Remove ${file.name}`} onClick={() => setSelectedFiles(items => items.filter((_, i) => i !== index))} style={{ border: 0, background: 'transparent', color: '#aaa', fontSize: 17, padding: 0, cursor: 'pointer' }}>×</button>
-      </div>)}
-    </div>;
-  }
 
   if (selectedId && isMobile) {
     return (
@@ -294,10 +244,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           <div ref={bottomRef} />
         </div>
         {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 14px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
-        {renderSelectedFiles()}
         <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', background: '#1a1a1a' }}>
-          <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} id="chat-attachments-mobile" onChange={e => { const files = Array.from(e.target.files || []); setSelectedFiles(current => [...current, ...files].slice(0, 5)); e.currentTarget.value = ''; }} />
-          <label htmlFor="chat-attachments-mobile" aria-label="Attach photos or files" title="Attach photos or files" style={{ width: 38, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 23, cursor: 'pointer', flexShrink: 0 }}>＋</label>
           <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onKeyDown={e => {
             if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
               e.preventDefault();
@@ -313,7 +260,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               });
             }
           }} onChange={e => { setText(e.target.value); e.target.style.height = '42px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} placeholder="Message" maxLength={500} />
-          <button type="submit" aria-label="Send message" disabled={sending || (!text.trim() && selectedFiles.length === 0)} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || (!text.trim() && selectedFiles.length === 0) ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
+          <button type="submit" aria-label="Send message" disabled={sending || !text.trim()} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || !text.trim() ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
         </form>
       </div>
     );
@@ -427,7 +374,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                         borderRadius: isMe ? '14px 14px 4px 14px' : isFirstBySender ? '14px 14px 14px 4px' : '4px 14px 14px 4px',
                         color: '#fff', fontSize: 14, wordBreak: 'break-word', whiteSpace: 'pre-wrap', lineHeight: 1.4,
                       }}>
-                        {renderAttachment(m)}
+                        {m.content}
                       </div>
                       <div style={{ fontSize: 10, color: '#555', marginTop: 2, textAlign: isMe ? 'right' : 'left' }}>
                         {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -439,10 +386,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               <div ref={bottomRef} />
             </div>
             {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 16px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
-            {renderSelectedFiles()}
-            <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', background: '#1a1a1a' }}>
-              <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" style={{ display: 'none' }} id="chat-attachments-desktop" onChange={e => { const files = Array.from(e.target.files || []); setSelectedFiles(current => [...current, ...files].slice(0, 5)); e.currentTarget.value = ''; }} />
-              <label htmlFor="chat-attachments-desktop" aria-label="Attach photos or files" title="Attach photos or files" style={{ width: 38, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb', fontSize: 23, cursor: 'pointer', flexShrink: 0 }}>＋</label>
+                <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', background: '#1a1a1a' }}>
               <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onKeyDown={e => {
             if (e.key !== 'Enter') return;
             e.preventDefault();
@@ -461,7 +405,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               target.style.height = Math.min(target.scrollHeight, 120) + 'px';
             });
           }} onChange={e => { setText(e.target.value); e.target.style.height = '42px'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }} placeholder="Message" maxLength={500} />
-              <button type="submit" aria-label="Send message" disabled={sending || (!text.trim() && selectedFiles.length === 0)} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || (!text.trim() && selectedFiles.length === 0) ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
+              <button type="submit" aria-label="Send message" disabled={sending || !text.trim()} style={{ width: 42, height: 42, padding: 0, border: 'none', borderRadius: '50%', background: '#6c63ff', color: '#fff', fontSize: 23, lineHeight: 1, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: sending || !text.trim() ? 0.45 : 1, flexShrink: 0 }}>{sending ? '…' : '↑'}</button>
             </form>
           </div>
         )}

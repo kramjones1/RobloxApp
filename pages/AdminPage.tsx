@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getAdminStats, adminListUsers, adminSearchUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload } from '../supabaseClient';
+import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload } from '../supabaseClient';
 
 const s = {
   page: { background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', padding: 24, overflowY: 'auto' as const },
@@ -201,7 +201,8 @@ export default function AdminPage() {
         {tab === 'dashboard' && (
           <>
             <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-              <div style={s.statBox}><div style={s.statNum}>{stats?.total_users ?? '-'}</div><div style={s.statLabel}>Users</div></div>
+              <div style={s.statBox}><div style={s.statNum}>{stats?.total_users ?? '-'}</div><div style={s.statLabel}>Auth Accounts</div></div>
+              <div style={s.statBox}><div style={s.statNum}>{stats?.profiles_missing ?? '-'}</div><div style={s.statLabel}>Missing Profiles</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.total_messages ?? '-'}</div><div style={s.statLabel}>Total Messages</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.messages_today ?? '-'}</div><div style={s.statLabel}>Messages Today</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.flagged_users ?? '-'}</div><div style={s.statLabel}>Flagged</div></div>

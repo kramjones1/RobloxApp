@@ -89,3 +89,44 @@ $function$;
 revoke all on function public.admin_list_users(text, integer, integer) from public;
 revoke all on function public.admin_list_users(text, integer, integer) from anon;
 grant execute on function public.admin_list_users(text, integer, integer) to authenticated;
+
+
+-- Make the dashboard user total match Supabase Authentication.
+create or replace function public.get_admin_stats()
+returns json
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  result json;
+begin
+  if auth.uid() is null or not exists (
+    select 1 from public.admins a where a.user_id = auth.uid()
+  ) then
+    raise exception 'Administrator access required' using errcode = '42501';
+  end if;
+
+  select json_build_object(
+    'total_users', (select count(*) from auth.users),
+    'chat_profiles', (select count(*) from public.chat_profiles),
+    'profiles_missing', (
+      select count(*)
+      from auth.users u
+      left join public.chat_profiles cp on cp.user_id = u.id
+      where cp.user_id is null
+    ),
+    'total_messages', (select count(*) from public.chat_messages),
+    'messages_today', (select count(*) from public.chat_messages where created_at > now() - interval '24 hours'),
+    'flagged_users', (select count(*) from public.chat_profiles where flagged = true),
+    'banned_users', (select count(*) from public.banned_users),
+    'pending_reports', (select count(*) from public.reported_messages where dismissed = false)
+  ) into result;
+
+  return result;
+end;
+$function$;
+
+revoke all on function public.get_admin_stats() from public;
+revoke all on function public.get_admin_stats() from anon;
+grant execute on function public.get_admin_stats() to authenticated;

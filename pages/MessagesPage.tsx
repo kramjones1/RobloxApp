@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getConversations, getMessages, sendMessage, uploadChatAttachment, getChatAttachmentUrl, markMessagesRead, getUserProfile, ChatMessage } from '../supabaseClient';
+import { getConversations, getMessages, sendMessage, uploadChatAttachment, getChatAttachmentUrl, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
 import { watchConversationPresence } from '../chatPresence';
 
 const btn = {
@@ -134,6 +134,20 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   function openChat(partnerId: string) {
     setSelectedId(partnerId);
     markMessagesRead(partnerId); onChatOpened?.();
+  }
+
+  async function deleteConversation(partnerId: string) {
+    if (!window.confirm('Delete this conversation from your Inbox? The messages will remain visible to the other person.')) return;
+    const result = await hideConversation(partnerId);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setConversations(current => current.filter(conv => conv.partnerId !== partnerId));
+    if (selectedId === partnerId) {
+      setSelectedId('');
+      setMessages([]);
+    }
   }
 
   function Avatar({ uid, size = 34, onClick }: { uid: string; size?: number; onClick?: () => void }) {
@@ -350,6 +364,15 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                     {conv.lastMessage.sender_id === myId ? 'You: ' : ''}{conv.lastMessage.content}
                   </span>
                 </div>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Delete conversation"
+                  title="Delete conversation"
+                  onClick={e => { e.stopPropagation(); void deleteConversation(conv.partnerId); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); void deleteConversation(conv.partnerId); } }}
+                  style={{ color: '#888', fontSize: 17, padding: '8px 4px', cursor: 'pointer', flexShrink: 0 }}
+                >🗑</span>
               </button>
             ))}
           </div>

@@ -165,7 +165,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   if (selectedId && isMobile) {
     return (
-      <div style={{ background: '#161616', flex: 1, minHeight: 0, height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100%', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100%', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#161616', position: 'fixed', zIndex: 50, left: 0, right: 0, top: `${keyboardViewport.top}px`, width: '100%', height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
           <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />

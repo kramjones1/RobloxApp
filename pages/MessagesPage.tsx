@@ -115,6 +115,22 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     top: typeof window !== 'undefined' ? window.visualViewport?.offsetTop || 0 : 0,
   }));
 
+  // Lock the document behind the full-screen mobile chat. The message list
+  // itself remains the only scrollable region while a conversation is open.
+  useEffect(() => {
+    if (!isMobile || !selectedId) return;
+    const body = document.body;
+    const html = document.documentElement;
+    const previousBodyOverflow = body.style.overflow;
+    const previousHtmlOverflow = html.style.overflow;
+    body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
+    return () => {
+      body.style.overflow = previousBodyOverflow;
+      html.style.overflow = previousHtmlOverflow;
+    };
+  }, [isMobile, selectedId]);
+
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
@@ -167,13 +183,13 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   if (selectedId && isMobile) {
     return (
-      <div style={{ background: '#161616', position: 'fixed', zIndex: 50, left: 0, right: 0, top: `${keyboardViewport.top}px`, width: '100%', height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', overflow: 'hidden', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ background: '#161616', position: 'fixed', zIndex: 50, insetInline: 0, top: `${keyboardViewport.top}px`, width: '100%', height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', overflow: 'hidden', overscrollBehavior: 'none', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
           <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
           <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
         </div>
-        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ flex: '1 1 0%', minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {renderMessages(true)}
           <div ref={bottomRef} />
         </div>

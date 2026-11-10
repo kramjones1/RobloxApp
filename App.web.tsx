@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -79,7 +79,7 @@ export default function WebApp() {
 
   useEffect(() => {
     function fetchLive() {
-      fetch(`${API_URL}/api/live`).then(r => r.json()).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
+      fetch(`${API_URL}/api/live`, { headers: { Authorization: `Bearer ${getAccessToken() || ''}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
     }
     fetchLive();
     const iv = setInterval(fetchLive, 5000);
@@ -338,7 +338,9 @@ export default function WebApp() {
 
   function connect() {
     setWsStatus('connecting');
-    const ws = new WebSocket(WS_URL);
+    const accessToken = getAccessToken();
+    if (!accessToken) { setWsStatus('error'); addLog('Please sign in again before starting video chat.'); return; }
+    const ws = new WebSocket(`${WS_URL}?access_token=${encodeURIComponent(accessToken)}`);
     wsRef.current = ws;
     ws.onopen = () => { setWsStatus('connected'); addLog('Connected'); };
     ws.onmessage = (e) => {
@@ -350,6 +352,8 @@ export default function WebApp() {
         case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': addLog('Report submitted'); break;
+        case 'report_error': setReportSent(false); addLog(msg.reason || 'Report could not be submitted.'); break;
+        case 'auth_error': addLog(msg.reason || 'Account verification failed. Please sign in again.'); cleanup(); break;
         case 'banned': addLog('BANNED: ' + msg.reason); setBanned(true); setBannedReason(msg.reason); cleanup(); break;
         case 'age_restricted': setUnderage(true); setCamError('Video chat is restricted to users 18+.'); setState('idle'); break;
         case 'sdp': handleSDP(ws, msg); break;
@@ -477,7 +481,7 @@ export default function WebApp() {
           setTimeout(resolve, 5000);
         });
       }
-      wsRef.current?.send(JSON.stringify({ type: 'find', userId: user?.id }));
+      wsRef.current?.send(JSON.stringify({ type: 'find' }));
       addLog('Searching for partner...');
     } catch (e: any) {
       const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
@@ -499,8 +503,7 @@ export default function WebApp() {
     if (!confirm('Report ' + partnerName + ' for abuse?')) return;
     const lastMsg = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].text : '';
     wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
-    setReportSent(true);
-    addLog('Report sent. Thank you.');
+    addLog('Submitting report...');
   }
 
   async function cleanup() {
@@ -516,7 +519,7 @@ export default function WebApp() {
     if (!reportSent && pUserId) {
       const partnerDisplayName = savedName || 'this user';
       if (confirm('Report ' + partnerDisplayName + ' for abuse?')) {
-        wsRef.current?.send(JSON.stringify({ type: 'report', target: pUserId, room: roomRef.current, messageText: '' }));
+        wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: '' }));
       }
     }
     // Critical teardown first (sync)

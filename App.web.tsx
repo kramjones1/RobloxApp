@@ -233,11 +233,13 @@ export default function WebApp() {
   }
 
   function calcAge(dob: string): number {
-    const bd = new Date(dob);
-    const t = new Date();
-    let age = t.getFullYear() - bd.getFullYear();
-    const m = t.getMonth() - bd.getMonth();
-    if (m < 0 || (m === 0 && t.getDate() < bd.getDate())) age--;
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dob)) return -1;
+    const bd = new Date(`${dob}T00:00:00Z`);
+    if (Number.isNaN(bd.getTime()) || bd.toISOString().slice(0, 10) !== dob) return -1;
+    const now = new Date();
+    let age = now.getUTCFullYear() - bd.getUTCFullYear();
+    const month = now.getUTCMonth() - bd.getUTCMonth();
+    if (month < 0 || (month === 0 && now.getUTCDate() < bd.getUTCDate())) age--;
     return age;
   }
 
@@ -288,7 +290,7 @@ export default function WebApp() {
         });
         setSubmitting(false);
         if (error) setAuthMsg(error);
-        else { setOnboardingStep(null); setPage('profile'); }
+        else { setUnderage(false); setCamError(''); setOnboardingStep(null); setPage('profile'); }
       } else {
         setOnboardingStep('name');
       }
@@ -304,7 +306,7 @@ export default function WebApp() {
       const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
       setSubmitting(false);
       if (error) setAuthMsg(error);
-      else { setOnboardingStep(null); setPage('profile'); }
+      else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); }
     }
   }
 
@@ -429,10 +431,25 @@ export default function WebApp() {
   }
 
   async function findStranger() {
-    if (underage) { setCamError('Video chat is not available for users under 18. You can use the messaging system instead.'); return; }
     const { profile } = await getChatProfile();
-    if (profile?.date_of_birth && calcAge(profile.date_of_birth) < 18) { setUnderage(true); setCamError('Video chat is not available for users under 18. You can use the messaging system instead.'); return; }
-    if (profile && user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+    if (!profile?.date_of_birth) {
+      setCamError('Please add your date of birth before starting video chat.');
+      setOnboardingDob('');
+      setOnboardingStep('dob');
+      return;
+    }
+    const currentAge = calcAge(profile.date_of_birth);
+    if (currentAge < 18) {
+      setUnderage(true);
+      setCamError('Video chat is not available for users under 18. You can use the messaging system instead.');
+      return;
+    }
+    // Re-evaluate from the freshly fetched profile. This clears a stale local
+    // restriction after a valid DOB correction; the signaling server still
+    // independently enforces the same 18+ rule.
+    setUnderage(false);
+    setCamError('');
+    if (user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
       lsRef.current = null;

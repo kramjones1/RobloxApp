@@ -387,12 +387,12 @@ export async function uploadChatAttachment(receiverId: string, file: File): Prom
   if (!user) return { error: 'Invalid token' };
   if (file.size > 15 * 1024 * 1024) return { error: 'Files must be 15 MB or smaller.' };
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-100) || 'attachment';
-  const unique = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : \`${Date.now()}-${Math.random().toString(36).slice(2)}\`;
-  const path = \`${user.id}/${receiverId}/${unique}-${safeName}\`;
+  const unique = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const path = `${user.id}/${receiverId}/${unique}-${safeName}`;
   try {
-    const result = await supabaseFetch(\`${SUPABASE_URL}/storage/v1/object/chat-attachments/${path.split('/').map(encodeURIComponent).join('/')}\`, {
+    const result = await supabaseFetch(`${SUPABASE_URL}/storage/v1/object/chat-attachments/${path.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': \`Bearer ${token}\`, 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' },
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'false' },
       body: file,
     });
     if (result?.error) return { error: result.error };
@@ -406,14 +406,14 @@ export async function getChatAttachmentUrl(path: string): Promise<{ url?: string
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   try {
-    const result = await supabaseFetch(\`${SUPABASE_URL}/storage/v1/object/sign/chat-attachments/${path.split('/').map(encodeURIComponent).join('/')}\`, {
+    const result = await supabaseFetch(`${SUPABASE_URL}/storage/v1/object/sign/chat-attachments/${path.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': \`Bearer ${token}\`, 'Content-Type': 'application/json' },
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ expiresIn: 3600 }),
     });
     if (result?.error) return { error: result.error };
     const signed = result?.signedURL || result?.signedUrl;
-    return signed ? { url: signed.startsWith('http') ? signed : \`${SUPABASE_URL}/storage/v1${signed}\` } : { error: 'Could not create a secure file link.' };
+    return signed ? { url: signed.startsWith('http') ? signed : `${SUPABASE_URL}/storage/v1${signed}` } : { error: 'Could not create a secure file link.' };
   } catch (e: any) {
     return { error: e.message || 'Could not open attachment' };
   }
@@ -426,15 +426,15 @@ export async function sendMessage(receiverId: string, content: string, attachmen
   if (!user) return { error: 'Invalid token' };
   if (!content.trim()) return { error: 'Message is empty' };
   try {
-    const banned = await supabaseFetch(\`${SUPABASE_URL}/rest/v1/rpc/is_user_banned\`, {
+    const banned = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/is_user_banned`, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': \`Bearer ${token}\`, 'Content-Type': 'application/json' },
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ check_id: user.id }),
     });
     if (banned === true) return { error: 'Your account has been suspended.' };
-    const res = await supabaseFetch(\`${SUPABASE_URL}/rest/v1/chat_messages\`, {
+    const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_messages`, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': \`Bearer ${token}\`, 'Content-Type': 'application/json' },
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         sender_id: user.id, receiver_id: receiverId, content: content.trim(),
         ...(attachment ? { attachment_path: attachment.path, attachment_name: attachment.name, attachment_mime_type: attachment.mimeType, attachment_size: attachment.size } : {}),

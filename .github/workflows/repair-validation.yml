@@ -1,0 +1,41 @@
+name: Repair branch validation
+
+on:
+  push:
+    branches:
+      - repair/liveme-security-hardening
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx expo export --platform web
+
+  signaling-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: kramjones1/omegle-signaling-server
+          ref: repair/liveme-security-hardening
+          path: signaling-server
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --check signaling-server/server.js
+      - run: npm install --prefix signaling-server

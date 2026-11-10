@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason } from './supabaseClient';
+import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -53,6 +53,7 @@ export default function WebApp() {
   const [wsStatus, setWsStatus] = useState('connecting');
   const [partnerId, setPartnerId] = useState('');
   const [reportSent, setReportSent] = useState(false);
+  const [reportPending, setReportPending] = useState(false);
   const [camError, setCamError] = useState('');
   const [noAudio, setNoAudio] = useState(false);
   const localRef = useRef<HTMLVideoElement>(null);
@@ -78,38 +79,16 @@ export default function WebApp() {
   function addLog(msg: string) { setLog(msg); }
 
   useEffect(() => {
-    function fetchLive() {
-      fetch(`${API_URL}/api/live`).then(r => r.json()).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
+    async function fetchLive() {
+      const token = await getValidAccessToken();
+      if (!token) { setLiveUsers([]); setLiveTs(Date.now()); return; }
+      fetch(`${API_URL}/api/live`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
     }
     fetchLive();
     const iv = setInterval(fetchLive, 5000);
     return () => clearInterval(iv);
   }, []);
 
-  // Frame capture for live preview
-  useEffect(() => {
-    if (state === 'connected' && localRef.current) {
-      const capture = () => {
-        const video = localRef.current;
-        if (!video || !video.videoWidth) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = 160;
-        canvas.height = 120;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(video, 0, 0, 160, 120);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.3);
-        const base64 = dataUrl.split(',')[1];
-        wsRef.current?.send(JSON.stringify({ type: 'frame', data: base64 }));
-      };
-      capture();
-      frameIntervalRef.current = setInterval(capture, 1000);
-    } else {
-      clearInterval(frameIntervalRef.current);
-      frameIntervalRef.current = null;
-    }
-    return () => { clearInterval(frameIntervalRef.current); frameIntervalRef.current = null; };
-  }, [state]);
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
@@ -126,11 +105,11 @@ export default function WebApp() {
       const type = params.get('type');
       if (token) {
         if (window.opener) {
-          window.opener.postMessage({ type: 'oauth_token', access_token: token, oauthType: type }, window.location.origin);
+          window.opener.postMessage({ type: 'oauth_token', access_token: token, refresh_token: params.get('refresh_token'), oauthType: type }, window.location.origin);
           window.close();
           return;
         }
-        setSessionToken(token);
+        setSessionToken(token, params.get('refresh_token'));
         history.replaceState(null, '', window.location.pathname + window.location.search);
         if (type === 'recovery') setRecoveryMode(true);
         else {
@@ -156,7 +135,7 @@ export default function WebApp() {
     // Listen for OAuth tokens from popup windows
     function handleOAuthMessage(e: MessageEvent) {
       if (e.origin !== window.location.origin || e.data?.type !== 'oauth_token') return;
-      setSessionToken(e.data.access_token);
+      setSessionToken(e.data.access_token, e.data.refresh_token);
       history.replaceState(null, '', window.location.pathname + window.location.search);
       const oauthType = e.data.oauthType;
       if (oauthType === 'recovery') setRecoveryMode(true);
@@ -254,11 +233,13 @@ export default function WebApp() {
   }
 
   function calcAge(dob: string): number {
-    const bd = new Date(dob);
-    const t = new Date();
-    let age = t.getFullYear() - bd.getFullYear();
-    const m = t.getMonth() - bd.getMonth();
-    if (m < 0 || (m === 0 && t.getDate() < bd.getDate())) age--;
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dob)) return -1;
+    const bd = new Date(`${dob}T00:00:00Z`);
+    if (Number.isNaN(bd.getTime()) || bd.toISOString().slice(0, 10) !== dob) return -1;
+    const now = new Date();
+    let age = now.getUTCFullYear() - bd.getUTCFullYear();
+    const month = now.getUTCMonth() - bd.getUTCMonth();
+    if (month < 0 || (month === 0 && now.getUTCDate() < bd.getUTCDate())) age--;
     return age;
   }
 
@@ -309,7 +290,7 @@ export default function WebApp() {
         });
         setSubmitting(false);
         if (error) setAuthMsg(error);
-        else { setOnboardingStep(null); setPage('profile'); }
+        else { setUnderage(false); setCamError(''); setOnboardingStep(null); setPage('profile'); }
       } else {
         setOnboardingStep('name');
       }
@@ -325,7 +306,7 @@ export default function WebApp() {
       const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
       setSubmitting(false);
       if (error) setAuthMsg(error);
-      else { setOnboardingStep(null); setPage('profile'); }
+      else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); }
     }
   }
 
@@ -336,9 +317,11 @@ export default function WebApp() {
     setPage('home');
   }
 
-  function connect() {
+  async function connect(): Promise<WebSocket | null> {
     setWsStatus('connecting');
-    const ws = new WebSocket(WS_URL);
+    const accessToken = await getValidAccessToken();
+    if (!accessToken) { setWsStatus('error'); addLog('Your session expired. Please sign in again.'); return null; }
+    const ws = new WebSocket(`${WS_URL}?access_token=${encodeURIComponent(accessToken)}`);
     wsRef.current = ws;
     ws.onopen = () => { setWsStatus('connected'); addLog('Connected'); };
     ws.onmessage = (e) => {
@@ -346,10 +329,12 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); startCall(ws, msg.role); break;
+        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); setReportPending(false); startCall(ws, msg.role); break;
         case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
-        case 'report_ack': addLog('Report submitted'); break;
+        case 'report_ack': setReportSent(true); setReportPending(false); addLog('Report submitted'); break;
+        case 'report_error': setReportSent(false); setReportPending(false); addLog(msg.reason || 'Report could not be submitted.'); break;
+        case 'auth_error': addLog(msg.reason || 'Account verification failed. Please sign in again.'); cleanup(); break;
         case 'banned': addLog('BANNED: ' + msg.reason); setBanned(true); setBannedReason(msg.reason); cleanup(); break;
         case 'age_restricted': setUnderage(true); setCamError('Video chat is restricted to users 18+.'); setState('idle'); break;
         case 'sdp': handleSDP(ws, msg); break;
@@ -358,6 +343,7 @@ export default function WebApp() {
     };
     ws.onerror = () => { setWsStatus('error'); addLog('WS error'); };
     ws.onclose = () => { setWsStatus('disconnected'); addLog('Disconnected'); };
+    return ws;
   }
 
   async function startCall(ws: WebSocket, role?: string) {
@@ -445,10 +431,25 @@ export default function WebApp() {
   }
 
   async function findStranger() {
-    if (underage) { setCamError('Video chat is not available for users under 18. You can use the messaging system instead.'); return; }
     const { profile } = await getChatProfile();
-    if (profile?.date_of_birth && calcAge(profile.date_of_birth) < 18) { setUnderage(true); setCamError('Video chat is not available for users under 18. You can use the messaging system instead.'); return; }
-    if (profile && user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+    if (!profile?.date_of_birth) {
+      setCamError('Please add your date of birth before starting video chat.');
+      setOnboardingDob('');
+      setOnboardingStep('dob');
+      return;
+    }
+    const currentAge = calcAge(profile.date_of_birth);
+    if (currentAge < 18) {
+      setUnderage(true);
+      setCamError('Video chat is not available for users under 18. You can use the messaging system instead.');
+      return;
+    }
+    // Re-evaluate from the freshly fetched profile. This clears a stale local
+    // restriction after a valid DOB correction; the signaling server still
+    // independently enforces the same 18+ rule.
+    setUnderage(false);
+    setCamError('');
+    if (user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
       lsRef.current = null;
@@ -469,15 +470,24 @@ export default function WebApp() {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         addLog('WS not open, reconnecting...');
         await new Promise<void>((resolve) => {
-          connect();
-          const ws = wsRef.current;
-          if (!ws) { setTimeout(resolve, 3000); return; }
-          if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
-          ws.addEventListener('open', () => resolve(), { once: true });
-          setTimeout(resolve, 5000);
+          connect().then((ws) => {
+            if (!ws) { resolve(); return; }
+            if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
+            ws.addEventListener('open', () => resolve(), { once: true });
+            ws.addEventListener('error', () => resolve(), { once: true });
+            setTimeout(resolve, 5000);
+          }).catch(() => resolve());
         });
       }
-      wsRef.current?.send(JSON.stringify({ type: 'find', userId: user?.id }));
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        addLog('Unable to connect to the chat server. Please try again.');
+        setWsStatus('error');
+        setState('idle');
+        lsRef.current?.getTracks().forEach((t: any) => t.stop());
+        lsRef.current = null;
+        return;
+      }
+      wsRef.current.send(JSON.stringify({ type: 'find' }));
       addLog('Searching for partner...');
     } catch (e: any) {
       const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
@@ -494,13 +504,14 @@ export default function WebApp() {
   }
 
   function reportUser() {
-    if (!partnerId || reportSent) return;
+    if (!partnerId || reportSent || reportPending) return;
     var partnerName = partnerProfile?.name || 'this user';
     if (!confirm('Report ' + partnerName + ' for abuse?')) return;
     const lastMsg = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].text : '';
-    wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
-    setReportSent(true);
-    addLog('Report sent. Thank you.');
+    if (wsRef.current?.readyState !== WebSocket.OPEN) { addLog('Cannot submit report: connection is not active.'); return; }
+    wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
+    setReportPending(true);
+    addLog('Submitting report...');
   }
 
   async function cleanup() {
@@ -513,10 +524,13 @@ export default function WebApp() {
 
     inCallRef.current = false;
     // Ask to report partner after call ends
-    if (!reportSent && pUserId) {
+    if (!reportSent && !reportPending && pUserId) {
       const partnerDisplayName = savedName || 'this user';
       if (confirm('Report ' + partnerDisplayName + ' for abuse?')) {
-        wsRef.current?.send(JSON.stringify({ type: 'report', target: pUserId, room: roomRef.current, messageText: '' }));
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: '' }));
+          setReportPending(true);
+        }
       }
     }
     // Critical teardown first (sync)
@@ -1002,10 +1016,7 @@ export default function WebApp() {
                             : <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 700, position: 'absolute' }}>
                               {(l.name || 'A')[0].toUpperCase()}
                             </div>}
-                          <img src={`${API_URL}/api/live/frame/${l.user_id}?t=${liveTs}`}
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            onLoad={(e) => { (e.target as HTMLImageElement).style.display = 'block'; }}
-                            alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'none', position: 'absolute', inset: 0 }} />
+
                         </div>
                         <div style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.15)' }}>
                           <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</p>

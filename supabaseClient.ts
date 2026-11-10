@@ -107,9 +107,36 @@ function parseJwt(token: string): SupabaseUser | null {
   } catch { return null; }
 }
 
-export function setSessionToken(token: string | null) {
+export function getAccessToken(): string | null { return getStoredSession(); }
+
+export async function getValidAccessToken(): Promise<string | null> {
+  const tokens = getStoredTokens();
+  if (!tokens?.access_token) return null;
+  const user = parseJwt(tokens.access_token);
+  if (!user) {
+    setStoredTokens(null);
+    notify(null);
+    return null;
+  }
+  // Refresh shortly before expiry so WebSocket and REST requests start with a valid JWT.
+  if ((user.exp || 0) * 1000 <= Date.now() + 60_000) {
+    const refreshed = await doRefresh();
+    if (refreshed) return refreshed;
+    const latest = getStoredTokens();
+    const latestUser = latest?.access_token ? parseJwt(latest.access_token) : null;
+    if (!latestUser || (latestUser.exp || 0) * 1000 <= Date.now()) {
+      setStoredTokens(null);
+      notify(null);
+      return null;
+    }
+    return latest!.access_token;
+  }
+  return tokens.access_token;
+}
+
+export function setSessionToken(token: string | null, refreshToken?: string | null) {
   const existing = getStoredTokens();
-  if (token) setStoredTokens({ access_token: token, refresh_token: existing?.refresh_token || '' });
+  if (token) setStoredTokens({ access_token: token, refresh_token: refreshToken || existing?.refresh_token || '' });
   else setStoredTokens(null);
   if (token) { const p = parseJwt(token); if (p) notify(p); }
   else notify(null);
@@ -124,7 +151,7 @@ export async function signUp(email: string, password: string): Promise<{ error?:
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
-      setStoredSession(data.access_token);
+      setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || '' });
       notify(parseJwt(data.access_token));
       return {};
     }
@@ -215,6 +242,10 @@ export async function verifyPhoneOtp(phone: string, token: string): Promise<{ er
 }
 
 export async function signOut() {
+  const token = getStoredSession();
+  try {
+    if (token) await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } });
+  } catch {}
   setStoredSession(null);
   notify(null);
 }
@@ -240,10 +271,12 @@ export function getSession(): SupabaseUser | null {
     const user = parseJwt(token);
     if (!user) return null;
     const exp = user.exp || 0;
-    if (Date.now() >= exp * 1000) {
+    if (Date.now() >= exp * 1000 && !getStoredTokens()?.refresh_token) {
       setStoredSession(null);
       return null;
     }
+    // Keep the signed-in user during startup when a refresh token is available.
+    // Network-backed callers use getValidAccessToken()/supabaseFetch to refresh it.
     return user;
   } catch { return null; }
 }
@@ -266,19 +299,43 @@ export interface ChatProfile {
 export async function getUserProfile(userId: string): Promise<{ profile?: ChatProfile; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
+  const currentUser = parseJwt(token);
+  if (!currentUser) return { error: 'Invalid token' };
   try {
-    const data = await supabaseFetch(
-      `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${userId}&select=*`,
-      { headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}` } }
-    );
-    if (data.error) return { error: data.error };
-    if (Array.isArray(data) && data.length > 0) {
-      const p = data[0];
-      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio, date_of_birth: p.date_of_birth } };
+    let p: any;
+    if (currentUser.id === userId) {
+      const data = await supabaseFetch(
+        `${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${encodeURIComponent(userId)}&select=*`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+      );
+      if (data.error) return { error: data.error };
+      if (!Array.isArray(data) || data.length === 0) return {};
+      p = data[0];
+    } else {
+      const data = await supabaseFetch(
+        `${SUPABASE_URL}/rest/v1/rpc/get_public_chat_profile`,
+        {
+          method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target_user_id: userId }),
+        }
+      );
+      if (data.error) return { error: data.error };
+      if (!Array.isArray(data) || data.length === 0) return {};
+      p = data[0];
     }
-    return {};
+    return {
+      profile: {
+        display_name: p.display_name || 'Anonymous',
+        bio: p.bio || '',
+        avatar_url: p.avatar_url || '',
+        cover_url: p.cover_url || '',
+        share_name: Boolean(p.share_name),
+        share_bio: Boolean(p.share_bio),
+      },
+    };
   } catch (e: any) {
-    return { error: e.message };
+    return { error: e.message || 'Could not load profile' };
   }
 }
 
@@ -491,6 +548,7 @@ export async function getAllMessagesForDownload(): Promise<{ data?: any[]; error
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
+  if (!(await isAdmin())) return { error: 'Unauthorized: administrator access required.' };
   try {
     const res = await supabaseFetch(
       `${SUPABASE_URL}/rest/v1/rpc/get_my_all_messages`,
@@ -544,7 +602,10 @@ function rpcToken() {
 async function adminRpc(fn: string, body?: any) {
   const headers = rpcToken();
   if (!headers) return { error: 'Not authenticated' };
-  return supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body ?? {}) });
+  if (!(await isAdmin())) return { error: 'Unauthorized: administrator access required.' };
+  const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body ?? {}) });
+  if (result?.error) return { error: String(result.error) };
+  return result;
 }
 
 export async function getAdminStats(): Promise<{ stats?: any; error?: string }> {
@@ -553,10 +614,24 @@ export async function getAdminStats(): Promise<{ stats?: any; error?: string }> 
   return { stats: res };
 }
 
-export async function adminSearchUsers(term: string): Promise<{ users?: any[]; error?: string }> {
-  const res = await adminRpc('search_users', { search_term: term });
+export async function adminListUsers(term: string | null = null, page = 0, pageSize = 50): Promise<{ users?: any[]; total?: number; error?: string }> {
+  const safePage = Math.max(0, Math.floor(page));
+  const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));
+  const res = await adminRpc('admin_list_users', {
+    p_search: term?.trim() || null,
+    p_limit: safePageSize,
+    p_offset: safePage * safePageSize,
+  });
   if (res?.error) return { error: res.error };
-  return { users: Array.isArray(res) ? res : [] };
+  return {
+    users: Array.isArray(res?.users) ? res.users : [],
+    total: Number.isFinite(Number(res?.total)) ? Number(res.total) : 0,
+  };
+}
+
+export async function adminSearchUsers(term: string): Promise<{ users?: any[]; error?: string }> {
+  const res = await adminListUsers(term, 0, 100);
+  return { users: res.users, error: res.error };
 }
 
 export async function adminGetUserMessages(userId: string): Promise<{ messages?: any[]; error?: string }> {
@@ -589,6 +664,7 @@ export async function adminBanUser(userId: string, reason: string): Promise<{ er
 export async function adminUnbanUser(userId: string): Promise<{ error?: string }> {
   const res = await adminRpc('unban_user', { target_id: userId });
   if (res?.error) return { error: res.error };
+  await adminLog('unban_user', userId, '');
   return {};
 }
 
@@ -626,12 +702,14 @@ export async function adminGetReportedMessages(): Promise<{ reports?: any[]; err
 export async function adminDismissReport(reportId: string): Promise<{ error?: string }> {
   const res = await adminRpc('dismiss_report', { report_id: reportId });
   if (res?.error) return { error: res.error };
+  await adminLog('dismiss_report', reportId, '');
   return {};
 }
 
 export async function adminGetLogs(): Promise<{ logs?: any[]; error?: string }> {
   const headers = rpcToken();
   if (!headers) return { error: 'Not authenticated' };
+  if (!(await isAdmin())) return { error: 'Unauthorized: administrator access required.' };
   const res = await supabaseFetch(
     `${SUPABASE_URL}/rest/v1/action_logs?order=created_at.desc&limit=100`,
     { headers }

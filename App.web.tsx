@@ -53,6 +53,7 @@ export default function WebApp() {
   const [wsStatus, setWsStatus] = useState('connecting');
   const [partnerId, setPartnerId] = useState('');
   const [reportSent, setReportSent] = useState(false);
+  const [reportPending, setReportPending] = useState(false);
   const [camError, setCamError] = useState('');
   const [noAudio, setNoAudio] = useState(false);
   const localRef = useRef<HTMLVideoElement>(null);
@@ -326,11 +327,11 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); startCall(ws, msg.role); break;
+        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); setReportPending(false); startCall(ws, msg.role); break;
         case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
         case 'reported': addLog('You have been reported'); break;
-        case 'report_ack': setReportSent(true); addLog('Report submitted'); break;
-        case 'report_error': setReportSent(false); addLog(msg.reason || 'Report could not be submitted.'); break;
+        case 'report_ack': setReportSent(true); setReportPending(false); addLog('Report submitted'); break;
+        case 'report_error': setReportSent(false); setReportPending(false); addLog(msg.reason || 'Report could not be submitted.'); break;
         case 'auth_error': addLog(msg.reason || 'Account verification failed. Please sign in again.'); cleanup(); break;
         case 'banned': addLog('BANNED: ' + msg.reason); setBanned(true); setBannedReason(msg.reason); cleanup(); break;
         case 'age_restricted': setUnderage(true); setCamError('Video chat is restricted to users 18+.'); setState('idle'); break;
@@ -461,7 +462,15 @@ export default function WebApp() {
           }).catch(() => resolve());
         });
       }
-      wsRef.current?.send(JSON.stringify({ type: 'find' }));
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        addLog('Unable to connect to the chat server. Please try again.');
+        setWsStatus('error');
+        setState('idle');
+        lsRef.current?.getTracks().forEach((t: any) => t.stop());
+        lsRef.current = null;
+        return;
+      }
+      wsRef.current.send(JSON.stringify({ type: 'find' }));
       addLog('Searching for partner...');
     } catch (e: any) {
       const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';
@@ -478,12 +487,13 @@ export default function WebApp() {
   }
 
   function reportUser() {
-    if (!partnerId || reportSent) return;
+    if (!partnerId || reportSent || reportPending) return;
     var partnerName = partnerProfile?.name || 'this user';
     if (!confirm('Report ' + partnerName + ' for abuse?')) return;
     const lastMsg = chatMessages.length > 0 ? chatMessages[chatMessages.length - 1].text : '';
-    wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
-    setReportSent(true);
+    if (wsRef.current?.readyState !== WebSocket.OPEN) { addLog('Cannot submit report: connection is not active.'); return; }
+    wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: lastMsg }));
+    setReportPending(true);
     addLog('Submitting report...');
   }
 
@@ -497,10 +507,13 @@ export default function WebApp() {
 
     inCallRef.current = false;
     // Ask to report partner after call ends
-    if (!reportSent && pUserId) {
+    if (!reportSent && !reportPending && pUserId) {
       const partnerDisplayName = savedName || 'this user';
       if (confirm('Report ' + partnerDisplayName + ' for abuse?')) {
-        wsRef.current?.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: '' }));
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: '' }));
+          setReportPending(true);
+        }
       }
     }
     // Critical teardown first (sync)

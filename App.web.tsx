@@ -86,30 +86,6 @@ export default function WebApp() {
     return () => clearInterval(iv);
   }, []);
 
-  // Frame capture for live preview
-  useEffect(() => {
-    if (state === 'connected' && localRef.current) {
-      const capture = () => {
-        const video = localRef.current;
-        if (!video || !video.videoWidth) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = 160;
-        canvas.height = 120;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-        ctx.drawImage(video, 0, 0, 160, 120);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.3);
-        const base64 = dataUrl.split(',')[1];
-        wsRef.current?.send(JSON.stringify({ type: 'frame', data: base64 }));
-      };
-      capture();
-      frameIntervalRef.current = setInterval(capture, 1000);
-    } else {
-      clearInterval(frameIntervalRef.current);
-      frameIntervalRef.current = null;
-    }
-    return () => { clearInterval(frameIntervalRef.current); frameIntervalRef.current = null; };
-  }, [state]);
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
@@ -1005,10 +981,7 @@ export default function WebApp() {
                             : <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, fontWeight: 700, position: 'absolute' }}>
                               {(l.name || 'A')[0].toUpperCase()}
                             </div>}
-                          <img src={`${API_URL}/api/live/frame/${l.user_id}?t=${liveTs}`}
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                            onLoad={(e) => { (e.target as HTMLImageElement).style.display = 'block'; }}
-                            alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'none', position: 'absolute', inset: 0 }} />
+
                         </div>
                         <div style={{ padding: '10px 12px', background: 'rgba(0,0,0,0.15)' }}>
                           <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</p>

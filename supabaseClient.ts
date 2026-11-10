@@ -548,6 +548,7 @@ export async function getAllMessagesForDownload(): Promise<{ data?: any[]; error
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
+  if (!(await isAdmin())) return { error: 'Unauthorized: administrator access required.' };
   try {
     const res = await supabaseFetch(
       `${SUPABASE_URL}/rest/v1/rpc/get_my_all_messages`,
@@ -601,7 +602,10 @@ function rpcToken() {
 async function adminRpc(fn: string, body?: any) {
   const headers = rpcToken();
   if (!headers) return { error: 'Not authenticated' };
-  return supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body ?? {}) });
+  if (!(await isAdmin())) return { error: 'Unauthorized: administrator access required.' };
+  const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, { method: 'POST', headers, body: JSON.stringify(body ?? {}) });
+  if (result?.error) return { error: String(result.error) };
+  return result;
 }
 
 export async function getAdminStats(): Promise<{ stats?: any; error?: string }> {
@@ -646,6 +650,7 @@ export async function adminBanUser(userId: string, reason: string): Promise<{ er
 export async function adminUnbanUser(userId: string): Promise<{ error?: string }> {
   const res = await adminRpc('unban_user', { target_id: userId });
   if (res?.error) return { error: res.error };
+  await adminLog('unban_user', userId, '');
   return {};
 }
 
@@ -683,12 +688,14 @@ export async function adminGetReportedMessages(): Promise<{ reports?: any[]; err
 export async function adminDismissReport(reportId: string): Promise<{ error?: string }> {
   const res = await adminRpc('dismiss_report', { report_id: reportId });
   if (res?.error) return { error: res.error };
+  await adminLog('dismiss_report', reportId, '');
   return {};
 }
 
 export async function adminGetLogs(): Promise<{ logs?: any[]; error?: string }> {
   const headers = rpcToken();
   if (!headers) return { error: 'Not authenticated' };
+  if (!(await isAdmin())) return { error: 'Unauthorized: administrator access required.' };
   const res = await supabaseFetch(
     `${SUPABASE_URL}/rest/v1/action_logs?order=created_at.desc&limit=100`,
     { headers }

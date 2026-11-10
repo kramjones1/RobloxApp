@@ -126,7 +126,7 @@ export async function signUp(email: string, password: string): Promise<{ error?:
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
-      setStoredSession(data.access_token);
+      setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || '' });
       notify(parseJwt(data.access_token));
       return {};
     }
@@ -217,6 +217,10 @@ export async function verifyPhoneOtp(phone: string, token: string): Promise<{ er
 }
 
 export async function signOut() {
+  const token = getStoredSession();
+  try {
+    if (token) await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } });
+  } catch {}
   setStoredSession(null);
   notify(null);
 }

@@ -143,3 +143,77 @@ export function watchRecentLive(
     if (channel) void realtimeClient.removeChannel(channel);
   };
 }
+
+
+export type ChatCallSignal = {
+  from: string;
+  to: string;
+  callId: string;
+  action: 'invite' | 'accept' | 'decline' | 'busy' | 'cancel' | 'hangup' | 'offer' | 'answer' | 'candidate';
+  media?: 'audio' | 'video';
+  description?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit;
+};
+
+export type ChatCallSignaling = {
+  send: (partnerId: string, signal: ChatCallSignal) => Promise<{ error?: string }>;
+  close: () => void;
+};
+
+/**
+ * Private, conversation-scoped signaling for one-to-one audio/video calls.
+ * The database policies restrict each channel to the two participants in an
+ * existing conversation. No media is sent through Supabase; only WebRTC signals.
+ */
+export async function createChatCallSignaling(
+  userId: string,
+  partnerIds: string[],
+  onSignal: (signal: ChatCallSignal) => void,
+): Promise<ChatCallSignaling> {
+  const token = await getValidAccessToken();
+  if (!token) throw new Error('Your session has expired. Please sign in again.');
+  await realtimeClient.realtime.setAuth(token);
+
+  const channels = new Map<string, RealtimeChannel>();
+  const uniquePartners = Array.from(new Set(partnerIds))
+    .filter((id) => id && id !== userId);
+
+  await Promise.all(uniquePartners.map((partnerId) => new Promise<void>((resolve) => {
+    const pair = [userId, partnerId].sort();
+    const channel = realtimeClient.channel(`chat-call:${pair[0]}:${pair[1]}`, {
+      config: { private: true, broadcast: { self: false, ack: true } },
+    });
+    channels.set(partnerId, channel);
+    let settled = false;
+    const finish = () => {
+      if (!settled) { settled = true; resolve(); }
+    };
+    channel
+      .on('broadcast', { event: 'call-signal' }, ({ payload }) => {
+        const signal = payload as ChatCallSignal;
+        if (signal && signal.to === userId && signal.from === partnerId) onSignal(signal);
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') finish();
+      });
+    setTimeout(finish, 6000);
+  })));
+
+  return {
+    send: async (partnerId, signal) => {
+      const channel = channels.get(partnerId);
+      if (!channel) return { error: 'This conversation is not ready for calls. Reopen the chat and try again.' };
+      try {
+        const result = await channel.send({ type: 'broadcast', event: 'call-signal', payload: signal });
+        if (result !== 'ok') return { error: 'Call signaling is unavailable. Please try again.' };
+        return {};
+      } catch (error: any) {
+        return { error: error?.message || 'Could not send the call signal.' };
+      }
+    },
+    close: () => {
+      channels.forEach((channel) => { void realtimeClient.removeChannel(channel); });
+      channels.clear();
+    },
+  };
+}

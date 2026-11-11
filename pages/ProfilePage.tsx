@@ -323,7 +323,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     if (!content) return;
     const { comment, error } = await addProfilePostComment(postId, content);
     if (error || !comment) { setPostActionMsg(error || 'Comment was not saved.'); return; }
-    const enrichedComment = { ...comment, author_name: displayName || 'Anonymous', author_avatar: avatarUrl || '' };
+    const enrichedComment = { ...comment, author_name: displayName || 'Anonymous', author_avatar: avatarUrl || '', reactions: [] };
     setPosts(current => current.map(item => item.id === postId ? { ...item, comments: [...item.comments, enrichedComment] } : item));
     setSelectedPost(current => current?.id === postId ? { ...current, comments: [...current.comments, enrichedComment] } : current);
     setCommentDrafts(current => ({ ...current, [postId]: '' }));

@@ -80,6 +80,7 @@ export default function WebApp() {
   const [partnerLeft, setPartnerLeft] = useState(false);
   const inCallRef = useRef(false);
   const frameIntervalRef = useRef<any>(null);
+  const callSetupTimeoutRef = useRef<any>(null);
   const [banned, setBanned] = useState(false);
   const [bannedReason, setBannedReason] = useState('');
 
@@ -340,6 +341,7 @@ export default function WebApp() {
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
         case 'matched': {
+          if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
           if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.close(); pcRef.current = null; }
           dcRef.current?.close?.(); dcRef.current = null;
           inCallRef.current = true; roomRef.current = msg.room || '';
@@ -385,6 +387,15 @@ export default function WebApp() {
     });
     pcRef.current = pc;
     const callRoom = roomRef.current;
+    // A data channel can open before media ICE is connected. Never leave the
+    // user on an infinite loading overlay if the media transport stalls.
+    callSetupTimeoutRef.current = setTimeout(() => {
+      if (pcRef.current !== pc || roomRef.current !== callRoom || pc.connectionState === 'connected') return;
+      addLog('Video connection timed out. Please try Next and reconnect.');
+      notifyMatchEnded(callRoom);
+      void cleanup(true);
+      setPartnerLeft(true);
+    }, 25000);
     pc.onicecandidate = (e) => {
       if (e.candidate && pcRef.current === pc && roomRef.current === callRoom && ws.readyState === WebSocket.OPEN)
         ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate, room: callRoom }));
@@ -411,12 +422,20 @@ export default function WebApp() {
     pc.oniceconnectionstatechange = () => {
       if (pcRef.current !== pc || roomRef.current !== callRoom) return;
       addLog('ICE: ' + pc.iceConnectionState);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
+        setState('connected');
+      }
       if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
       else if (pc.iceConnectionState === 'disconnected') addLog('Connection interrupted. Trying to recover…');
     };
     pc.onconnectionstatechange = () => {
       if (pcRef.current !== pc || roomRef.current !== callRoom) return;
-      if (pc.connectionState === 'connected') { addLog('Connected!'); setState('connected'); }
+      addLog('Peer connection: ' + pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
+        addLog('Video connection established'); setState('connected');
+      }
       if (pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
     };
 
@@ -437,7 +456,7 @@ export default function WebApp() {
     if (role === 'offer') {
       const dc = pc.createDataChannel('chat');
       dcRef.current = dc;
-      dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+      dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; addLog('Chat channel ready; waiting for video connection…'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
       dc.onmessage = onDcMessage;
     } else {
       pc.ondatachannel = (e) => {
@@ -624,6 +643,7 @@ export default function WebApp() {
     const savedName = pName;
 
     inCallRef.current = false;
+    if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
     const oldRoom = roomRef.current;
     roomRef.current = '';
     setPartnerLeft(false);

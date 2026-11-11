@@ -144,18 +144,50 @@ export function setSessionToken(token: string | null, refreshToken?: string | nu
 
 export async function signUp(email: string, password: string): Promise<{ error?: string }> {
   try {
+    const normalizedEmail = email.trim().toLowerCase();
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: normalizedEmail, password }),
     });
     if (data.error) return { error: data.error };
+    // Do not establish a session until the email OTP has been verified.
     if (data.access_token) {
-      setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || '' });
-      notify(parseJwt(data.access_token));
-      return {};
+      setStoredTokens(null);
+      notify(null);
+      return { error: 'Email confirmation is required. Please request a verification code and verify it before signing in.' };
     }
-    // Email confirmation is ON — signup succeeded, user needs to confirm email
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Network error' };
+  }
+}
+
+export async function verifySignupOtp(email: string, token: string): Promise<{ error?: string }> {
+  try {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ type: 'signup', email: email.trim().toLowerCase(), token: token.trim() }),
+    });
+    if (data.error) return { error: data.error };
+    if (!data.access_token || !data.refresh_token) return { error: 'The code could not be verified. Please request a new code.' };
+    setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token });
+    notify(parseJwt(data.access_token));
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Network error' };
+  }
+}
+
+export async function resendSignupOtp(email: string): Promise<{ error?: string }> {
+  try {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/resend`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ type: 'signup', email: email.trim().toLowerCase() }),
+    });
+    if (data.error) return { error: data.error };
     return {};
   } catch (e: any) {
     return { error: e.message || 'Network error' };

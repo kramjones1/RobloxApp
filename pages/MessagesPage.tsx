@@ -281,6 +281,16 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     );
   }
 
+  function renderCallActions() {
+    const canCall = onlinePartners.has(selectedId) && !callSession;
+    return (
+      <div aria-label="Call actions" style={{ display: 'flex', gap: 8, width: '100%', boxSizing: 'border-box', padding: '8px 12px 0', background: '#1a1a1a' }}>
+        <button type="button" aria-label="Start audio call" title={canCall ? 'Start audio call' : 'Calls are available when the user is online'} disabled={!canCall} onClick={() => void beginCall('audio')} style={{ ...btn, flex: 1, padding: '9px 12px', background: '#303047', opacity: canCall ? 1 : 0.45 }}>☎ Audio call</button>
+        <button type="button" aria-label="Invite video call" title={canCall ? 'Start video call' : 'Calls are available when the user is online'} disabled={!canCall} onClick={() => void beginCall('video')} style={{ ...btn, flex: 1, padding: '9px 12px', background: '#303047', opacity: canCall ? 1 : 0.45 }}>▣ Video call</button>
+      </div>
+    );
+  }
+
   function fetchProfile(uid: string) {
     if (partnerInfo[uid]) return;
     getUserProfile(uid).then(({ profile }) => {
@@ -523,10 +533,6 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
             <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
             <span style={{ color: onlinePartners.has(selectedId) ? '#31d17c' : '#777', fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-            <button type="button" aria-label="Start audio call" title={onlinePartners.has(selectedId) ? 'Audio call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('audio')} style={{ ...btn, padding: '8px 10px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>☎</button>
-            <button type="button" aria-label="Invite video call" title={onlinePartners.has(selectedId) ? 'Video call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('video')} style={{ ...btn, padding: '8px 10px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>▣</button>
-          </div>
         </div>
         {callError && <div role="status" style={{ color: '#ff9b9b', background: '#251919', fontSize: 12, padding: '7px 14px' }}>{callError}</div>}
         {renderCallPanel()}
@@ -535,6 +541,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           <div ref={bottomRef} />
         </div>
         {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 14px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
+        {renderCallActions()}
         <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', background: '#1a1a1a' }}>
           <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onKeyDown={e => {
             if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
@@ -636,10 +643,6 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                 <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
                 <span style={{ color: onlinePartners.has(selectedId) ? '#31d17c' : '#777', fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
               </div>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                <button type="button" aria-label="Start audio call" title={onlinePartners.has(selectedId) ? 'Audio call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('audio')} style={{ ...btn, padding: '8px 12px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>☎</button>
-                <button type="button" aria-label="Invite video call" title={onlinePartners.has(selectedId) ? 'Video call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('video')} style={{ ...btn, padding: '8px 12px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>▣</button>
-              </div>
             </div>
             {callError && <div role="status" style={{ color: '#ff9b9b', background: '#251919', fontSize: 12, padding: '7px 16px' }}>{callError}</div>}
             {renderCallPanel()}
@@ -683,6 +686,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               <div ref={bottomRef} />
             </div>
             {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 16px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
+                {renderCallActions()}
                 <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', background: '#1a1a1a' }}>
               <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onKeyDown={e => {
             if (e.key !== 'Enter') return;

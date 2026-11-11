@@ -263,30 +263,10 @@ export default function WebApp() {
       const age = calcAge(onboardingDob);
       if (age < 0) { setAuthMsg('Please enter a valid date of birth that is not in the future.'); return; }
       if (age < 18) {
-        setSubmitting(true);
-        const { error } = await upsertChatProfile({
-          display_name: myProfile?.name || '',
-          bio: myProfile?.bio || '',
-          avatar_url: myProfile?.avatar || '',
-          cover_url: myProfile?.cover || '',
-          share_name: myProfile?.share_name !== undefined ? myProfile.share_name : true,
-          share_bio: myProfile?.share_bio !== undefined ? myProfile.share_bio : true,
-          date_of_birth: onboardingDob,
-          terms_accepted_at: new Date().toISOString(),
-          terms_version: '2026-11-11',
-        } as any);
-        setSubmitting(false);
-        if (error) setAuthMsg(error);
-        else {
-          setUnderage(true);
-          if (myProfile) {
-            setMyProfile({ ...myProfile, date_of_birth: onboardingDob });
-            setOnboardingStep(null);
-            setPage('profile');
-          } else {
-            setOnboardingStep('name');
-          }
-        }
+        // Keep the registration incomplete until name and bio are submitted.
+        // The final profile write stores the DOB and accepted terms together.
+        setUnderage(true);
+        setOnboardingStep('name');
         return;
       }
       if (myProfile) {
@@ -572,14 +552,23 @@ export default function WebApp() {
   }
 
   async function findStranger() {
-    const { profile } = await getChatProfile();
-    if (!profile?.date_of_birth) {
-      setCamError('Please add your date of birth before starting video chat.');
-      setOnboardingDob('');
-      setOnboardingStep('dob');
+    const { profile, error } = await getChatProfile();
+    if (error || !profile) {
+      setCamError('We could not verify your profile. Please refresh and try again.');
+      return;
+    }
+    if (!profile.date_of_birth) {
+      // Existing accounts are not forced through first-time onboarding.
+      // Keep video chat gated until a valid age record is available.
+      setCamError('Video chat requires a valid age record. Please contact support to update your account.');
       return;
     }
     const currentAge = calcAge(profile.date_of_birth);
+    if (currentAge < 0) {
+      setUnderage(false);
+      setCamError('Your date of birth is invalid or in the future. Please contact support to correct it.');
+      return;
+    }
     if (currentAge < 18) {
       setUnderage(true);
       setCamError('Video chat is not available for users under 18. You can use the messaging system instead.');

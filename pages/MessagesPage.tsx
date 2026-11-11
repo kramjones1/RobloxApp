@@ -145,7 +145,17 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
       callTimeoutRef.current = null;
       updateCallSession({ ...current, status: 'connecting' });
-      await startCallMedia({ ...current, status: 'connecting' }, true);
+      try {
+        const pc = callPcRef.current;
+        if (!pc || !callLocalStreamRef.current) throw new Error('Your microphone/camera is not ready. End the call and try again.');
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        const sent = await sendCallSignal(current.partnerId, current.callId, 'offer', { description: pc.localDescription?.toJSON() });
+        if (sent.error) throw new Error(sent.error);
+      } catch (error: any) {
+        setCallError(error?.message || 'Could not start the call offer.');
+        endLocalCall();
+      }
     } else if (signal.action === 'decline' || signal.action === 'busy') {
       setCallError(signal.action === 'busy' ? 'This user is already on another call.' : 'The call was declined.');
       endLocalCall();
@@ -193,6 +203,11 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     const session: CallSession = { callId, partnerId: selectedId, media, direction: 'outgoing', status: 'outgoing' };
     setCallError('');
     updateCallSession(session);
+    // Request the caller's microphone/camera directly from the button gesture,
+    // before inviting the other participant. This makes the browser permission
+    // prompt appear for the caller too, not only for the receiver.
+    const mediaReady = await startCallMedia({ ...session, status: 'outgoing' }, false);
+    if (!mediaReady) return;
     const result = await sendCallSignal(selectedId, callId, 'invite', { media });
     if (result.error) {
       setCallError(result.error);

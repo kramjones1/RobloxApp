@@ -15,7 +15,7 @@ create or replace function public.trim_chat_posts_to_limit()
 returns trigger
 language plpgsql
 set search_path = ''
-as $
+as $$
 begin
   delete from public.chat_posts
   where user_id = new.user_id
@@ -28,7 +28,7 @@ begin
     );
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists chat_posts_keep_latest_100 on public.chat_posts;
 create trigger chat_posts_keep_latest_100

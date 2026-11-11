@@ -384,7 +384,7 @@ export default function WebApp() {
     };
     pc.onconnectionstatechange = () => {
       if (pcRef.current !== pc || roomRef.current !== callRoom) return;
-      if (pc.connectionState === 'connected') addLog('Connected!');
+      if (pc.connectionState === 'connected') { addLog('Connected!'); setState('connected'); }
       if (pc.connectionState === 'failed') { void cleanup(true); setPartnerLeft(true); }
     };
 
@@ -424,16 +424,20 @@ export default function WebApp() {
       });
     }
     if (role === 'offer') {
-      addLog('Creating offer...');
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      if (pcRef.current !== pc || roomRef.current !== callRoom) return;
-      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: callRoom }));
-      addLog('Sent offer');
+      try {
+        addLog('Creating offer...');
+        const offer = await pc.createOffer();
+        if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+        await pc.setLocalDescription(offer);
+        if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+        ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: callRoom }));
+        addLog('Sent offer');
+      } catch (error: any) {
+        if (pcRef.current === pc) { addLog('Could not start call: ' + (error?.message || 'connection setup failed')); void cleanup(true); setPartnerLeft(true); }
+      }
     } else {
       addLog('Waiting for offer...');
     }
-    setState('connected');
   }
 
   async function handleSDP(ws: WebSocket, msg: any) {
@@ -441,10 +445,17 @@ export default function WebApp() {
     if (!pc || !msg.room || msg.room !== roomRef.current) return;
     const activeRoom = roomRef.current;
     addLog('Received ' + msg.sdp.type);
-    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    } catch (error: any) {
+      if (pcRef.current === pc && roomRef.current === activeRoom) { addLog('Could not process call setup: ' + (error?.message || 'invalid signaling')); void cleanup(true); setPartnerLeft(true); }
+      return;
+    }
+    if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
     if (msg.sdp.type === 'offer') {
       addLog('Creating answer...');
       const answer = await pc.createAnswer();
+      if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
       await pc.setLocalDescription(answer);
       if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
       ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: activeRoom }));

@@ -1,4 +1,4 @@
-import React;
+import React from 'react';
 type Page = 'home' | 'privacy' | 'terms' | 'profile' | 'messages';
 
 const s = {

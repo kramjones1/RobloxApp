@@ -18,6 +18,7 @@ export default function SettingsPage({ userId }: { userId: string }) {
     try { localStorage.setItem('liveme-theme', value); } catch {}
     document.documentElement.dataset.theme = value;
     document.documentElement.style.colorScheme = value;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', value === 'light' ? '#f4f6fb' : '#1a1a1a');
   }
 
   async function refreshPermissions() {
@@ -40,6 +41,7 @@ export default function SettingsPage({ userId }: { userId: string }) {
       setTheme(savedTheme);
       document.documentElement.dataset.theme = savedTheme;
       document.documentElement.style.colorScheme = savedTheme;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', savedTheme === 'light' ? '#f4f6fb' : '#1a1a1a');
     } catch {}
     void refreshPermissions();
   }, [key]);

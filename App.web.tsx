@@ -366,6 +366,7 @@ export default function WebApp() {
           partnerIdRef.current = msg.partner; setPartnerId(msg.partner); setPartnerLeft(false);
           if (msg.userId) setPartnerProfile({ userId: msg.userId, name: '', bio: '', avatar: '' });
           setChatMessages([]); setShowChat(false); setReportSent(false); setReportPending(false);
+          addLog('Connecting video and chat…');
           startCall(ws, msg.role); break;
         }
         case 'partner_left':
@@ -390,8 +391,19 @@ export default function WebApp() {
     return ws;
   }
 
+  function updateCallReadiness(pc: RTCPeerConnection, dc: RTCDataChannel, callRoom: string) {
+    if (pcRef.current !== pc || roomRef.current !== callRoom || dcRef.current !== dc) return;
+    const videoReady = pc.connectionState === 'connected' ||
+      pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed';
+    const chatReady = dc.readyState === 'open';
+    if (videoReady && chatReady) addLog('Chat ready');
+    else if (videoReady) addLog('Video connected; preparing chat…');
+    else if (chatReady) addLog('Chat channel connected; waiting for video…');
+    else addLog('Connecting video and chat…');
+  }
+
   async function startCall(ws: WebSocket, role?: string) {
-    addLog('Starting call...');
+    addLog('Connecting video and chat…');
     setState('connecting');
     const pc = new RTCPeerConnection({
       iceServers: [
@@ -442,6 +454,7 @@ export default function WebApp() {
       if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
         if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
         setState('connected');
+        if (dcRef.current) updateCallReadiness(pc, dcRef.current, callRoom);
       }
       if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
       else if (pc.iceConnectionState === 'disconnected') addLog('Connection interrupted. Trying to recover…');
@@ -452,6 +465,7 @@ export default function WebApp() {
       if (pc.connectionState === 'connected') {
         if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
         addLog('Video connection established'); setState('connected');
+        if (dcRef.current) updateCallReadiness(pc, dcRef.current, callRoom);
       }
       if (pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
     };
@@ -473,14 +487,14 @@ export default function WebApp() {
     if (role === 'offer') {
       const dc = pc.createDataChannel('chat');
       dcRef.current = dc;
-      dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; addLog('Chat channel ready; waiting for video connection…'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+      dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; updateCallReadiness(pc, dc, callRoom); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
       dc.onmessage = onDcMessage;
     } else {
       pc.ondatachannel = (e) => {
         if (pcRef.current !== pc || roomRef.current !== callRoom) { e.channel.close(); return; }
         const dc = e.channel;
         dcRef.current = dc;
-        dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+        dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; updateCallReadiness(pc, dc, callRoom); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
         dc.onmessage = onDcMessage;
       };
     }

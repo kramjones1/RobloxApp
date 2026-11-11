@@ -10,6 +10,31 @@ create table if not exists public.chat_posts (
 create index if not exists chat_posts_user_created_idx
   on public.chat_posts (user_id, created_at desc);
 
+-- Keep storage bounded: retain only each user's newest 100 text posts.
+create or replace function public.trim_chat_posts_to_limit()
+returns trigger
+language plpgsql
+set search_path = ''
+as $
+begin
+  delete from public.chat_posts
+  where user_id = new.user_id
+    and id not in (
+      select id
+      from public.chat_posts
+      where user_id = new.user_id
+      order by created_at desc, id desc
+      offset 100
+    );
+  return new;
+end;
+$;
+
+drop trigger if exists chat_posts_keep_latest_100 on public.chat_posts;
+create trigger chat_posts_keep_latest_100
+  after insert on public.chat_posts
+  for each row execute function public.trim_chat_posts_to_limit();
+
 alter table public.chat_posts enable row level security;
 
 revoke all on table public.chat_posts from anon, authenticated;

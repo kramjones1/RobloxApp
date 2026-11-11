@@ -31,6 +31,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   type CallSession = { callId: string; partnerId: string; media: 'audio' | 'video'; direction: 'incoming' | 'outgoing'; status: 'incoming' | 'outgoing' | 'connecting' | 'active' };
   const [callSession, setCallSession] = useState<CallSession | null>(null);
   const [callError, setCallError] = useState('');
+  const [callSignalingReady, setCallSignalingReady] = useState(false);
   const [callMuted, setCallMuted] = useState(false);
   const [cameraEnabled, setCameraEnabled] = useState(true);
   const [localCallStream, setLocalCallStream] = useState<MediaStream | null>(null);
@@ -282,7 +283,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   function renderCallActions() {
-    const canCall = onlinePartners.has(selectedId) && !callSession;
+    const canCall = onlinePartners.has(selectedId) && callSignalingReady && !callSession;
     return (
       <div aria-label="Call actions" style={{ display: 'flex', gap: 8, width: '100%', boxSizing: 'border-box', padding: '8px 12px 0', background: '#1a1a1a' }}>
         <button type="button" aria-label="Start audio call" title={canCall ? 'Start audio call' : 'Calls are available when the user is online'} disabled={!canCall} onClick={() => void beginCall('audio')} style={{ ...btn, flex: 1, padding: '9px 12px', background: '#303047', opacity: canCall ? 1 : 0.45 }}>☎ Audio call</button>
@@ -338,14 +339,25 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     if (!myId) return;
     let active = true;
     const partners = Array.from(new Set(presencePartnerIds)).filter(Boolean);
+    setCallSignalingReady(false);
+    callSignalingRef.current?.close();
+    callSignalingRef.current = null;
     createChatCallSignaling(myId, partners, handleCallSignal).then(controller => {
       if (!active) controller.close();
-      else callSignalingRef.current = controller;
+      else {
+        callSignalingRef.current = controller;
+        setCallSignalingReady(true);
+        setCallError('');
+      }
     }).catch(error => {
-      if (active) setCallError(error?.message || 'Call signaling could not connect.');
+      if (active) {
+        setCallSignalingReady(false);
+        setCallError(error?.message || 'Call signaling could not connect. Keep Inbox open and retry.');
+      }
     });
     return () => {
       active = false;
+      setCallSignalingReady(false);
       callSignalingRef.current?.close();
       callSignalingRef.current = null;
     };

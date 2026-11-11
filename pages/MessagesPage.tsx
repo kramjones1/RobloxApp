@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getConversations, getMessages, sendMessage, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
-import { watchConversationPresence } from '../chatPresence';
+import { watchConversationPresence, createChatCallSignaling, ChatCallSignal, ChatCallSignaling } from '../chatPresence';
 
 const btn = {
   background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none',
@@ -28,6 +28,246 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const [presencePartnerIds, setPresencePartnerIds] = useState<string[]>([]);
   const presencePartnerKey = presencePartnerIds.slice().sort().join('|');
   const [onlinePartners, setOnlinePartners] = useState<Set<string>>(new Set());
+  type CallSession = { callId: string; partnerId: string; media: 'audio' | 'video'; direction: 'incoming' | 'outgoing'; status: 'incoming' | 'outgoing' | 'connecting' | 'active' };
+  const [callSession, setCallSession] = useState<CallSession | null>(null);
+  const [callError, setCallError] = useState('');
+  const [callMuted, setCallMuted] = useState(false);
+  const [cameraEnabled, setCameraEnabled] = useState(true);
+  const [localCallStream, setLocalCallStream] = useState<MediaStream | null>(null);
+  const [remoteCallStream, setRemoteCallStream] = useState<MediaStream | null>(null);
+  const callSessionRef = useRef<CallSession | null>(null);
+  const callSignalingRef = useRef<ChatCallSignaling | null>(null);
+  const callPcRef = useRef<RTCPeerConnection | null>(null);
+  const callLocalStreamRef = useRef<MediaStream | null>(null);
+  const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localCallVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteCallVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteCallAudioRef = useRef<HTMLAudioElement>(null);
+
+  function updateCallSession(next: CallSession | null) {
+    callSessionRef.current = next;
+    setCallSession(next);
+  }
+
+  function endLocalCall() {
+    if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
+    callTimeoutRef.current = null;
+    callPcRef.current?.close();
+    callPcRef.current = null;
+    callLocalStreamRef.current?.getTracks().forEach(track => track.stop());
+    callLocalStreamRef.current = null;
+    setLocalCallStream(null);
+    setRemoteCallStream(null);
+    setCallMuted(false);
+    setCameraEnabled(true);
+    updateCallSession(null);
+  }
+
+  async function sendCallSignal(partnerId: string, callId: string, action: ChatCallSignal['action'], extra: Partial<ChatCallSignal> = {}) {
+    if (!myId || !callSignalingRef.current) return { error: 'Call connection is not ready yet. Please try again.' };
+    return callSignalingRef.current.send(partnerId, { from: myId, to: partnerId, callId, action, ...extra });
+  }
+
+  async function startCallMedia(session: CallSession, initiator: boolean): Promise<boolean> {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: session.media === 'video',
+      });
+      if (callSessionRef.current?.callId !== session.callId) {
+        stream.getTracks().forEach(track => track.stop());
+        return false;
+      }
+      callLocalStreamRef.current = stream;
+      setLocalCallStream(stream);
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayprojectsecret' },
+          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayprojectsecret' },
+          { urls: 'turn:openrelay.metered.ca:80?transport=tcp', username: 'openrelayproject', credential: 'openrelayprojectsecret' },
+        ],
+      });
+      callPcRef.current = pc;
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
+      pc.ontrack = event => {
+        const incoming = event.streams?.[0] || new MediaStream([event.track]);
+        setRemoteCallStream(incoming);
+      };
+      pc.onicecandidate = event => {
+        if (event.candidate && callSessionRef.current?.callId === session.callId) {
+          void sendCallSignal(session.partnerId, session.callId, 'candidate', { candidate: event.candidate.toJSON() });
+        }
+      };
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected' && callSessionRef.current?.callId === session.callId) {
+          updateCallSession({ ...session, status: 'active' });
+        } else if (pc.connectionState === 'failed' && callSessionRef.current?.callId === session.callId) {
+          setCallError('The call connection failed. Please try again.');
+          endLocalCall();
+        }
+      };
+      if (initiator) {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        const sent = await sendCallSignal(session.partnerId, session.callId, 'offer', { description: pc.localDescription?.toJSON() });
+        if (sent.error) throw new Error(sent.error);
+      }
+      return true;
+    } catch (error: any) {
+      setCallError(error?.name === 'NotAllowedError'
+        ? 'Please allow microphone' + (session.media === 'video' ? ' and camera' : '') + ' access to make a call.'
+        : error?.message || 'Unable to start the call.');
+      endLocalCall();
+      return false;
+    }
+  }
+
+  async function handleCallSignal(signal: ChatCallSignal) {
+    const current = callSessionRef.current;
+    if (signal.action === 'invite') {
+      if (current) {
+        void sendCallSignal(signal.from, signal.callId, 'busy');
+        return;
+      }
+      const incoming: CallSession = { callId: signal.callId, partnerId: signal.from, media: signal.media || 'audio', direction: 'incoming', status: 'incoming' };
+      setCallError('');
+      updateCallSession(incoming);
+      setSelectedId(signal.from);
+      return;
+    }
+    if (!current || current.callId !== signal.callId || current.partnerId !== signal.from) return;
+    if (signal.action === 'accept' && current.direction === 'outgoing') {
+      updateCallSession({ ...current, status: 'connecting' });
+      await startCallMedia({ ...current, status: 'connecting' }, true);
+    } else if (signal.action === 'decline' || signal.action === 'busy') {
+      setCallError(signal.action === 'busy' ? 'This user is already on another call.' : 'The call was declined.');
+      endLocalCall();
+    } else if (signal.action === 'cancel' || signal.action === 'hangup') {
+      setCallError(signal.action === 'cancel' ? 'The caller cancelled the invitation.' : 'The other user ended the call.');
+      endLocalCall();
+    } else if (signal.action === 'offer' && signal.description && callPcRef.current) {
+      try {
+        await callPcRef.current.setRemoteDescription(new RTCSessionDescription(signal.description));
+        const answer = await callPcRef.current.createAnswer();
+        await callPcRef.current.setLocalDescription(answer);
+        const sent = await sendCallSignal(current.partnerId, current.callId, 'answer', { description: callPcRef.current.localDescription?.toJSON() });
+        if (sent.error) throw new Error(sent.error);
+      } catch (error: any) {
+        setCallError(error?.message || 'Could not answer the call.');
+        endLocalCall();
+      }
+    } else if (signal.action === 'answer' && signal.description && callPcRef.current) {
+      try { await callPcRef.current.setRemoteDescription(new RTCSessionDescription(signal.description)); }
+      catch (error: any) { setCallError(error?.message || 'Could not connect the call.'); endLocalCall(); }
+    } else if (signal.action === 'candidate' && signal.candidate && callPcRef.current) {
+      try { await callPcRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate)); } catch {}
+    }
+  }
+
+  async function beginCall(media: 'audio' | 'video') {
+    if (!selectedId || !myId || callSessionRef.current) return;
+    if (!onlinePartners.has(selectedId)) {
+      setCallError('This user is offline. Calls are available when they are online.');
+      return;
+    }
+    if (!callSignalingRef.current) {
+      setCallError('Call connection is still starting. Please try again in a moment.');
+      return;
+    }
+    const callId = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const session: CallSession = { callId, partnerId: selectedId, media, direction: 'outgoing', status: 'outgoing' };
+    setCallError('');
+    updateCallSession(session);
+    const result = await sendCallSignal(selectedId, callId, 'invite', { media });
+    if (result.error) {
+      setCallError(result.error);
+      endLocalCall();
+      return;
+    }
+    callTimeoutRef.current = setTimeout(() => {
+      if (callSessionRef.current?.callId === callId && callSessionRef.current.status === 'outgoing') {
+        setCallError('No answer. The call invitation expired.');
+        void sendCallSignal(selectedId, callId, 'cancel');
+        endLocalCall();
+      }
+    }, 30000);
+  }
+
+  async function acceptIncomingCall() {
+    const session = callSessionRef.current;
+    if (!session || session.direction !== 'incoming') return;
+    updateCallSession({ ...session, status: 'connecting' });
+    const ready = await startCallMedia({ ...session, status: 'connecting' }, false);
+    if (!ready) return;
+    const result = await sendCallSignal(session.partnerId, session.callId, 'accept');
+    if (result.error) {
+      setCallError(result.error);
+      endLocalCall();
+    }
+  }
+
+  function declineIncomingCall() {
+    const session = callSessionRef.current;
+    if (session) void sendCallSignal(session.partnerId, session.callId, 'decline');
+    endLocalCall();
+  }
+
+  function hangUpCall() {
+    const session = callSessionRef.current;
+    if (session) void sendCallSignal(session.partnerId, session.callId, session.direction === 'outgoing' ? 'cancel' : 'hangup');
+    endLocalCall();
+  }
+
+  function toggleCallMute() {
+    const next = !callMuted;
+    callLocalStreamRef.current?.getAudioTracks().forEach(track => { track.enabled = !next; });
+    setCallMuted(next);
+  }
+
+  function toggleCallCamera() {
+    const next = !cameraEnabled;
+    callLocalStreamRef.current?.getVideoTracks().forEach(track => { track.enabled = next; });
+    setCameraEnabled(next);
+  }
+
+  function renderCallPanel() {
+    if (!callSession) return null;
+    const callerName = partnerInfo[callSession.partnerId]?.name || 'User';
+    return (
+      <div style={{ padding: 12, background: '#202033', borderBottom: '1px solid rgba(108,99,255,0.3)', color: '#fff' }}>
+        {callSession.status === 'incoming' ? (
+          <>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>{callerName} is inviting you to an {callSession.media === 'video' ? 'video' : 'audio'} call</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" onClick={() => void acceptIncomingCall()} style={{ ...btn, background: '#238b57', flex: 1 }}>Accept</button>
+              <button type="button" onClick={declineIncomingCall} style={{ ...btn, background: '#a93232', flex: 1 }}>Decline</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+              {callSession.status === 'outgoing' ? `Calling ${callerName}…` : callSession.status === 'connecting' ? 'Connecting call…' : `In ${callSession.media} call with ${callerName}`}
+            </div>
+            {callSession.media === 'video' && (
+              <div style={{ position: 'relative', background: '#080808', borderRadius: 10, overflow: 'hidden', minHeight: 150 }}>
+                <video ref={remoteCallVideoRef} autoPlay playsInline style={{ width: '100%', maxHeight: 240, objectFit: 'contain', display: remoteCallStream ? 'block' : 'none' }} />
+                {!remoteCallStream && <div style={{ padding: 35, textAlign: 'center', color: '#aaa', fontSize: 12 }}>Waiting for video…</div>}
+                <video ref={localCallVideoRef} autoPlay muted playsInline style={{ position: 'absolute', right: 8, bottom: 8, width: 88, height: 112, objectFit: 'cover', borderRadius: 8, background: '#222' }} />
+              </div>
+            )}
+            {callSession.media === 'audio' && <audio ref={remoteCallAudioRef} autoPlay />}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button type="button" onClick={toggleCallMute} style={{ ...btn, background: callMuted ? '#a93232' : '#45455b', flex: 1 }}>{callMuted ? 'Unmute' : 'Mute'}</button>
+              {callSession.media === 'video' && <button type="button" onClick={toggleCallCamera} style={{ ...btn, background: cameraEnabled ? '#45455b' : '#a93232', flex: 1 }}>{cameraEnabled ? 'Camera off' : 'Camera on'}</button>}
+              <button type="button" onClick={hangUpCall} style={{ ...btn, background: '#a93232', flex: 1 }}>End call</button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
 
   function fetchProfile(uid: string) {
     if (partnerInfo[uid]) return;
@@ -61,6 +301,29 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     const partnerIds = presencePartnerKey.split('|').filter(Boolean);
     return watchConversationPresence(myId, partnerIds, setOnlinePartners);
   }, [myId, presencePartnerKey]);
+
+  useEffect(() => {
+    if (!myId) return;
+    let active = true;
+    const partners = Array.from(new Set([...presencePartnerIds, selectedId])).filter(Boolean);
+    createChatCallSignaling(myId, partners, handleCallSignal).then(controller => {
+      if (!active) controller.close();
+      else callSignalingRef.current = controller;
+    }).catch(error => {
+      if (active) setCallError(error?.message || 'Call signaling could not connect.');
+    });
+    return () => {
+      active = false;
+      callSignalingRef.current?.close();
+      callSignalingRef.current = null;
+    };
+  }, [myId, presencePartnerKey, selectedId]);
+
+  useEffect(() => {
+    if (localCallVideoRef.current && localCallStream) localCallVideoRef.current.srcObject = localCallStream;
+    if (remoteCallVideoRef.current && remoteCallStream) remoteCallVideoRef.current.srcObject = remoteCallStream;
+    if (remoteCallAudioRef.current && remoteCallStream) remoteCallAudioRef.current.srcObject = remoteCallStream;
+  }, [localCallStream, remoteCallStream, callSession?.media, callSession?.status]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -238,7 +501,13 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
             <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
             <span style={{ color: onlinePartners.has(selectedId) ? '#31d17c' : '#777', fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
           </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <button type="button" aria-label="Start audio call" title={onlinePartners.has(selectedId) ? 'Audio call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('audio')} style={{ ...btn, padding: '8px 10px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>☎</button>
+            <button type="button" aria-label="Invite video call" title={onlinePartners.has(selectedId) ? 'Video call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('video')} style={{ ...btn, padding: '8px 10px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>▣</button>
+          </div>
         </div>
+        {callError && <div role="status" style={{ color: '#ff9b9b', background: '#251919', fontSize: 12, padding: '7px 14px' }}>{callError}</div>}
+        {renderCallPanel()}
         <div style={{ flex: '1 1 0%', minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {renderMessages(true)}
           <div ref={bottomRef} />
@@ -345,7 +614,13 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                 <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
                 <span style={{ color: onlinePartners.has(selectedId) ? '#31d17c' : '#777', fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
               </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                <button type="button" aria-label="Start audio call" title={onlinePartners.has(selectedId) ? 'Audio call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('audio')} style={{ ...btn, padding: '8px 12px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>☎</button>
+                <button type="button" aria-label="Invite video call" title={onlinePartners.has(selectedId) ? 'Video call' : 'Available when online'} disabled={!onlinePartners.has(selectedId) || !!callSession} onClick={() => void beginCall('video')} style={{ ...btn, padding: '8px 12px', background: '#303047', opacity: !onlinePartners.has(selectedId) || callSession ? 0.4 : 1 }}>▣</button>
+              </div>
             </div>
+            {callError && <div role="status" style={{ color: '#ff9b9b', background: '#251919', fontSize: 12, padding: '7px 16px' }}>{callError}</div>}
+            {renderCallPanel()}
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {messages.map((m, i) => {
                 const isMe = m.sender_id === myId;

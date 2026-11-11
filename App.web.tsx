@@ -329,8 +329,16 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); setReportPending(false); startCall(ws, msg.role); break;
-        case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
+        case 'matched': {
+          if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.close(); pcRef.current = null; }
+          dcRef.current?.close?.(); dcRef.current = null;
+          inCallRef.current = true; roomRef.current = msg.room || '';
+          setPartnerId(msg.partner); setPartnerLeft(false);
+          if (msg.userId) setPartnerProfile({ userId: msg.userId, name: '', bio: '', avatar: '' });
+          setChatMessages([]); setShowChat(false); setReportSent(false); setReportPending(false);
+          startCall(ws, msg.role); break;
+        }
+        case 'partner_left': addLog('Partner ended the call'); void cleanup(true); setPartnerLeft(true); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': setReportSent(true); setReportPending(false); addLog('Report submitted'); break;
         case 'report_error': setReportSent(false); setReportPending(false); addLog(msg.reason || 'Report could not be submitted.'); break;
@@ -359,16 +367,31 @@ export default function WebApp() {
       ],
     });
     pcRef.current = pc;
-    pc.onicecandidate = (e) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
-    pc.ontrack = (e) => {
-      if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0];
+    const callRoom = roomRef.current;
+    pc.onicecandidate = (e) => {
+      if (e.candidate && pcRef.current === pc && roomRef.current === callRoom && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate, room: callRoom }));
     };
-    pc.oniceconnectionstatechange = () => { addLog('ICE: ' + pc.iceConnectionState); if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') setPartnerLeft(true); };
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') addLog('Connected!'); };
+    pc.ontrack = (e) => {
+      if (pcRef.current === pc && roomRef.current === callRoom && e.streams?.[0] && remoteRef.current)
+        remoteRef.current.srcObject = e.streams[0];
+    };
+    pc.oniceconnectionstatechange = () => {
+      if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+      addLog('ICE: ' + pc.iceConnectionState);
+      if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') { void cleanup(true); setPartnerLeft(true); }
+      else if (pc.iceConnectionState === 'disconnected') addLog('Connection interrupted. Trying to recover…');
+    };
+    pc.onconnectionstatechange = () => {
+      if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+      if (pc.connectionState === 'connected') addLog('Connected!');
+      if (pc.connectionState === 'failed') { void cleanup(true); setPartnerLeft(true); }
+    };
 
     function onDcMessage(e: any) {
       try {
         const data = JSON.parse(e.data);
+        if (pcRef.current !== pc) return;
         if (data.type === 'msg') {
           const msg = { me: false, text: data.text };
           setChatMessages(prev => [...prev, msg]);
@@ -404,7 +427,8 @@ export default function WebApp() {
       addLog('Creating offer...');
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
+      if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: callRoom }));
       addLog('Sent offer');
     } else {
       addLog('Waiting for offer...');
@@ -414,20 +438,24 @@ export default function WebApp() {
 
   async function handleSDP(ws: WebSocket, msg: any) {
     const pc = pcRef.current;
-    if (!pc) { addLog('Error: no PC'); return; }
+    if (!pc || !msg.room || msg.room !== roomRef.current) return;
+    const activeRoom = roomRef.current;
     addLog('Received ' + msg.sdp.type);
     await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
     if (msg.sdp.type === 'offer') {
       addLog('Creating answer...');
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
+      if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
+      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: activeRoom }));
       addLog('Sent answer');
     }
   }
 
   async function handleICE(msg: any) {
-    try { await pcRef.current?.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch (_) {}
+    const pc = pcRef.current;
+    if (!pc || !msg.room || msg.room !== roomRef.current || !msg.candidate) return;
+    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch (_) {}
   }
 
   async function findStranger() {
@@ -514,7 +542,7 @@ export default function WebApp() {
     addLog('Submitting report...');
   }
 
-  async function cleanup() {
+  async function cleanup(suppressReport = false) {
     const pUserId = partnerProfile?.userId;
     let pName = partnerProfile?.name || '';
     let pBio = partnerProfile?.bio || '';
@@ -523,19 +551,26 @@ export default function WebApp() {
     const savedName = pName;
 
     inCallRef.current = false;
-    // Ask to report partner after call ends
-    if (!reportSent && !reportPending && pUserId) {
+    const oldRoom = roomRef.current;
+    roomRef.current = '';
+    setPartnerLeft(false);
+    if (!suppressReport && !reportSent && !reportPending && pUserId) {
       const partnerDisplayName = savedName || 'this user';
       if (confirm('Report ' + partnerDisplayName + ' for abuse?')) {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: '' }));
+          wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: oldRoom, messageText: '' }));
           setReportPending(true);
         }
       }
     }
     // Critical teardown first (sync)
     lsRef.current?.getTracks().forEach((t: any) => t.stop());
-    lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
+    lsRef.current = null;
+    if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.oniceconnectionstatechange = null; pcRef.current.onconnectionstatechange = null; pcRef.current.close(); }
+    pcRef.current = null;
+    dcRef.current?.close?.(); dcRef.current = null;
+    if (remoteRef.current) remoteRef.current.srcObject = null;
+    if (localRef.current) localRef.current.srcObject = null;
     setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); setPartnerId('');
 
     // Save to recent_live with profile fallback if name is missing
@@ -555,7 +590,13 @@ export default function WebApp() {
     }
   }
 
-  function skip() { cleanup(); setPartnerId(''); wsRef.current?.send(JSON.stringify({ type: 'next' })); }
+  function skip() {
+    const ws = wsRef.current;
+    if (ws?.readyState !== WebSocket.OPEN) { void cleanup(true); setCamError('Connection lost. Please reconnect before finding another partner.'); return; }
+    void cleanup(true);
+    setPartnerId(''); setPartnerLeft(false); setState('searching'); setLog('Finding next partner…');
+    ws.send(JSON.stringify({ type: 'next' }));
+  }
 
   function sendChat() {
     const text = chatInput.trim();

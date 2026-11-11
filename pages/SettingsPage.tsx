@@ -10,6 +10,15 @@ export default function SettingsPage({ userId }: { userId: string }) {
   const [microphone, setMicrophone] = useState('Checking…');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const light = theme === 'light';
+
+  function updateTheme(value: 'dark' | 'light') {
+    setTheme(value);
+    try { localStorage.setItem('liveme-theme', value); } catch {}
+    document.documentElement.dataset.theme = value;
+    document.documentElement.style.colorScheme = value;
+  }
 
   async function refreshPermissions() {
     if (!navigator.permissions?.query) { setCamera('Check when starting'); setMicrophone('Check when starting'); return; }
@@ -25,7 +34,13 @@ export default function SettingsPage({ userId }: { userId: string }) {
   }
 
   useEffect(() => {
-    try { setAutoRequest(localStorage.getItem(key) !== 'false'); } catch {}
+    try {
+      setAutoRequest(localStorage.getItem(key) !== 'false');
+      const savedTheme = localStorage.getItem('liveme-theme') === 'light' ? 'light' : 'dark';
+      setTheme(savedTheme);
+      document.documentElement.dataset.theme = savedTheme;
+      document.documentElement.style.colorScheme = savedTheme;
+    } catch {}
     void refreshPermissions();
   }, [key]);
 
@@ -58,23 +73,31 @@ export default function SettingsPage({ userId }: { userId: string }) {
   }
 
   const status = (value: string) => value === 'granted' ? '#4caf50' : value === 'denied' ? '#f44336' : '#ffb74d';
-  return <main style={panel}>
+  return <main style={{ ...panel, color: light ? '#20232a' : '#fff' }}>
     <h1 style={{ fontSize: 26, margin: '0 0 6px' }}>Settings</h1>
-    <p style={{ color: '#999', fontSize: 14, lineHeight: 1.5 }}>Manage camera and microphone access for Random Chat.</p>
-    <section style={card}>
-      <h2 style={{ fontSize: 17, margin: '0 0 8px' }}>Camera & Microphone</h2>
-      <p style={{ color: '#aaa', fontSize: 13, lineHeight: 1.6, margin: '0 0 16px' }}>Random Chat requires both devices. LiveMe will request them together before placing you in the matching queue. Your camera and microphone are not kept running in the background.</p>
-      <label style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', color: '#eee', fontSize: 14 }}>
-        <span><strong>Automatically request both when starting Random Chat</strong><small style={{ display: 'block', color: '#888', marginTop: 4 }}>Recommended · Saved on this device for this account</small></span>
+    <p style={{ color: light ? '#626875' : '#999', fontSize: 14, lineHeight: 1.5 }}>Manage your appearance and camera/microphone access.</p>
+    <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>
+      <h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Appearance</h2>
+      <p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.5, margin: '0 0 14px' }}>Choose how LiveMe looks on this device. Your choice is saved automatically.</p>
+      <div role="group" aria-label="Color theme" style={{ display: 'flex', gap: 10 }}>
+        <button type="button" aria-pressed={theme === 'light'} onClick={() => updateTheme('light')} style={{ flex: 1, border: theme === 'light' ? '2px solid #6c63ff' : '1px solid #bbb', borderRadius: 10, padding: '13px 10px', background: '#f4f6fb', color: '#20232a', fontWeight: 700, cursor: 'pointer' }}>☀ Light mode</button>
+        <button type="button" aria-pressed={theme === 'dark'} onClick={() => updateTheme('dark')} style={{ flex: 1, border: theme === 'dark' ? '2px solid #8c85ff' : '1px solid #555', borderRadius: 10, padding: '13px 10px', background: '#171717', color: '#fff', fontWeight: 700, cursor: 'pointer' }}>☾ Dark mode</button>
+      </div>
+    </section>
+    <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>
+      <h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Camera & Microphone</h2>
+      <p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.6, margin: '0 0 16px' }}>Random Chat requires both devices. LiveMe will request them together before placing you in the matching queue. Your camera and microphone are not kept running in the background.</p>
+      <label style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', color: light ? '#303540' : '#eee', fontSize: 14 }}>
+        <span><strong>Automatically request both when starting Random Chat</strong><small style={{ display: 'block', color: light ? '#737987' : '#888', marginTop: 4 }}>Recommended · Saved on this device for this account</small></span>
         <input aria-label="Automatically request camera and microphone" type="checkbox" checked={autoRequest} onChange={e => updatePreference(e.target.checked)} style={{ width: 22, height: 22, accentColor: '#6c63ff', flexShrink: 0 }} />
       </label>
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', margin: '20px 0 14px' }}>
-        <div><div style={{ color: '#999', fontSize: 12 }}>Camera permission</div><strong style={{ color: status(camera), textTransform: 'capitalize' }}>{camera}</strong></div>
-        <div><div style={{ color: '#999', fontSize: 12 }}>Microphone permission</div><strong style={{ color: status(microphone), textTransform: 'capitalize' }}>{microphone}</strong></div>
+        <div><div style={{ color: light ? '#737987' : '#999', fontSize: 12 }}>Camera permission</div><strong style={{ color: status(camera), textTransform: 'capitalize' }}>{camera}</strong></div>
+        <div><div style={{ color: light ? '#737987' : '#999', fontSize: 12 }}>Microphone permission</div><strong style={{ color: status(microphone), textTransform: 'capitalize' }}>{microphone}</strong></div>
       </div>
       <button type="button" disabled={busy} onClick={requestDevices} style={{ background: '#6c63ff', color: '#fff', border: 0, borderRadius: 8, padding: '11px 16px', fontWeight: 600, cursor: busy ? 'wait' : 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'Checking devices…' : 'Enable Camera & Microphone'}</button>
-      {message && <p role="status" style={{ color: '#ccc', fontSize: 13, lineHeight: 1.5, margin: '12px 0 0' }}>{message}</p>}
-      <p style={{ color: '#777', fontSize: 12, lineHeight: 1.5, margin: '14px 0 0' }}>Note: Browser permissions are controlled by your browser or device. This setting cannot override a denial or force Always Allow. If access is blocked, open your browser site settings and change Camera and Microphone to Allow.</p>
+      {message && <p role="status" style={{ color: light ? '#4d5563' : '#ccc', fontSize: 13, lineHeight: 1.5, margin: '12px 0 0' }}>{message}</p>}
+      <p style={{ color: light ? '#737987' : '#777', fontSize: 12, lineHeight: 1.5, margin: '14px 0 0' }}>Note: Browser permissions are controlled by your browser or device. This setting cannot override a denial or force Always Allow. If access is blocked, open your browser site settings and change Camera and Microphone to Allow.</p>
     </section>
   </main>;
 }

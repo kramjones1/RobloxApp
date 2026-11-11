@@ -109,6 +109,15 @@ function parseJwt(token: string): SupabaseUser | null {
 
 export function getAccessToken(): string | null { return getStoredSession(); }
 
+// Force a server-issued access-token refresh before starting Random Chat.
+// A locally unexpired JWT can still be revoked or otherwise rejected by Supabase.
+export async function refreshAccessToken(): Promise<string | null> {
+  const tokens = getStoredTokens();
+  if (!tokens?.access_token) return null;
+  if (!tokens.refresh_token) return getValidAccessToken();
+  return await doRefresh();
+}
+
 export async function getValidAccessToken(): Promise<string | null> {
   const tokens = getStoredTokens();
   if (!tokens?.access_token) return null;

@@ -57,6 +57,9 @@ export default function WebApp() {
   const [log, setLog] = useState('');
   const [wsStatus, setWsStatus] = useState('connecting');
   const [partnerId, setPartnerId] = useState('');
+  // WebSocket callbacks retain the render in which the socket was created;
+  // keep the active partner in a ref so SDP/ICE validation uses current state.
+  const partnerIdRef = useRef('');
   const [reportSent, setReportSent] = useState(false);
   const [reportPending, setReportPending] = useState(false);
   const [camError, setCamError] = useState('');
@@ -360,7 +363,7 @@ export default function WebApp() {
           dcRef.current?.close?.(); dcRef.current = null;
           inCallRef.current = true; roomRef.current = msg.room || '';
           remoteStreamRef.current = null; pendingIceRef.current = [];
-          setPartnerId(msg.partner); setPartnerLeft(false);
+          partnerIdRef.current = msg.partner; setPartnerId(msg.partner); setPartnerLeft(false);
           if (msg.userId) setPartnerProfile({ userId: msg.userId, name: '', bio: '', avatar: '' });
           setChatMessages([]); setShowChat(false); setReportSent(false); setReportPending(false);
           startCall(ws, msg.role); break;
@@ -509,7 +512,7 @@ export default function WebApp() {
 
   async function handleSDP(ws: WebSocket, msg: any) {
     const pc = pcRef.current;
-    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerId) return;
+    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerIdRef.current) return;
     const activeRoom = roomRef.current;
     addLog('Received ' + msg.sdp.type);
     try {
@@ -546,7 +549,7 @@ export default function WebApp() {
 
   async function handleICE(msg: any) {
     const pc = pcRef.current;
-    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerId || !msg.candidate) return;
+    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerIdRef.current || !msg.candidate) return;
     if (!pc.remoteDescription?.type) {
       pendingIceRef.current.push(msg.candidate);
       return;
@@ -679,7 +682,7 @@ export default function WebApp() {
     if (remoteRef.current) { remoteRef.current.pause(); remoteRef.current.srcObject = null; }
     remoteStreamRef.current = null; pendingIceRef.current = [];
     if (localRef.current) localRef.current.srcObject = null;
-    setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); setPartnerId('');
+    setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); partnerIdRef.current = ''; setPartnerId('');
 
     // Save to recent_live with profile fallback if name is missing
     if (uid && !savedName) {

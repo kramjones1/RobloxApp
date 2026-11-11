@@ -53,14 +53,7 @@ const s = {
 
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
-  .cover-overlay { opacity: 0 !important; }
-  .av-overlay { opacity: 0 !important; }
-  .cover-wrap:hover .cover-overlay { opacity: 1 !important; }
-  .avatar-circle:hover .av-overlay { opacity: 1 !important; }
-  @media (hover: none) {
-    .cover-overlay { opacity: 1 !important; }
-    .av-overlay { opacity: 0.8 !important; }
-  }
+  .cover-overlay, .av-overlay { display: none !important; }
   @media (max-width: 699px) {
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
     .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }
@@ -93,6 +86,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [postText, setPostText] = useState('');
   const [posting, setPosting] = useState(false);
   const [postMsg, setPostMsg] = useState('');
+  const [imageEditorOpen, setImageEditorOpen] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -288,36 +282,65 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   return (
     <div style={s.page}>
       <div style={s.wrap}>
-        <div className="cover-wrap" style={s.coverWrap}>
+        <div className="cover-wrap" style={{ ...s.coverWrap, cursor: 'pointer' }} onClick={() => setImageEditorOpen(true)} role="button" aria-label="Edit profile photos">
           {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
-          <button className="cover-overlay" style={s.coverOverlay}
-            onTouchStart={() => startLongPress(() => coverInputRef.current?.click())}
-            onTouchEnd={cancelLongPress} onTouchCancel={cancelLongPress}
-            onMouseDown={() => startLongPress(() => coverInputRef.current?.click())}
-            onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
-            onClick={(e) => { if (window.innerWidth >= 700) { e.preventDefault(); coverInputRef.current?.click(); } }}
-            disabled={uploadingCover}>
-            {uploadingCover ? 'Uploading...' : 'Change Cover'}
-          </button>
         </div>
         <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} style={s.hiddenInput} />
 
+        {imageEditorOpen && (
+          <div role="presentation" onClick={() => setImageEditorOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+            <section role="dialog" aria-modal="true" aria-labelledby="profile-image-editor-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, boxShadow: '0 18px 60px rgba(0,0,0,.5)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+                <h2 id="profile-image-editor-title" style={{ color: '#fff', fontSize: 18, margin: 0 }}>Edit profile photos</h2>
+                <button type="button" onClick={() => setImageEditorOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 0, color: '#aaa', fontSize: 24, cursor: 'pointer' }}>×</button>
+              </div>
+              <p style={{ color: '#999', fontSize: 13, margin: '0 0 18px' }}>Choose which photo you want to update.</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.08)' }}>
+                {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: 58, height: 58, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 58, height: 58, borderRadius: '50%', background: '#333', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 22 }}>{initial}</div>}
+                <div style={{ flex: 1, minWidth: 0 }}><strong style={{ color: '#eee', fontSize: 14 }}>Profile picture</strong><p style={{ color: '#888', fontSize: 11, margin: '3px 0 0' }}>Shown beside your name and posts</p></div>
+                <button type="button" disabled={uploadingAvatar} onClick={() => avatarInputRef.current?.click()} style={{ background: '#39348a', color: '#fff', border: 0, borderRadius: 8, padding: '9px 12px', fontSize: 12, cursor: 'pointer' }}>{uploadingAvatar ? 'Saving…' : 'Change'}</button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.08)' }}>
+                <div style={{ width: 92, height: 58, borderRadius: 8, overflow: 'hidden', background: 'linear-gradient(135deg,#6c63ff,#00a8cc)', flexShrink: 0 }}>{coverUrl && <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
+                <div style={{ flex: 1, minWidth: 0 }}><strong style={{ color: '#eee', fontSize: 14 }}>Cover photo</strong><p style={{ color: '#888', fontSize: 11, margin: '3px 0 0' }}>The wide image at the top of your profile</p></div>
+                <button type="button" disabled={uploadingCover} onClick={() => coverInputRef.current?.click()} style={{ background: '#39348a', color: '#fff', border: 0, borderRadius: 8, padding: '9px 12px', fontSize: 12, cursor: 'pointer' }}>{uploadingCover ? 'Saving…' : 'Change'}</button>
+              </div>
+              <p style={{ color: '#777', fontSize: 11, margin: '12px 0 0' }}>Images are limited to 500 KB each. Changes save automatically after you choose an image.</p>
+            </section>
+          </div>
+        )}
+
         <div className="profile-avatar-wrap" style={s.avatarWrap}>
-          <div className="avatar-circle profile-avatar" style={s.avatar}
-            onTouchStart={() => startLongPress(() => avatarInputRef.current?.click())}
-            onTouchEnd={cancelLongPress} onTouchCancel={cancelLongPress}
-            onMouseDown={() => startLongPress(() => avatarInputRef.current?.click())}
-            onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
-            onClick={(e) => { if (window.innerWidth >= 700) { e.preventDefault(); avatarInputRef.current?.click(); } }}>
+          <div className="avatar-circle profile-avatar" style={s.avatar} onClick={() => setImageEditorOpen(true)} role="button" aria-label="Edit profile photos" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setImageEditorOpen(true); }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
-            <span className="av-overlay" style={s.avatarOverlay}>{uploadingAvatar ? '...' : 'Edit'}</span>
           </div>
         </div>
         <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
 
         <div className="profile-name-section" style={s.nameSection}>
           <h1 style={s.name}>{displayName}</h1>
+          {bio && <p style={{ color: '#aaa', fontSize: 14, lineHeight: 1.45, margin: '5px 0 0' }}>{bio}</p>}
         </div>
+
+        <section aria-label="Recent Live" style={{ padding: '12px 24px 8px' }}>
+          <h2 style={{ color: '#fff', fontSize: 15, fontWeight: 650, margin: '0 0 12px' }}>Recent Live</h2>
+          {recent.length === 0 ? (
+            <p style={{ color: '#666', fontSize: 13, margin: 0 }}>No recent interactions yet. Start chatting to meet people!</p>
+          ) : (
+            <div style={{ display: 'flex', gap: 14, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, WebkitOverflowScrolling: 'touch' }}>
+              {recent.map((r, i) => (
+                <div key={r.id || i} style={{ width: 76, minWidth: 76, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <button type="button" onClick={() => onViewProfile?.(r.id)} aria-label={'View ' + (r.name || 'user') + ' profile'} style={{ width: 62, height: 62, borderRadius: '50%', padding: 0, border: '2px solid #6c63ff', background: '#292929', overflow: 'hidden', cursor: 'pointer' }}>
+                    {r.avatar ? <img src={r.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#fff', fontSize: 22, display: 'grid', placeItems: 'center', height: '100%' }}>{(r.name || '?')[0].toUpperCase()}</span>}
+                  </button>
+                  <span style={{ color: '#ddd', fontSize: 11, textAlign: 'center', maxWidth: 76, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name || 'Unknown'}</span>
+                  {onMessage && r.id && <button type="button" onClick={() => onMessage(r.id)} style={{ border: 0, background: 'rgba(108,99,255,.16)', color: '#aaa4ff', borderRadius: 12, padding: '4px 8px', fontSize: 10 }}>Message</button>}
+                </div>
+              ))}
+            </div>
+          )}
+          {recent.length > 0 && <button type="button" onClick={async () => { await clearRecentLive(); setRecent([]); }} style={{ border: 0, background: 'transparent', color: '#888', fontSize: 11, padding: '4px 0', cursor: 'pointer' }}>Clear history</button>}
+        </section>
 
         <div style={s.contentArea}>
 
@@ -351,43 +374,6 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
         {renderPosts(true, displayName, avatarUrl)}
 
-        <div style={s.card}>
-          <h2 style={s.cardTitle}>Recent Live</h2>
-          {recent.length === 0 ? (
-            <p style={{ color: '#666', fontSize: 13 }}>No recent interactions yet. Start chatting to meet people!</p>
-          ) : (
-            <div style={{ maxHeight: 320, overflowY: 'auto' as const }}>
-            {recent.map((r, i) => (
-              <div key={i} style={s.friendCard}>
-                <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }} onClick={() => onViewProfile?.(r.id)}>
-                  {r.avatar ? <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(r.name || '?')[0].toUpperCase()}</div>}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={s.friendName}>{r.name || 'Unknown'}</p>
-                    <p style={s.friendBio}>{r.bio || ''}</p>
-                    <p style={{ color: '#555', fontSize: 10, margin: 0 }}>{new Date(r.time).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                {onMessage && r.id && (
-                  <button onClick={() => onMessage(r.id)} style={{ background: 'rgba(108,99,255,0.15)', color: '#6c63ff', border: 'none', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>Message</button>
-                )}
-              </div>
-            ))}
-            </div>
-          )}
-          {recent.length > 0 && (
-            <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 12, textAlign: 'center' }} onClick={async () => { await clearRecentLive(); setRecent([]); }}>Clear history</p>
-          )}
-          {admin && (
-            <p style={{ color: '#6c63ff', fontSize: 12, cursor: 'pointer', marginTop: 8, textAlign: 'center' }} onClick={async () => {
-              const { data, error } = await getAllMessagesForDownload();
-              if (error || !data) return;
-              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = 'all_messages.json'; a.click();
-              URL.revokeObjectURL(url);
-            }}>Download All Messages</p>
-          )}
-        </div>
         </div>
       </div>
     </div>

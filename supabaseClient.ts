@@ -782,6 +782,8 @@ export interface ChatPostComment {
   user_id: string;
   content: string;
   created_at: string;
+  author_name?: string;
+  author_avatar?: string;
 }
 export interface ChatPostReaction {
   post_id: string;
@@ -821,10 +823,28 @@ export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPos
     if (commentRows?.error) return { error: commentRows.error };
     const reactions = Array.isArray(reactionRows) ? reactionRows : [];
     const comments = Array.isArray(commentRows) ? commentRows : [];
+    const commenterIds = Array.from(new Set(comments.map((item: any) => item.user_id).filter(Boolean))) as string[];
+    const commenterProfiles = await Promise.all(commenterIds.map(async (commenterId) => {
+      try {
+        const profileRows = commenterId === parseJwt(token)?.id
+          ? await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${encodeURIComponent(commenterId)}&select=display_name,avatar_url`, { headers })
+          : await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_chat_profile`, {
+              method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ target_user_id: commenterId }),
+            });
+        const profile = Array.isArray(profileRows) ? profileRows[0] : null;
+        return [commenterId, { name: profile?.display_name || 'Member', avatar: profile?.avatar_url || '' }] as const;
+      } catch { return [commenterId, { name: 'Member', avatar: '' }] as const; }
+    }));
+    const profileByUser = new Map(commenterProfiles);
     return { posts: basePosts.map(post => ({
       ...post,
       reactions: reactions.filter((item: any) => item.post_id === post.id),
-      comments: comments.filter((item: any) => item.post_id === post.id),
+      comments: comments.filter((item: any) => item.post_id === post.id).map((comment: any) => ({
+        ...comment,
+        author_name: profileByUser.get(comment.user_id)?.name || 'Member',
+        author_avatar: profileByUser.get(comment.user_id)?.avatar || '',
+      })),
     })) as ChatPost[] };
   } catch (e: any) {
     return { error: e.message || 'Could not load posts' };

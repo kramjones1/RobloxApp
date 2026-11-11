@@ -148,6 +148,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [admin, setAdmin] = useState(false);
   const [posts, setPosts] = useState<ChatPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
+  const [loadingOlderPosts, setLoadingOlderPosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(false);
+  const postsSentinelRef = useRef<HTMLDivElement>(null);
   const [openPostMenu, setOpenPostMenu] = useState<string | null>(null);
   const postMenuRef = useRef<HTMLDivElement>(null);
   const [openReactionPicker, setOpenReactionPicker] = useState<string | null>(null);
@@ -255,14 +258,50 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     let active = true;
     if (!profileOwnerId) { setPosts([]); setPostsLoading(false); return; }
     setPostsLoading(true);
-    getProfilePosts(profileOwnerId).then(({ posts: rows, error }) => {
+    setLoadingOlderPosts(false);
+    setHasMorePosts(false);
+    setPosts([]);
+    getProfilePosts(profileOwnerId, undefined, 20).then(({ posts: rows, error }) => {
       if (!active) return;
-      setPosts(rows || []);
+      const batch = rows || [];
+      setPosts(batch);
+      setHasMorePosts(batch.length === 20);
       setPostMsg(error || '');
       setPostsLoading(false);
     });
     return () => { active = false; };
   }, [profileOwnerId]);
+
+  async function loadOlderPosts() {
+    if (loadingOlderPosts || postsLoading || !hasMorePosts || !posts.length) return;
+    const oldestPost = posts[posts.length - 1];
+    setLoadingOlderPosts(true);
+    try {
+      const { posts: rows, error } = await getProfilePosts(profileOwnerId, oldestPost.created_at, 20);
+      if (error) { setPostMsg(error); return; }
+      const batch = rows || [];
+      setPosts(current => {
+        const known = new Set(current.map(post => post.id));
+        return [...current, ...batch.filter(post => !known.has(post.id))];
+      });
+      setHasMorePosts(batch.length === 20);
+    } catch (error: any) {
+      setPostMsg(error?.message || 'Could not load older posts.');
+    } finally {
+      setLoadingOlderPosts(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!hasMorePosts || postsLoading || loadingOlderPosts || !['Posts', 'Timeline'].includes(activeTab)) return;
+    const sentinel = postsSentinelRef.current;
+    if (!sentinel || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) void loadOlderPosts();
+    }, { root: null, rootMargin: '700px 0px', threshold: 0 });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [activeTab, hasMorePosts, loadingOlderPosts, posts.length, postsLoading, profileOwnerId]);
 
   async function handlePostImageSelection(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files || []);
@@ -298,7 +337,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       }
       const { post, error } = await createProfilePost(postText, uploadedPaths);
       if (error || !post) throw new Error(error || 'Post was not published.');
-      setPosts(current => [post, ...current].slice(0, 20));
+      setPosts(current => [post, ...current]);
+      setHasMorePosts(current => current);
       setPostText('');
       setPostImages([]);
       postImagePreviews.forEach(url => URL.revokeObjectURL(url));
@@ -472,7 +512,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </div>
           </article>
         ))}
-        {posts.length >= 20 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '0 20px 14px', margin: 0 }}>Showing the latest 20 posts</p>}
+        <div ref={postsSentinelRef} aria-hidden="true" style={{ height: 1 }} />
+        {loadingOlderPosts && <p role="status" aria-live="polite" style={{ color: '#888', fontSize: 12, textAlign: 'center', padding: '14px 0' }}>Loading older posts…</p>}
+        {!hasMorePosts && posts.length > 0 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '14px 0', margin: 0 }}>You’re all caught up.</p>}
         {selectedPost && <div role="presentation" onClick={() => setSelectedPost(null)} style={{ position: 'fixed', inset: 0, zIndex: 1500, background: 'rgba(0,0,0,.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
           <section role="dialog" aria-modal="true" aria-label="Expanded post" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: '92vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><strong style={{ color: '#fff' }}>Comments</strong><button type="button" onClick={() => setSelectedPost(null)} aria-label="Close expanded post" style={{ border: 0, borderRadius: 20, background: '#383838', color: '#fff', width: 34, height: 34, fontSize: 22, cursor: 'pointer' }}>×</button></div>

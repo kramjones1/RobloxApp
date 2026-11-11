@@ -823,6 +823,33 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
     });
     if (rows?.error) return { error: rows.error };
     if (!Array.isArray(rows) || !rows[0]) return { error: 'Post was not saved.' };
+    // The database retains the latest 100 posts. Remove any post-image objects
+    // that are no longer referenced after the retention trigger has run.
+    try {
+      const [savedPosts, storedImages] = await Promise.all([
+        supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=image_paths&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc&limit=100`, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefix: `${user.id}/posts`, limit: 1000, offset: 0 }),
+        }),
+      ]);
+      if (Array.isArray(savedPosts) && storedImages.ok) {
+        const keep = new Set(savedPosts.flatMap((row: any) => row.image_paths || []));
+        const files = await storedImages.json();
+        const stale = (Array.isArray(files) ? files : [])
+          .filter((file: any) => typeof file.name === 'string' && file.name.endsWith('.webp'))
+          .map((file: any) => `${user.id}/posts/${file.name}`)
+          .filter((path: string) => !keep.has(path));
+        if (stale.length) await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
+          method: 'DELETE',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefixes: stale }),
+        });
+      }
+    } catch { /* Cleanup can retry after the next successful post. */ }
     return { post: rows[0] as ChatPost };
   } catch (e: any) {
     return { error: e.message || 'Could not publish post' };

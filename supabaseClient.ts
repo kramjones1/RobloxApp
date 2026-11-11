@@ -835,12 +835,23 @@ export async function deleteProfilePost(postId: string): Promise<{ error?: strin
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
   try {
+    const rows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}&select=image_paths`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+    );
+    if (rows?.error) return { error: rows.error };
+    const paths = Array.isArray(rows) && Array.isArray(rows[0]?.image_paths) ? rows[0].image_paths : [];
+    if (paths.length) {
+      const response = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
+        method: 'DELETE',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: paths }),
+      });
+      if (!response.ok) return { error: (await response.text()) || 'Could not remove post photos.' };
+    }
     const result = await supabaseFetch(
       `${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}`,
-      {
-        method: 'DELETE',
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, Prefer: 'return=minimal' },
-      }
+      { method: 'DELETE', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, Prefer: 'return=minimal' } }
     );
     if (result?.error) return { error: result.error };
     return {};
@@ -848,6 +859,7 @@ export async function deleteProfilePost(postId: string): Promise<{ error?: strin
     return { error: e.message || 'Could not delete post' };
   }
 }
+
 
 
 export interface ProfilePhoto {

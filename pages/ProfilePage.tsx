@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, setProfileCommentReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -10,6 +10,17 @@ interface Props {
   viewUserId?: string | null;
   onViewProfile?: (userId: string) => void;
   onClearView?: () => void;
+}
+
+function formatCommentTimestamp(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 7 * 86400) return `${Math.floor(seconds / 86400)}d`;
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
 async function compressProfileImage(file: File): Promise<File> {
@@ -291,6 +302,22 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setSelectedPost(current => current?.id === post.id ? updateReaction(current) : current);
   }
 
+  async function reactToComment(postId: string, comment: ChatPost['comments'][number], reaction: ChatPost['comments'][number]['reactions'][number]['reaction']) {
+    const mine = comment.reactions.find(item => item.user_id === user?.id);
+    const next = mine?.reaction === reaction ? null : reaction;
+    const { error } = await setProfileCommentReaction(comment.id, next);
+    if (error) { setPostActionMsg(error); return; }
+    const updateComment = (item: ChatPost): ChatPost => item.id !== postId ? item : {
+      ...item,
+      comments: item.comments.map(row => row.id !== comment.id ? row : {
+        ...row,
+        reactions: [...row.reactions.filter(entry => entry.user_id !== user?.id), ...(next ? [{ comment_id: comment.id, user_id: user.id, reaction: next }] : [])],
+      }),
+    };
+    setPosts(current => current.map(updateComment));
+    setSelectedPost(current => current ? updateComment(current) : current);
+  }
+
   async function submitPostComment(postId: string) {
     const content = (commentDrafts[postId] || '').trim();
     if (!content) return;
@@ -380,9 +407,21 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </div>
             {post.comments.map(comment => <div key={comment.id} style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
               {comment.author_avatar ? <img src={comment.author_avatar} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#383838', color: '#ddd', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 11, fontWeight: 700 }}>{(comment.author_name || 'M').trim()[0]?.toUpperCase() || 'M'}</div>}
-              <div style={{ background: '#292929', borderRadius: 12, padding: '7px 11px', minWidth: 0, flex: 1 }}>
-                <div style={{ color: '#ddd', fontSize: 11, fontWeight: 700, marginBottom: 3 }}>{comment.author_name || 'Member'}</div>
-                <div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ background: '#292929', borderRadius: 12, padding: '7px 11px' }}>
+                  <div style={{ color: '#ddd', fontSize: 11, fontWeight: 700, marginBottom: 3 }}>{comment.author_name || 'Member'}</div>
+                  <div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '4px 8px 0' }}>
+                  <span title={new Date(comment.created_at).toLocaleString()} style={{ color: '#888', fontSize: 10 }}>{formatCommentTimestamp(comment.created_at)}</span>
+                  {(['like','love','haha','wow','sad','angry'] as const).map((kind, index) => {
+                    const emoji = ['👍','❤️','😂','😮','😢','😡'][index];
+                    const count = comment.reactions.filter(item => item.reaction === kind).length;
+                    const active = comment.reactions.some(item => item.user_id === user?.id && item.reaction === kind);
+                    return <button key={kind} type="button" title={kind} onClick={() => reactToComment(post.id, comment, kind)} style={{ border: 0, background: 'transparent', color: active ? '#8db8ff' : '#888', padding: '1px 2px', fontSize: 11, cursor: 'pointer', fontWeight: active ? 800 : 500 }}>{emoji}{count > 0 ? ` ${count}` : ''}</button>;
+                  })}
+                  <span style={{ color: '#888', fontSize: 10 }}>{comment.reactions.length} reactions</span>
+                </div>
               </div>
             </div>)}
             <form onSubmit={e => { e.preventDefault(); submitPostComment(post.id); }} style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -413,7 +452,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>}
               <div style={{ paddingTop: 8 }}>{selectedPost.comments.map(comment => <div key={comment.id} style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
                 {comment.author_avatar ? <img src={comment.author_avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#383838', color: '#ddd', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700 }}>{(comment.author_name || 'M').trim()[0]?.toUpperCase() || 'M'}</div>}
-                <div style={{ background: '#292929', borderRadius: 12, padding: '8px 11px', minWidth: 0, flex: 1 }}><div style={{ color: '#ddd', fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{comment.author_name || 'Member'}</div><div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div></div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ background: '#292929', borderRadius: 12, padding: '8px 11px' }}><div style={{ color: '#ddd', fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{comment.author_name || 'Member'}</div><div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div></div>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '4px 8px 0' }}>
+                    <span title={new Date(comment.created_at).toLocaleString()} style={{ color: '#888', fontSize: 10 }}>{formatCommentTimestamp(comment.created_at)}</span>
+                    {(['like','love','haha','wow','sad','angry'] as const).map((kind, index) => { const emoji = ['👍','❤️','😂','😮','😢','😡'][index]; const count = comment.reactions.filter(item => item.reaction === kind).length; const active = comment.reactions.some(item => item.user_id === user?.id && item.reaction === kind); return <button key={kind} type="button" title={kind} onClick={() => reactToComment(selectedPost.id, comment, kind)} style={{ border: 0, background: 'transparent', color: active ? '#8db8ff' : '#888', padding: '1px 2px', fontSize: 11, cursor: 'pointer', fontWeight: active ? 800 : 500 }}>{emoji}{count > 0 ? ` ${count}` : ''}</button>; })}
+                    <span style={{ color: '#888', fontSize: 10 }}>{comment.reactions.length} reactions</span>
+                  </div>
+                </div>
               </div>)}</div>
               <form onSubmit={e => { e.preventDefault(); submitPostComment(selectedPost.id); }} style={{ display: 'flex', gap: 8, marginTop: 14, position: 'sticky', bottom: -18, padding: '12px 0 0', background: '#202020' }}>
                 {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ ...s.friendAvatar, width: 34, height: 34, fontSize: 13 }}>{(displayName || 'A')[0].toUpperCase()}</div>}

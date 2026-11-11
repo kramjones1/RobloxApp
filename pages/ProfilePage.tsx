@@ -373,12 +373,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   async function handleDeletePhoto(photo: ProfilePhoto) {
     if (!window.confirm('Delete this photo?')) return;
+    let postImageRemoved = false;
     if (photo.name.startsWith('posts/')) {
       const matchingPost = posts.find(post => (post.image_paths || []).includes(`${user.id}/${photo.name}`));
       if (matchingPost) {
         const { error } = await removeProfilePostImage(matchingPost.id, `${user.id}/${photo.name}`);
         if (error) { setMsg(error); return; }
         setPosts(current => current.map(post => post.id === matchingPost.id ? { ...post, image_paths: (post.image_paths || []).filter(path => path !== `${user.id}/${photo.name}`) } : post));
+        postImageRemoved = true;
       }
     }
     if (photo.name === 'avatar.webp' || photo.name === 'cover.webp') {
@@ -392,8 +394,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       setAvatarUrl(nextAvatar);
       setCoverUrl(nextCover);
     }
-    const { error } = await deleteProfilePhoto(photo.name);
-    if (error) { setMsg(error); return; }
+    if (!postImageRemoved) {
+      const { error } = await deleteProfilePhoto(photo.name);
+      if (error) { setMsg(error); return; }
+    }
     setProfilePhotos(current => current.filter(item => item.name !== photo.name));
     setMsg('Photo deleted.');
   }

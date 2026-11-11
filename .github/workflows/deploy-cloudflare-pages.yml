@@ -20,8 +20,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout production source
+      - name: Checkout latest LiveMe source
         uses: actions/checkout@v4
+        with:
+          ref: cloudflare-cutover-test
+
+      - name: Point production app to the new Cloudflare Worker
+        run: sed -i 's/omegle-signaling-server\.kafka9607\.workers\.dev/omegle-signaling-cloudflare.kafka9607.workers.dev/g' App.web.tsx
 
       - name: Setup Node
         uses: actions/setup-node@v4

@@ -38,6 +38,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const callSessionRef = useRef<CallSession | null>(null);
   const callSignalingRef = useRef<ChatCallSignaling | null>(null);
   const callPcRef = useRef<RTCPeerConnection | null>(null);
+  const pendingCallCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const callLocalStreamRef = useRef<MediaStream | null>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const localCallVideoRef = useRef<HTMLVideoElement>(null);
@@ -54,6 +55,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     callTimeoutRef.current = null;
     callPcRef.current?.close();
     callPcRef.current = null;
+    pendingCallCandidatesRef.current = [];
     callLocalStreamRef.current?.getTracks().forEach(track => track.stop());
     callLocalStreamRef.current = null;
     setLocalCallStream(null);
@@ -150,6 +152,9 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     } else if (signal.action === 'offer' && signal.description && callPcRef.current) {
       try {
         await callPcRef.current.setRemoteDescription(new RTCSessionDescription(signal.description));
+        for (const candidate of pendingCallCandidatesRef.current.splice(0)) {
+          try { await callPcRef.current.addIceCandidate(new RTCIceCandidate(candidate)); } catch {}
+        }
         const answer = await callPcRef.current.createAnswer();
         await callPcRef.current.setLocalDescription(answer);
         const sent = await sendCallSignal(current.partnerId, current.callId, 'answer', { description: callPcRef.current.localDescription?.toJSON() });
@@ -159,10 +164,15 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         endLocalCall();
       }
     } else if (signal.action === 'answer' && signal.description && callPcRef.current) {
-      try { await callPcRef.current.setRemoteDescription(new RTCSessionDescription(signal.description)); }
-      catch (error: any) { setCallError(error?.message || 'Could not connect the call.'); endLocalCall(); }
+      try {
+        await callPcRef.current.setRemoteDescription(new RTCSessionDescription(signal.description));
+        for (const candidate of pendingCallCandidatesRef.current.splice(0)) {
+          try { await callPcRef.current.addIceCandidate(new RTCIceCandidate(candidate)); } catch {}
+        }
+      } catch (error: any) { setCallError(error?.message || 'Could not connect the call.'); endLocalCall(); }
     } else if (signal.action === 'candidate' && signal.candidate && callPcRef.current) {
-      try { await callPcRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate)); } catch {}
+      if (!callPcRef.current.remoteDescription) pendingCallCandidatesRef.current.push(signal.candidate);
+      else { try { await callPcRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate)); } catch {} }
     }
   }
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 type Page = 'home' | 'privacy' | 'terms' | 'profile' | 'messages';
 
 const s = {
@@ -130,6 +130,8 @@ interface Props {
   password?: string;
   onEmailChange?: (v: string) => void;
   onPasswordChange?: (v: string) => void;
+  showPassword?: boolean;
+  onTogglePassword?: () => void;
   onSubmit?: (e: React.FormEvent) => void;
   onToggleAuth?: () => void;
   showForgot?: boolean;
@@ -146,7 +148,7 @@ interface Props {
 
 export default function LandingPage({
   onNav, onStart, underage, authMode, authMsg, submitting, email, password,
-  onEmailChange, onPasswordChange, onSubmit, onToggleAuth,
+  onEmailChange, onPasswordChange, showPassword, onTogglePassword, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
   onGoogleSignIn, onGitHubSignIn,
@@ -200,7 +202,10 @@ export default function LandingPage({
                   <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
                   <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
-                    <input style={s.input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={8} />
+                    <div style={{ position: 'relative', width: '100%' }}>
+                      <input style={{ ...s.input, paddingRight: 64 }} type={showPassword ? 'text' : 'password'} placeholder="Password (min 8 chars)" value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
+                      <button type="button" onClick={onTogglePassword} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 0, color: '#aaa', cursor: 'pointer', padding: 8, fontSize: 12 }}>{showPassword ? 'Hide' : 'Show'}</button>
+                    </div>
                     <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
                       {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>

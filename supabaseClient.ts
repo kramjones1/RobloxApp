@@ -829,6 +829,36 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
   }
 }
 
+export async function removeProfilePostImage(postId: string, imagePath: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user || !imagePath.startsWith(`${user.id}/posts/`)) return { error: 'Invalid post photo.' };
+  try {
+    const rows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}&select=image_paths`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+    );
+    if (rows?.error) return { error: rows.error };
+    if (!Array.isArray(rows) || !rows[0]) return { error: 'Post not found.' };
+    const nextPaths = (rows[0].image_paths || []).filter((path: string) => path !== imagePath);
+    const updated = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}`,
+      { method: 'PATCH', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ image_paths: nextPaths }) }
+    );
+    if (updated?.error) return { error: updated.error };
+    const removed = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: [imagePath] }),
+    });
+    if (!removed.ok) return { error: (await removed.text()) || 'Photo reference removed, but file cleanup failed.' };
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Could not remove post photo.' };
+  }
+}
+
 export async function deleteProfilePost(postId: string): Promise<{ error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };

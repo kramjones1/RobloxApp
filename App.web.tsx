@@ -10,12 +10,17 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 
-const WS_URL = 'wss://omegle-signaling-server.kafka9607.workers.dev';
-const API_URL = 'https://omegle-signaling-server.kafka9607.workers.dev';
-// Netlify deploy previews and local development use an isolated matchmaker queue.
-const SIGNALING_ENV = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('deploy-preview-') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-  ? 'staging' : 'production';
+// Keep preview/local testing isolated on the staging Worker. Production Pages
+// must use the migrated production Worker so it receives the production fixes.
+const IS_STAGING = typeof window !== 'undefined' &&
+  (window.location.hostname.includes('deploy-preview-') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const WS_URL = IS_STAGING
+  ? 'wss://omegle-signaling-server.kafka9607.workers.dev'
+  : 'wss://omegle-signaling-cloudflare.kafka9607.workers.dev';
+const API_URL = IS_STAGING
+  ? 'https://omegle-signaling-server.kafka9607.workers.dev'
+  : 'https://omegle-signaling-cloudflare.kafka9607.workers.dev';
+const SIGNALING_ENV = IS_STAGING ? 'staging' : 'production';
 
 const meta = document.createElement('meta');
 meta.name = 'theme-color';

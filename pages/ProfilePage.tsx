@@ -83,19 +83,21 @@ const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
   .profile-content-area { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 28px; align-items: start; }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
-  .profile-main { min-width: 0; min-height: 0; }
+  .profile-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .profile-main-content { min-width: 0; }
   .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .profile-tabs::-webkit-scrollbar { display: none; }
   @media (min-width: 700px) {
-    /* Give the desktop tab panel a definite viewport-bound height so long posts
-       and full-size photos scroll inside the panel instead of being clipped. */
+    /* The tab panel begins below the profile header, so reserve a practical
+       panel height rather than subtracting only the navbar from the viewport.
+       A definite flex basis makes overflow scrolling reliable in the grid. */
     .profile-main-content {
-      height: calc(100vh - 148px);
-      max-height: none;
-      min-height: 0;
-      overflow-y: auto;
-      overflow-x: hidden;
+      height: 65vh !important;
+      min-height: 320px;
+      max-height: 680px;
+      flex: 0 0 auto;
+      overflow-y: scroll !important;
+      overflow-x: hidden !important;
       overscroll-behavior-y: contain;
       -webkit-overflow-scrolling: touch;
       scrollbar-gutter: stable;
@@ -103,7 +105,8 @@ hoverStyles.textContent = `
   }
   @media (max-width: 699px) {
     /* Mobile keeps natural document scrolling and its original layout. */
-    .profile-main-content { height: auto; min-height: 0; max-height: none; overflow: visible; overscroll-behavior: auto; }
+    .profile-main { display: block; }
+    .profile-main-content { height: auto !important; min-height: 0; max-height: none; flex: initial; overflow: visible !important; overscroll-behavior: auto; }
     .profile-tabs { position: static; }
   }
   html[data-theme="light"] .profile-tabs { background: #f4f6fb !important; border-color: rgba(25,35,55,.14) !important; }

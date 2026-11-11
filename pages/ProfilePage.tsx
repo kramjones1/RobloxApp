@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, ProfilePhoto } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -373,6 +373,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   async function handleDeletePhoto(photo: ProfilePhoto) {
     if (!window.confirm('Delete this photo?')) return;
+    if (photo.name.startsWith('posts/')) {
+      const matchingPost = posts.find(post => (post.image_paths || []).includes(`${user.id}/${photo.name}`));
+      if (matchingPost) {
+        const { error } = await removeProfilePostImage(matchingPost.id, `${user.id}/${photo.name}`);
+        if (error) { setMsg(error); return; }
+        setPosts(current => current.map(post => post.id === matchingPost.id ? { ...post, image_paths: (post.image_paths || []).filter(path => path !== `${user.id}/${photo.name}`) } : post));
+      }
+    }
     if (photo.name === 'avatar.webp' || photo.name === 'cover.webp') {
       const nextAvatar = photo.name === 'avatar.webp' ? '' : avatarUrl;
       const nextCover = photo.name === 'cover.webp' ? '' : coverUrl;

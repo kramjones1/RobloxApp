@@ -331,7 +331,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                   </div>
                 )}
                 <video ref={localCallVideoRef} autoPlay muted playsInline style={{
-                  position: 'absolute', top: 'calc(18px + env(safe-area-inset-top, 0px))',
+                  position: 'absolute', top: 'calc(82px + env(safe-area-inset-top, 0px))',
                   right: 14, width: isMobileCall ? 96 : 140, height: isMobileCall ? 132 : 184,
                   objectFit: 'cover', borderRadius: 14, background: '#222',
                   border: '2px solid rgba(255,255,255,0.22)', boxShadow: '0 6px 22px rgba(0,0,0,0.35)',

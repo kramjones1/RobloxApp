@@ -262,34 +262,114 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   function renderCallPanel() {
     if (!callSession) return null;
-    const callerName = partnerInfo[callSession.partnerId]?.name || 'User';
+    const caller = partnerInfo[callSession.partnerId];
+    const callerName = caller?.name || 'User';
+    const isIncoming = callSession.status === 'incoming';
+    const isVideo = callSession.media === 'video';
+    const isMobileCall = typeof window !== 'undefined' && window.innerWidth < 700;
+    const statusText = callSession.status === 'outgoing'
+      ? 'Calling…'
+      : callSession.status === 'connecting'
+        ? 'Connecting…'
+        : callSession.status === 'active'
+          ? (isVideo ? 'Video call' : 'Audio call')
+          : (isVideo ? 'Incoming video call' : 'Incoming audio call');
+    const callButton = (label: string, onClick: () => void, background: string, ariaLabel: string) => (
+      <button type="button" aria-label={ariaLabel} onClick={onClick} style={{
+        minWidth: isMobileCall ? 58 : 76, height: 54, padding: '0 15px',
+        border: '1px solid rgba(255,255,255,0.12)', borderRadius: 18,
+        color: '#fff', background, fontSize: 12, fontWeight: 600,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', gap: 3, cursor: 'pointer',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+      }}>{label}</button>
+    );
     return (
-      <div style={{ padding: 12, background: '#202033', borderBottom: '1px solid rgba(108,99,255,0.3)', color: '#fff' }}>
-        {callSession.status === 'incoming' ? (
-          <>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>{callerName} is inviting you to an {callSession.media === 'video' ? 'video' : 'audio'} call</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button type="button" onClick={() => void acceptIncomingCall()} style={{ ...btn, background: '#238b57', flex: 1 }}>Accept</button>
-              <button type="button" onClick={declineIncomingCall} style={{ ...btn, background: '#a93232', flex: 1 }}>Decline</button>
+      <div role="dialog" aria-label={statusText} style={{
+        position: 'fixed', inset: 0, zIndex: 1000, background: '#080808',
+        color: '#fff', fontFamily: 'system-ui, sans-serif', overflow: 'hidden',
+      }}>
+        {isIncoming ? (
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', padding: 24,
+            background: 'radial-gradient(circle at center, #292642 0%, #11111b 55%, #050505 100%)',
+            textAlign: 'center',
+          }}>
+            <div style={{ width: 104, height: 104, borderRadius: '50%', overflow: 'hidden',
+              background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 20, border: '3px solid rgba(255,255,255,0.18)' }}>
+              {caller?.avatar ? <img src={caller.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontSize: 38, fontWeight: 700 }}>{callerName.charAt(0).toUpperCase()}</span>}
             </div>
-          </>
+            <div style={{ color: '#aaa', fontSize: 13, marginBottom: 8 }}>{isVideo ? 'Incoming video call' : 'Incoming audio call'}</div>
+            <div style={{ fontSize: 25, fontWeight: 700, marginBottom: 10 }}>{callerName}</div>
+            <div style={{ color: '#999', fontSize: 13, marginBottom: 42 }}>LivMe private call</div>
+            <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
+              {callButton('Decline', declineIncomingCall, '#d93645', 'Decline call')}
+              {callButton('Accept', () => void acceptIncomingCall(), '#20a464', 'Accept call')}
+            </div>
+          </div>
         ) : (
           <>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
-              {callSession.status === 'outgoing' ? `Calling ${callerName}…` : callSession.status === 'connecting' ? 'Connecting call…' : `In ${callSession.media} call with ${callerName}`}
-            </div>
-            {callSession.media === 'video' && (
-              <div style={{ position: 'relative', background: '#080808', borderRadius: 10, overflow: 'hidden', minHeight: 150 }}>
-                <video ref={remoteCallVideoRef} autoPlay playsInline style={{ width: '100%', maxHeight: 240, objectFit: 'contain', display: remoteCallStream ? 'block' : 'none' }} />
-                {!remoteCallStream && <div style={{ padding: 35, textAlign: 'center', color: '#aaa', fontSize: 12 }}>Waiting for video…</div>}
-                <video ref={localCallVideoRef} autoPlay muted playsInline style={{ position: 'absolute', right: 8, bottom: 8, width: 88, height: 112, objectFit: 'cover', borderRadius: 8, background: '#222' }} />
+            {isVideo ? (
+              <div style={{ position: 'absolute', inset: 0, background: '#080808' }}>
+                <video ref={remoteCallVideoRef} autoPlay playsInline style={{
+                  position: 'absolute', inset: 0, width: '100%', height: '100%',
+                  objectFit: 'cover', display: remoteCallStream ? 'block' : 'none',
+                }} />
+                {!remoteCallStream && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle, #25243b, #080808 70%)' }}>
+                    <div style={{ width: 96, height: 96, borderRadius: '50%', overflow: 'hidden', background: '#6c63ff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                      {caller?.avatar ? <img src={caller.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 36, fontWeight: 700 }}>{callerName.charAt(0).toUpperCase()}</span>}
+                    </div>
+                    <div style={{ fontSize: 19, fontWeight: 600 }}>{callerName}</div>
+                    <div style={{ color: '#aaa', fontSize: 13, marginTop: 8 }}>{statusText}</div>
+                  </div>
+                )}
+                <video ref={localCallVideoRef} autoPlay muted playsInline style={{
+                  position: 'absolute', top: 'calc(18px + env(safe-area-inset-top, 0px))',
+                  right: 14, width: isMobileCall ? 96 : 140, height: isMobileCall ? 132 : 184,
+                  objectFit: 'cover', borderRadius: 14, background: '#222',
+                  border: '2px solid rgba(255,255,255,0.22)', boxShadow: '0 6px 22px rgba(0,0,0,0.35)',
+                }} />
               </div>
+            ) : (
+              <>
+                <audio ref={remoteCallAudioRef} autoPlay />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  background: 'radial-gradient(circle at center, #292642 0%, #11111b 55%, #050505 100%)' }}>
+                  <div style={{ width: 112, height: 112, borderRadius: '50%', overflow: 'hidden',
+                    background: '#6c63ff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 20, border: '3px solid rgba(255,255,255,0.18)' }}>
+                    {caller?.avatar ? <img src={caller.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 42, fontWeight: 700 }}>{callerName.charAt(0).toUpperCase()}</span>}
+                  </div>
+                  <div style={{ fontSize: 23, fontWeight: 700 }}>{callerName}</div>
+                  <div style={{ color: '#aaa', fontSize: 13, marginTop: 9 }}>{statusText}</div>
+                  <div style={{ color: '#666', fontSize: 11, marginTop: 8 }}>LivMe audio call</div>
+                </div>
+              </>
             )}
-            {callSession.media === 'audio' && <audio ref={remoteCallAudioRef} autoPlay />}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button type="button" onClick={toggleCallMute} style={{ ...btn, background: callMuted ? '#a93232' : '#45455b', flex: 1 }}>{callMuted ? 'Unmute' : 'Mute'}</button>
-              {callSession.media === 'video' && <button type="button" onClick={toggleCallCamera} style={{ ...btn, background: cameraEnabled ? '#45455b' : '#a93232', flex: 1 }}>{cameraEnabled ? 'Camera off' : 'Camera on'}</button>}
-              <button type="button" onClick={hangUpCall} style={{ ...btn, background: '#a93232', flex: 1 }}>End call</button>
+            <div style={{ position: 'absolute', top: 'calc(18px + env(safe-area-inset-top, 0px))',
+              left: 16, right: isVideo ? (isMobileCall ? 124 : 174) : 16,
+              color: '#fff', textShadow: '0 1px 5px #000' }}>
+              <div style={{ fontSize: 16, fontWeight: 650 }}>{callerName}</div>
+              <div style={{ fontSize: 12, color: '#ddd', marginTop: 4 }}>{statusText}</div>
+            </div>
+            <div style={{
+              position: 'absolute', left: 0, right: 0, bottom: 0,
+              padding: '26px 14px calc(24px + env(safe-area-inset-bottom, 0px))',
+              display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobileCall ? 10 : 16,
+              background: 'linear-gradient(transparent, rgba(0,0,0,0.82))',
+            }}>
+              {callButton(callMuted ? 'Unmute' : 'Mute', toggleCallMute, callMuted ? '#b8323c' : '#353545', callMuted ? 'Unmute microphone' : 'Mute microphone')}
+              {isVideo && callButton(cameraEnabled ? 'Camera off' : 'Camera on', toggleCallCamera, cameraEnabled ? '#353545' : '#b8323c', cameraEnabled ? 'Turn camera off' : 'Turn camera on')}
+              {callButton('End call', hangUpCall, '#d93645', 'End call')}
             </div>
           </>
         )}

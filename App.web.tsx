@@ -199,10 +199,13 @@ export default function WebApp() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     if (authMode === 'register') {
+      if (password.length < 10 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\\d/.test(password)) {
+        setAuthMsg('Use at least 10 characters with uppercase, lowercase, and a number.');
+        return;
+      }
       const normalizedEmail = email.trim().toLowerCase();
-      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) { setAuthMsg('Enter a valid email address.'); return; }
+      if (!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(normalizedEmail)) { setAuthMsg('Enter a valid email address.'); return; }
       setSubmitting(true);
       const res = await signUp(normalizedEmail, password);
       setSubmitting(false);
@@ -215,6 +218,7 @@ export default function WebApp() {
       const timer = setInterval(() => setSignupResendCooldown(prev => { if (prev <= 1) { clearInterval(timer); return 0; } return prev - 1; }), 1000);
       return;
     }
+    if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     setSubmitting(true);
     const { error } = await signIn(email, password);
     setSubmitting(false);
@@ -225,7 +229,7 @@ export default function WebApp() {
   async function handleSignupVerification(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (!/^\\d{6}$/.test(signupCode.trim())) { setAuthMsg('Enter the 6-digit code from your email.'); return; }
+    if (!/^\d{6}$/.test(signupCode.trim())) { setAuthMsg('Enter the 6-digit code from your email.'); return; }
     setSubmitting(true);
     const result = await verifySignupOtp(email, signupCode);
     setSubmitting(false);
@@ -798,7 +802,7 @@ export default function WebApp() {
         <h2 style={{ fontSize: 20, margin: '8px 0' }}>Verify your email</h2>
         <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 340, lineHeight: 1.6, marginBottom: 18 }}>Enter the 6-digit code sent to <b style={{ color: '#fff' }}>{email}</b>. Check your spam or junk folder too.</p>
         <form onSubmit={handleSignupVerification} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
-          <input style={{ ...input, textAlign: 'center', letterSpacing: 8, fontSize: 22 }} type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="000000" value={signupCode} onChange={e => setSignupCode(e.target.value.replace(/\\D/g, '').slice(0, 6))} maxLength={6} required />
+          <input style={{ ...input, textAlign: 'center', letterSpacing: 8, fontSize: 22 }} type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="000000" value={signupCode} onChange={e => setSignupCode(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} required />
           <button type="submit" disabled={submitting || signupCode.length !== 6} style={{ ...mobileBtn, opacity: submitting || signupCode.length !== 6 ? 0.5 : 1 }}>{submitting ? 'Verifying…' : 'Verify email and continue'}</button>
         </form>
         {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', maxWidth: 340, marginTop: 14 }}>{authMsg}</p>}
@@ -1095,7 +1099,7 @@ export default function WebApp() {
                 <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
                   <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
                   <div style={{ position: 'relative', width: '100%' }}>
-                    <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
+                    <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
                   <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>

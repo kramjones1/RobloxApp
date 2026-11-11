@@ -97,3 +97,49 @@ export function watchConversationPresence(
     });
   };
 }
+
+
+/**
+ * Subscribe to the signed-in user's Recent Live history.
+ * Postgres Changes are filtered by user_id and RLS still limits rows to the owner.
+ */
+export function watchRecentLive(
+  userId: string,
+  onChange: () => void,
+): () => void {
+  let stopped = false;
+  let channel: RealtimeChannel | null = null;
+
+  const start = async () => {
+    const token = await getValidAccessToken();
+    if (!token || stopped) return;
+    await realtimeClient.realtime.setAuth(token);
+
+    channel = realtimeClient
+      .channel(`recent-live:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'recent_live',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          if (!stopped) onChange();
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED' && !stopped) onChange();
+      });
+  };
+
+  void start().catch(() => {
+    if (!stopped) onChange();
+  });
+
+  return () => {
+    stopped = true;
+    if (channel) void realtimeClient.removeChannel(channel);
+  };
+}

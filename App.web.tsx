@@ -26,6 +26,39 @@ const style = document.createElement('style');
 style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes spin{to{transform:rotate(360deg)}}.page-content{padding-top:60px}.mobile-nav{display:none!important}.desktop-nav{display:none!important}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}.mobile-nav{display:block!important}}@media(min-width:700px){.mobile-auth{display:none!important}.desktop-nav{display:flex!important}}';
 document.head.appendChild(style);
 
+try {
+  const savedTheme = localStorage.getItem('liveme-theme') === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = savedTheme;
+  document.documentElement.style.colorScheme = savedTheme;
+} catch {}
+const themeStyle = document.createElement('style');
+themeStyle.textContent = `
+  html[data-theme="light"] body { background: #f4f6fb !important; color: #20232a !important; color-scheme: light; }
+  html[data-theme="light"] .page-content { background-color: #f4f6fb !important; color: #20232a !important; }
+  html[data-theme="light"] .page-content > div,
+  html[data-theme="light"] .page-content main,
+  html[data-theme="light"] .page-content section,
+  html[data-theme="light"] .page-content article,
+  html[data-theme="light"] .page-content aside,
+  html[data-theme="light"] .page-content nav,
+  html[data-theme="light"] .page-content header { background-color: transparent !important; border-color: rgba(25,35,55,.12) !important; }
+  html[data-theme="light"] .page-content p,
+  html[data-theme="light"] .page-content h1,
+  html[data-theme="light"] .page-content h2,
+  html[data-theme="light"] .page-content h3,
+  html[data-theme="light"] .page-content label,
+  html[data-theme="light"] .page-content small,
+  html[data-theme="light"] .page-content strong,
+  html[data-theme="light"] .page-content span,
+  html[data-theme="light"] .page-content li { color: #20232a !important; }
+  html[data-theme="light"] .page-content input:not([type="checkbox"]),
+  html[data-theme="light"] .page-content textarea,
+  html[data-theme="light"] .page-content select { background: #fff !important; color: #20232a !important; border-color: #d7dce5 !important; }
+  html[data-theme="light"] .page-content button:not([style*="linear-gradient"]) { border-color: rgba(25,35,55,.16); }
+  html[data-theme="light"] .profile-section { border-color: rgba(25,35,55,.12) !important; }
+`;
+document.head.appendChild(themeStyle);
+
 function isValidSignupPassword(value: string): boolean {
   // Count Unicode code points and check each required character class explicitly.
   const chars = Array.from(value);

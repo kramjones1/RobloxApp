@@ -30,14 +30,14 @@ try {
   const savedTheme = localStorage.getItem('liveme-theme') === 'light' ? 'light' : 'dark';
   document.documentElement.dataset.theme = savedTheme;
   document.documentElement.style.colorScheme = savedTheme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', savedTheme === 'light' ? '#f4f6fb' : '#1a1a1a');
 } catch {}
 const themeStyle = document.createElement('style');
 themeStyle.textContent = `
   html[data-theme="light"] body { background: #f4f6fb !important; color: #20232a !important; color-scheme: light; }
   html[data-theme="light"] .page-content { background-color: #f4f6fb !important; color: #20232a !important; }
-  html[data-theme="light"] .page-content > div,
+  html[data-theme="light"] .page-content div,
   html[data-theme="light"] .page-content main,
-  html[data-theme="light"] .page-content section,
   html[data-theme="light"] .page-content article,
   html[data-theme="light"] .page-content aside,
   html[data-theme="light"] .page-content nav,

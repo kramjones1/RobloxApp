@@ -665,7 +665,7 @@ export default function WebApp() {
     addLog('Submitting report...');
   }
 
-  async function cleanup(suppressReport = false) {
+  async function cleanup(suppressReport = false, preserveLocalStream = false) {
     const pUserId = partnerProfile?.userId;
     let pName = partnerProfile?.name || '';
     let pBio = partnerProfile?.bio || '';
@@ -688,14 +688,20 @@ export default function WebApp() {
       }
     }
     // Critical teardown first (sync)
-    lsRef.current?.getTracks().forEach((t: any) => t.stop());
-    lsRef.current = null;
+    // Next keeps the current camera/microphone capture alive. Stopping it here
+    // races the next match: startCall can run before getUserMedia reacquires it,
+    // leaving both local preview and outgoing video permanently black.
+    if (!preserveLocalStream) {
+      lsRef.current?.getTracks().forEach((t: any) => t.stop());
+      lsRef.current = null;
+    }
     if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.oniceconnectionstatechange = null; pcRef.current.onconnectionstatechange = null; pcRef.current.close(); }
     pcRef.current = null;
     dcRef.current?.close?.(); dcRef.current = null;
     if (remoteRef.current) { remoteRef.current.pause(); remoteRef.current.srcObject = null; }
     remoteStreamRef.current = null; pendingIceRef.current = [];
-    if (localRef.current) localRef.current.srcObject = null;
+    // Keep the live local preview attached when advancing to the next partner.
+    if (!preserveLocalStream && localRef.current) localRef.current.srcObject = null;
     setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); partnerIdRef.current = ''; setPartnerId('');
 
     // Save to recent_live with profile fallback if name is missing
@@ -718,7 +724,9 @@ export default function WebApp() {
   function skip() {
     const ws = wsRef.current;
     if (ws?.readyState !== WebSocket.OPEN) { void cleanup(true); setCamError('Connection lost. Please reconnect before finding another partner.'); return; }
-    void cleanup(true);
+    // Tear down only the old peer connection; retain the camera/mic stream
+    // so the next room can attach live tracks immediately on either side.
+    void cleanup(true, true);
     setPartnerId(''); setPartnerLeft(false); setState('searching'); setLog('Finding next partner…');
     ws.send(JSON.stringify({ type: 'next' }));
   }

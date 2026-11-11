@@ -603,7 +603,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       const nextCover = photo.name === 'cover.webp' ? '' : coverUrl;
       const { error: profileError } = await upsertChatProfile({
         display_name: displayName, bio, avatar_url: nextAvatar, cover_url: nextCover,
-        share_name: shareName, share_bio: shareBio
+        share_name: shareName, share_bio: shareBio, work, education, share_details: shareDetails
       });
       if (profileError) { setMsg(profileError); return; }
       setAvatarUrl(nextAvatar);

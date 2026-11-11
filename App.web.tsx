@@ -26,6 +26,15 @@ const style = document.createElement('style');
 style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes spin{to{transform:rotate(360deg)}}.page-content{padding-top:60px}.mobile-nav{display:none!important}.desktop-nav{display:none!important}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}.mobile-nav{display:block!important}}@media(min-width:700px){.mobile-auth{display:none!important}.desktop-nav{display:flex!important}}';
 document.head.appendChild(style);
 
+function isValidSignupPassword(value: string): boolean {
+  // Count Unicode code points and check each required character class explicitly.
+  const chars = Array.from(value);
+  return chars.length >= 10 &&
+    /[a-z]/i.test(value) &&
+    /[A-Z]/.test(value) &&
+    /[0-9]/.test(value);
+}
+
 export default function WebApp() {
   const [page, setPage] = useState('home');
   const [user, setUser] = useState<any>(null);
@@ -200,8 +209,8 @@ export default function WebApp() {
     e.preventDefault();
     setAuthMsg('');
     if (authMode === 'register') {
-      if (password.length < 10 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
-        setAuthMsg('Use at least 10 characters with uppercase, lowercase, and a number.');
+      if (!isValidSignupPassword(password)) {
+        setAuthMsg('Use at least 10 characters with at least one uppercase letter, one lowercase letter, and one number.');
         return;
       }
       const normalizedEmail = email.trim().toLowerCase();
@@ -1155,7 +1164,7 @@ export default function WebApp() {
                 showPassword={showPassword}
                 onTogglePassword={() => setShowPassword(v => !v)}
                 onSubmit={handleAuth}
-                onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
+                onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setPassword(''); setShowPassword(false); setAuthMsg(''); }}
                 showForgot={showForgot}
                 forgotSent={forgotSent}
                 forgotEmail={forgotEmail}
@@ -1164,8 +1173,8 @@ export default function WebApp() {
                 onForgotSubmit={handleForgotPassword}
                 onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
                 onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
-                onGoogleSignIn={() => signInWithGoogle()}
-                onGitHubSignIn={() => signInWithGitHub()}
+                onGoogleSignIn={() => { setAuthMsg(''); signInWithGoogle(); }}
+                onGitHubSignIn={() => { setAuthMsg(''); signInWithGitHub(); }}
               />
             </div>
             <Footer setPage={handleNav} />

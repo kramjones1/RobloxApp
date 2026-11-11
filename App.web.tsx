@@ -11,6 +11,10 @@ import AdminPage from './pages/AdminPage';
 
 const WS_URL = 'wss://omegle-signaling-server.kafka9607.workers.dev';
 const API_URL = 'https://omegle-signaling-server.kafka9607.workers.dev';
+// Netlify deploy previews and local development use an isolated matchmaker queue.
+const SIGNALING_ENV = typeof window !== 'undefined' &&
+  (window.location.hostname.includes('deploy-preview-') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'staging' : 'production';
 
 const meta = document.createElement('meta');
 meta.name = 'theme-color';
@@ -82,7 +86,7 @@ export default function WebApp() {
     async function fetchLive() {
       const token = await getValidAccessToken();
       if (!token) { setLiveUsers([]); setLiveTs(Date.now()); return; }
-      fetch(`${API_URL}/api/live`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
+      fetch(`${API_URL}/api/live?environment=${SIGNALING_ENV}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
     }
     fetchLive();
     const iv = setInterval(fetchLive, 5000);
@@ -321,7 +325,10 @@ export default function WebApp() {
     setWsStatus('connecting');
     const accessToken = await getValidAccessToken();
     if (!accessToken) { setWsStatus('error'); addLog('Your session expired. Please sign in again.'); return null; }
-    const ws = new WebSocket(`${WS_URL}?access_token=${encodeURIComponent(accessToken)}`);
+    const socketUrl = new URL(WS_URL);
+    socketUrl.searchParams.set('access_token', accessToken);
+    socketUrl.searchParams.set('environment', SIGNALING_ENV);
+    const ws = new WebSocket(socketUrl.toString());
     wsRef.current = ws;
     ws.onopen = () => { setWsStatus('connected'); addLog('Connected'); };
     ws.onmessage = (e) => {

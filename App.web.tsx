@@ -418,13 +418,14 @@ export default function WebApp() {
     if (role === 'offer') {
       const dc = pc.createDataChannel('chat');
       dcRef.current = dc;
-      dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+      dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
       dc.onmessage = onDcMessage;
     } else {
       pc.ondatachannel = (e) => {
+        if (pcRef.current !== pc || roomRef.current !== callRoom) { e.channel.close(); return; }
         const dc = e.channel;
         dcRef.current = dc;
-        dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+        dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
         dc.onmessage = onDcMessage;
       };
     }
@@ -443,6 +444,7 @@ export default function WebApp() {
         if (pcRef.current !== pc || roomRef.current !== callRoom) return;
         await pc.setLocalDescription(offer);
         if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+        if (ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: callRoom }));
         addLog('Sent offer');
       } catch (error: any) {
@@ -471,6 +473,7 @@ export default function WebApp() {
       if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
       await pc.setLocalDescription(answer);
       if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
+      if (ws.readyState !== WebSocket.OPEN) return;
       ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: activeRoom }));
       addLog('Sent answer');
     }

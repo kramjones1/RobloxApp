@@ -338,7 +338,9 @@ export default function WebApp() {
           setChatMessages([]); setShowChat(false); setReportSent(false); setReportPending(false);
           startCall(ws, msg.role); break;
         }
-        case 'partner_left': addLog('Partner ended the call'); void cleanup(true); setPartnerLeft(true); break;
+        case 'partner_left':
+          if (!msg.room || msg.room !== roomRef.current) break;
+          addLog('Partner ended the call'); void cleanup(true); setPartnerLeft(true); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': setReportSent(true); setReportPending(false); addLog('Report submitted'); break;
         case 'report_error': setReportSent(false); setReportPending(false); addLog(msg.reason || 'Report could not be submitted.'); break;
@@ -350,7 +352,11 @@ export default function WebApp() {
       }
     };
     ws.onerror = () => { setWsStatus('error'); addLog('WS error'); };
-    ws.onclose = (e) => { setWsStatus('disconnected'); addLog(`Disconnected (code ${e.code}${e.reason ? ': ' + e.reason : ''})`); };
+    ws.onclose = (e) => {
+      if (wsRef.current !== ws) return;
+      setWsStatus('disconnected'); addLog(`Disconnected (code ${e.code}${e.reason ? ': ' + e.reason : ''})`);
+      if (inCallRef.current) { void cleanup(true); setPartnerLeft(true); }
+    };
     return ws;
   }
 

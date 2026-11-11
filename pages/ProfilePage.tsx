@@ -112,6 +112,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [activeTab, setActiveTab] = useState<'Posts' | 'Photos' | 'Timeline' | 'About'>('Posts');
   const [profilePhotos, setProfilePhotos] = useState<ProfilePhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; alt: string } | null>(null);
+  const [selectedPost, setSelectedPost] = useState<ChatPost | null>(null);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
 
@@ -305,7 +306,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             posts.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>{canPublish ? 'No posts yet. Share your first update!' : 'No posts yet.'}</p> : null}
         </div>
         {posts.map(post => (
-          <article key={post.id} style={{ padding: '16px 20px 20px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
+          <article key={post.id} onClick={e => { if (!(e.target as HTMLElement).closest('button,input,textarea,form,a,[role="button"]')) setSelectedPost(post); }} style={{ padding: '16px 20px 20px', borderTop: '1px solid rgba(255,255,255,.07)', cursor: 'zoom-in' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -357,6 +358,17 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           </article>
         ))}
         {posts.length >= 20 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '0 20px 14px', margin: 0 }}>Showing the latest 20 posts</p>}
+        {selectedPost && <div role="presentation" onClick={() => setSelectedPost(null)} style={{ position: 'fixed', inset: 0, zIndex: 1500, background: 'rgba(0,0,0,.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
+          <section role="dialog" aria-modal="true" aria-label="Expanded post" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: '92vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><strong style={{ color: '#fff' }}>Post</strong><button type="button" onClick={() => setSelectedPost(null)} aria-label="Close expanded post" style={{ border: 0, borderRadius: 20, background: '#383838', color: '#fff', width: 34, height: 34, fontSize: 22, cursor: 'pointer' }}>×</button></div>
+            <div style={{ padding: 20 }}>
+              {selectedPost.is_private && <div style={{ display: 'inline-flex', color: '#fff', background: 'rgba(145,112,255,.22)', border: '1px solid rgba(170,145,255,.55)', borderRadius: 20, padding: '5px 10px', fontSize: 11, fontWeight: 750, marginBottom: 12 }}>🔒 PRIVATE · ONLY YOU</div>}
+              {selectedPost.content && <p style={{ color: '#eee', fontSize: 16, lineHeight: 1.65, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 16px' }}>{selectedPost.content}</p>}
+              {(selectedPost.image_paths || []).map((path, index) => <img key={path} src={`${'https://btkcubibosbtpxcronnd.supabase.co'}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} style={{ display: 'block', width: '100%', maxHeight: '70vh', objectFit: 'contain', margin: '0 auto 10px', borderRadius: 8 }} />)}
+              <div style={{ color: '#aaa', fontSize: 12, marginTop: 12 }}>{selectedPost.reactions.length} reactions · {selectedPost.comments.length} comments</div>
+            </div>
+          </section>
+        </div>}
         {postPreviewOpen && <div role="presentation" onClick={() => !posting && setPostPreviewOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <section role="dialog" aria-modal="true" aria-labelledby="post-preview-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 18, boxShadow: '0 20px 70px rgba(0,0,0,.55)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>

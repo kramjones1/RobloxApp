@@ -294,6 +294,8 @@ export interface ChatProfile {
   share_name: boolean;
   share_bio: boolean;
   date_of_birth?: string;
+  terms_accepted_at?: string;
+  terms_version?: string;
 }
 
 export async function getUserProfile(userId: string): Promise<{ profile?: ChatProfile; error?: string }> {

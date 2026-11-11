@@ -90,7 +90,8 @@ hoverStyles.textContent = `
   @media (min-width: 700px) {
     /* Keep the profile shell and navigation fixed in the available page
        viewport. Only the selected tab's content gets vertical scrolling. */
-    .profile-page-root { height: 100%; min-height: 0; overflow: hidden; }
+    .profile-page-shell > .profile-page-root { flex: 1 1 auto; min-height: 0; }
+    .profile-page-root { height: 100% !important; min-height: 0 !important; overflow: hidden !important; }
     .profile-page-root > .profile-wrap { height: 100%; min-height: 0; overflow: hidden; padding-bottom: 0; }
     .profile-main { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
     .profile-main-content {
@@ -114,6 +115,8 @@ hoverStyles.textContent = `
   }
   @media (max-width: 699px) {
     /* Mobile keeps natural document scrolling and its original layout. */
+    .profile-page-shell { display: block !important; overflow-x: hidden !important; overflow-y: auto !important; }
+    .profile-page-root { height: auto !important; min-height: 100vh !important; overflow: visible !important; }
     .profile-main { display: block; }
     .profile-main-content { height: auto !important; min-height: 0; max-height: none; flex: initial; overflow: visible !important; overscroll-behavior: auto; }
     .profile-tabs { position: static; }

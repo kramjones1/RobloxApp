@@ -111,6 +111,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'Posts' | 'Photos' | 'Timeline' | 'About'>('Posts');
   const [profilePhotos, setProfilePhotos] = useState<ProfilePhoto[]>([]);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; alt: string } | null>(null);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
 
@@ -510,7 +511,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                   {profilePhotos.map(photo => (
                     <div key={photo.name} style={{ position: 'relative', aspectRatio: '1', background: '#292929', borderRadius: 9, overflow: 'hidden' }}>
-                      <img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', height: '100%', padding: 0, border: 0, background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
                       {canEdit && <button type="button" onClick={() => handleDeletePhoto(photo)} aria-label="Delete photo" style={{ position: 'absolute', top: 6, right: 6, border: 0, borderRadius: 20, background: 'rgba(0,0,0,.72)', color: '#fff', width: 26, height: 26, cursor: 'pointer' }}>×</button>}
                     </div>
                   ))}
@@ -549,6 +550,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </section>
           ))}
         </div>
+        {selectedPhoto && <div role="presentation" onClick={() => setSelectedPhoto(null)} style={{ position: 'fixed', inset: 0, zIndex: 1600, background: 'rgba(0,0,0,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <section role="dialog" aria-modal="true" aria-label="Photo viewer" onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 1100, maxHeight: '94vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Close photo" style={{ position: 'absolute', zIndex: 2, top: -12, right: -8, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(35,35,35,.9)', color: '#fff', fontSize: 28, cursor: 'pointer' }}>×</button>
+            <img src={selectedPhoto.url} alt={selectedPhoto.alt} style={{ display: 'block', maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 8, boxShadow: '0 12px 50px rgba(0,0,0,.55)' }} />
+          </section>
+        </div>}
       </>
     );
   }

@@ -26,11 +26,9 @@ const s = {
   wrap: { maxWidth: 700, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
   coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/312' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block', position: 'absolute' as const, inset: 0 },
-  coverOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'rgba(0,0,0,0.3)', color: '#fff', fontSize: 13, fontWeight: 600, border: 'none', width: '100%', opacity: 0, transition: 'opacity 0.2s' },
   avatarWrap: { display: 'flex', justifyContent: 'flex-start', marginTop: -64, paddingLeft: 24 },
   avatar: { width: 140, height: 140, borderRadius: '50%', border: '5px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
-  avatarOverlay: { position: 'absolute' as const, inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 11, fontWeight: 600, opacity: 0, transition: 'opacity 0.2s' },
   nameSection: { padding: '8px 24px 4px', textAlign: 'left' as const },
   name: { color: '#fff', fontSize: 24, fontWeight: 700, margin: 0 },
   contentArea: { padding: '8px 24px 40px', display: 'flex', flexDirection: 'column' as const, gap: 12 },
@@ -53,7 +51,6 @@ const s = {
 
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
-  .cover-overlay, .av-overlay { display: none !important; }
   @media (max-width: 699px) {
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
     .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }
@@ -90,17 +87,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const longPressTimer = useRef<any>(null);
 
   const isViewingOther = viewUserId && viewUserId !== user?.id;
-
-  // Long-press handlers
-  function startLongPress(cb: () => void) {
-    longPressTimer.current = setTimeout(cb, 500);
-  }
-  function cancelLongPress() {
-    clearTimeout(longPressTimer.current);
-  }
 
   useEffect(() => {
     (async () => {

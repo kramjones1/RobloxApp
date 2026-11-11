@@ -62,6 +62,8 @@ export default function WebApp() {
   const [noAudio, setNoAudio] = useState(false);
   const localRef = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const pcRef = useRef<any>(null);
   const lsRef = useRef<any>(null);
   const wsRef = useRef<WebSocket>(null);
@@ -340,6 +342,7 @@ export default function WebApp() {
           if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.close(); pcRef.current = null; }
           dcRef.current?.close?.(); dcRef.current = null;
           inCallRef.current = true; roomRef.current = msg.room || '';
+          remoteStreamRef.current = null; pendingIceRef.current = [];
           setPartnerId(msg.partner); setPartnerLeft(false);
           if (msg.userId) setPartnerProfile({ userId: msg.userId, name: '', bio: '', avatar: '' });
           setChatMessages([]); setShowChat(false); setReportSent(false); setReportPending(false);
@@ -386,8 +389,23 @@ export default function WebApp() {
         ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate, room: callRoom }));
     };
     pc.ontrack = (e) => {
-      if (pcRef.current === pc && roomRef.current === callRoom && e.streams?.[0] && remoteRef.current)
-        remoteRef.current.srcObject = e.streams[0];
+      if (pcRef.current !== pc || roomRef.current !== callRoom || !remoteRef.current) return;
+      // Some browsers deliver streamless tracks (event.streams is empty). Build
+      // one stable remote stream instead of silently dropping those video tracks.
+      const remoteStream = e.streams?.[0] || remoteStreamRef.current || new MediaStream();
+      if (!e.streams?.[0] && !remoteStream.getTracks().some(track => track.id === e.track.id)) {
+        remoteStream.addTrack(e.track);
+      }
+      remoteStreamRef.current = remoteStream;
+      if (remoteRef.current.srcObject !== remoteStream) remoteRef.current.srcObject = remoteStream;
+      const playRemote = () => {
+        const video = remoteRef.current;
+        if (video && pcRef.current === pc && roomRef.current === callRoom && video.srcObject === remoteStream)
+          void video.play().catch(error => addLog('Remote video playback needs a tap: ' + (error?.name || 'autoplay blocked')));
+      };
+      e.track.onunmute = playRemote;
+      e.track.onended = () => { if (pcRef.current === pc && roomRef.current === callRoom) addLog('Partner video track ended'); };
+      playRemote();
     };
     pc.oniceconnectionstatechange = () => {
       if (pcRef.current !== pc || roomRef.current !== callRoom) return;
@@ -467,6 +485,14 @@ export default function WebApp() {
       return;
     }
     if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
+    // ICE can arrive before the remote SDP on slower/mobile networks. Apply
+    // queued candidates only after setRemoteDescription has completed.
+    const queuedCandidates = pendingIceRef.current.splice(0);
+    for (const candidate of queuedCandidates) {
+      if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
+      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
+      catch (error: any) { addLog('Queued ICE candidate rejected: ' + (error?.message || 'unknown error')); }
+    }
     if (msg.sdp.type === 'offer') {
       addLog('Creating answer...');
       const answer = await pc.createAnswer();
@@ -487,7 +513,12 @@ export default function WebApp() {
   async function handleICE(msg: any) {
     const pc = pcRef.current;
     if (!pc || !msg.room || msg.room !== roomRef.current || !msg.candidate) return;
-    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch (_) {}
+    if (!pc.remoteDescription?.type) {
+      pendingIceRef.current.push(msg.candidate);
+      return;
+    }
+    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); }
+    catch (error: any) { addLog('ICE candidate rejected: ' + (error?.message || 'unknown error')); }
   }
 
   async function findStranger() {
@@ -525,7 +556,10 @@ export default function WebApp() {
       }
       addLog('Camera OK');
       lsRef.current = stream;
-      if (localRef.current) localRef.current.srcObject = stream;
+      if (localRef.current) {
+        localRef.current.srcObject = stream;
+        void localRef.current.play().catch(error => addLog('Local camera preview playback blocked: ' + (error?.name || 'autoplay blocked')));
+      }
       setState('searching');
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         addLog('WS not open, reconnecting...');
@@ -601,7 +635,8 @@ export default function WebApp() {
     if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.oniceconnectionstatechange = null; pcRef.current.onconnectionstatechange = null; pcRef.current.close(); }
     pcRef.current = null;
     dcRef.current?.close?.(); dcRef.current = null;
-    if (remoteRef.current) remoteRef.current.srcObject = null;
+    if (remoteRef.current) { remoteRef.current.pause(); remoteRef.current.srcObject = null; }
+    remoteStreamRef.current = null; pendingIceRef.current = [];
     if (localRef.current) localRef.current.srcObject = null;
     setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); setPartnerId('');
 

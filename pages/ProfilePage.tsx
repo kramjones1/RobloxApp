@@ -427,37 +427,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                   {([{ value: 'like', emoji: '👍', label: 'Like' }, { value: 'love', emoji: '❤️', label: 'Love' }, { value: 'haha', emoji: '😂', label: 'Haha' }, { value: 'wow', emoji: '😮', label: 'Wow' }, { value: 'sad', emoji: '😢', label: 'Sad' }, { value: 'angry', emoji: '😡', label: 'Angry' }] as const).map(option => <button key={option.value} type="button" title={option.label} aria-label={option.label} onClick={() => { reactToPost(post, option.value); setOpenReactionPicker(null); }} style={{ border: 0, background: 'transparent', padding: 4, fontSize: 21, cursor: 'pointer' }}>{option.emoji}</button>)}
                 </div>}
               </div>
-              <button type="button" onClick={() => document.getElementById(`comment-${post.id}`)?.focus()} style={{ flex: 1, border: 0, background: 'transparent', color: '#bbb', fontWeight: 600, padding: 8, cursor: 'pointer' }}>💬 Comment</button>
+              <button type="button" onClick={() => { setSelectedPost(post); setOpenReactionPicker(null); }} style={{ flex: 1, border: 0, background: 'transparent', color: '#bbb', fontWeight: 600, padding: 8, cursor: 'pointer' }}>💬 Comments{post.comments.length ? ` (${post.comments.length})` : ''}</button>
             </div>
-            {post.comments.map(comment => <div key={comment.id} style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
-              {comment.author_avatar ? <img src={comment.author_avatar} alt="" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#383838', color: '#ddd', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 11, fontWeight: 700 }}>{(comment.author_name || 'M').trim()[0]?.toUpperCase() || 'M'}</div>}
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ background: '#292929', borderRadius: 12, padding: '7px 11px' }}>
-                  <div style={{ color: '#ddd', fontSize: 11, fontWeight: 700, marginBottom: 3 }}>{comment.author_name || 'Member'}</div>
-                  <div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '4px 8px 0' }}>
-                  <span title={new Date(comment.created_at).toLocaleString()} style={{ color: '#888', fontSize: 10 }}>{formatCommentTimestamp(comment.created_at)}</span>
-                  {(['like','love','haha','wow','sad','angry'] as const).map((kind, index) => {
-                    const emoji = ['👍','❤️','😂','😮','😢','😡'][index];
-                    const count = comment.reactions.filter(item => item.reaction === kind).length;
-                    const active = comment.reactions.some(item => item.user_id === user?.id && item.reaction === kind);
-                    return <button key={kind} type="button" title={kind} onClick={() => reactToComment(post.id, comment, kind)} style={{ border: 0, background: 'transparent', color: active ? '#8db8ff' : '#888', padding: '1px 2px', fontSize: 11, cursor: 'pointer', fontWeight: active ? 800 : 500 }}>{emoji}{count > 0 ? ` ${count}` : ''}</button>;
-                  })}
-                  <span style={{ color: '#888', fontSize: 10 }}>{comment.reactions.length} reactions</span>
-                </div>
-              </div>
-            </div>)}
-            <form onSubmit={e => { e.preventDefault(); submitPostComment(post.id); }} style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <input id={`comment-${post.id}`} value={commentDrafts[post.id] || ''} onChange={e => setCommentDrafts(current => ({ ...current, [post.id]: e.target.value.slice(0, 500) }))} placeholder="Write a comment..." maxLength={500} style={{ flex: 1, minWidth: 0, border: '1px solid rgba(255,255,255,.1)', borderRadius: 20, padding: '10px 14px', background: '#292929', color: '#eee', outline: 'none', fontSize: 13 }} />
-              <button type="submit" disabled={!(commentDrafts[post.id] || '').trim()} style={{ border: 0, borderRadius: 20, padding: '0 14px', background: '#3978d6', color: '#fff', fontWeight: 650, opacity: (commentDrafts[post.id] || '').trim() ? 1 : .45, cursor: 'pointer' }}>Send</button>
-            </form>
           </article>
         ))}
         {posts.length >= 20 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '0 20px 14px', margin: 0 }}>Showing the latest 20 posts</p>}
         {selectedPost && <div role="presentation" onClick={() => setSelectedPost(null)} style={{ position: 'fixed', inset: 0, zIndex: 1500, background: 'rgba(0,0,0,.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
           <section role="dialog" aria-modal="true" aria-label="Expanded post" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: '92vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><strong style={{ color: '#fff' }}>Post</strong><button type="button" onClick={() => setSelectedPost(null)} aria-label="Close expanded post" style={{ border: 0, borderRadius: 20, background: '#383838', color: '#fff', width: 34, height: 34, fontSize: 22, cursor: 'pointer' }}>×</button></div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><strong style={{ color: '#fff' }}>Comments</strong><button type="button" onClick={() => setSelectedPost(null)} aria-label="Close expanded post" style={{ border: 0, borderRadius: 20, background: '#383838', color: '#fff', width: 34, height: 34, fontSize: 22, cursor: 'pointer' }}>×</button></div>
             <div style={{ padding: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}

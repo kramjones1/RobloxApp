@@ -994,7 +994,7 @@ export async function addProfilePostComment(postId: string, content: string): Pr
       body: JSON.stringify({ post_id: postId, user_id: user.id, content: clean }),
     });
     if (rows?.error) return { error: rows.error };
-    return Array.isArray(rows) && rows[0] ? { comment: rows[0] as ChatPostComment } : { error: 'Comment was not saved.' };
+    return Array.isArray(rows) && rows[0] ? { comment: { ...rows[0], reactions: [] } as ChatPostComment } : { error: 'Comment was not saved.' };
   } catch (e: any) { return { error: e.message || 'Could not add comment.' }; }
 }
 

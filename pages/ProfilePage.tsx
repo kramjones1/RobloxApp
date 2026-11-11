@@ -53,7 +53,7 @@ async function compressProfileImage(file: File): Promise<File> {
 
 const s = {
   page: { background: '#161616', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
-  wrap: { maxWidth: 700, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
+  wrap: { width: '100%', maxWidth: 960, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
   coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/280' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block', position: 'absolute' as const, inset: 0 },
   avatarWrap: { display: 'flex', justifyContent: 'flex-start', marginTop: -64, paddingLeft: 24 },
@@ -61,8 +61,8 @@ const s = {
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   nameSection: { padding: '8px 24px 16px', textAlign: 'left' as const, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,.07)' },
   name: { color: '#fff', fontSize: 25, fontWeight: 750, letterSpacing: '-.5px', margin: 0 },
-  contentArea: { padding: '8px 24px 40px', display: 'flex', flexDirection: 'column' as const, gap: 12 },
-  card: { background: '#1f1f1f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 20 },
+  contentArea: { padding: '8px 32px 40px', display: 'flex', flexDirection: 'column' as const, gap: 0 },
+  card: { background: 'transparent', border: 'none', borderRadius: 0, padding: 0 },
   cardTitle: { color: '#fff', fontSize: 16, fontWeight: 600, margin: '0 0 16px' },
   label: { color: '#aaa', fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' },
   input: { background: '#2a2a2a', color: '#fff', border: '1px solid rgba(255,255,255,0.08)', padding: '11px 14px', borderRadius: 10, fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const, marginBottom: 16 },
@@ -82,6 +82,8 @@ const s = {
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
   @media (max-width: 699px) {
+    .profile-content-area { padding: 8px 16px 32px !important; }
+    .profile-section { padding-top: 16px !important; padding-bottom: 16px !important; }
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
     .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }
     .profile-name-section { padding: 8px 16px 14px !important; align-items: flex-start !important; }
@@ -357,11 +359,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   function renderPosts(canPublish: boolean, authorName: string, authorAvatar: string) {
     const canPreview = Boolean(postText.trim() || postImages.length);
     return (
-      <div style={{ ...s.card, padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '18px 20px 12px' }}>
+      <div className="profile-section" style={{ ...s.card, padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '18px 0 12px' }}>
           <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>Posts</h2>
           {canPublish && (
-            <div style={{ background: '#252525', border: '1px solid rgba(255,255,255,.07)', borderRadius: 14, padding: 14, marginBottom: 8 }}>
+            <div style={{ background: 'transparent', border: 0, borderBottom: '1px solid rgba(255,255,255,.08)', borderRadius: 0, padding: '0 0 16px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
                 <div><strong style={{ color: '#f5f5f5', fontSize: 13 }}>{authorName || 'Anonymous'}</strong><div style={{ color: '#777', fontSize: 11 }}>Share an update with everyone</div></div>
@@ -390,7 +392,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             posts.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>{canPublish ? 'No posts yet. Share your first update!' : 'No posts yet.'}</p> : null}
         </div>
         {posts.map(post => (
-          <article key={post.id} onClick={e => { if (!(e.target as HTMLElement).closest('button,input,textarea,form,a,[role="button"]')) setSelectedPost(post); }} style={{ padding: '16px 20px 20px', borderTop: '1px solid rgba(255,255,255,.07)', cursor: 'zoom-in' }}>
+          <article key={post.id} onClick={e => { if (!(e.target as HTMLElement).closest('button,input,textarea,form,a,[role="button"]')) setSelectedPost(post); }} style={{ padding: '18px 0 20px', borderTop: '1px solid rgba(255,255,255,.07)', cursor: 'zoom-in' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
               <div style={{ minWidth: 0, flex: 1 }}>
@@ -604,7 +606,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     const tabs: ('Posts' | 'Photos' | 'Timeline' | 'About')[] = ['Posts', 'Photos', 'Timeline', 'About'];
     return (
       <>
-        <nav aria-label="Profile sections" style={{ display: 'flex', gap: 4, padding: '0 24px', borderBottom: '1px solid rgba(255,255,255,.08)', overflowX: 'auto' }}>
+        <nav aria-label="Profile sections" style={{ display: 'flex', gap: 4, padding: '0 32px', borderBottom: '1px solid rgba(255,255,255,.08)', overflowX: 'auto' }}>
           {tabs.map(tab => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{
               background: 'transparent', border: 0, borderBottom: activeTab === tab ? '2px solid #7770ff' : '2px solid transparent',
@@ -612,10 +614,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             }}>{tab}</button>
           ))}
         </nav>
-        <div style={s.contentArea}>
+        <div className="profile-content-area" style={s.contentArea}>
           {activeTab === 'Posts' && renderPosts(canEdit, authorName, authorAvatar)}
           {activeTab === 'Photos' && (
-            <section style={s.card}>
+            <section className="profile-section" style={s.card}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
                 <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
                 {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 5 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
@@ -646,7 +648,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </>
           )}
           {activeTab === 'About' && (canEdit ? (
-            <div style={s.card}>
+            <div className="profile-section" style={s.card}>
               <h2 style={s.cardTitle}>About</h2>
               <form onSubmit={handleSave}>
                 <label style={s.label}>Display Name {displayName !== 'Anonymous' && displayName !== '' && <span style={{ color: '#666', fontSize: 12, fontWeight: 400 }}>(locked — set at signup)</span>}</label>

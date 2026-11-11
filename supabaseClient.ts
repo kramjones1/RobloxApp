@@ -845,3 +845,104 @@ export async function deleteProfilePost(postId: string): Promise<{ error?: strin
     return { error: e.message || 'Could not delete post' };
   }
 }
+
+
+export interface ProfilePhoto {
+  name: string;
+  url: string;
+  size: number;
+}
+
+export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 'gallery'): Promise<{ photo?: ProfilePhoto; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  if (file.type !== 'image/webp' || file.size < 1 || file.size > 200 * 1024) {
+    return { error: 'Photos must be WebP and no larger than 200 KB.' };
+  }
+  const name = slot === 'avatar' ? 'avatar.webp' : slot === 'cover' ? 'cover.webp' : `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+  const path = `${user.id}/${name}`;
+  try {
+    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'image/webp',
+        'Cache-Control': '31536000',
+        'x-upsert': slot === 'gallery' ? 'false' : 'true',
+      },
+      body: file,
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      let message = body;
+      try { const parsed = JSON.parse(body); message = parsed.message || parsed.error || parsed.msg || body; } catch {}
+      if (response.status === 413) return { error: 'This photo is over the 200 KB limit.' };
+      if (/quota|profile_photo_quota_ok|row-level security|policy/i.test(message)) {
+        return { error: 'Photo limit reached: maximum 5 photos and 1 MB total per account.' };
+      }
+      return { error: message || 'Photo upload failed.' };
+    }
+    return {
+      photo: {
+        name,
+        url: `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
+        size: file.size,
+      },
+    };
+  } catch (e: any) {
+    return { error: e.message || 'Photo upload failed.' };
+  }
+}
+
+export async function getProfilePhotos(userId: string): Promise<{ photos?: ProfilePhoto[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  if (!userId) return { photos: [] };
+  try {
+    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefix: userId, limit: 10, offset: 0, sortBy: { column: 'name', order: 'asc' } }),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      return { error: body || 'Could not load photos.' };
+    }
+    const rows = await response.json();
+    const photos = (Array.isArray(rows) ? rows : [])
+      .filter((row: any) => typeof row.name === 'string' && row.name.toLowerCase().endsWith('.webp'))
+      .map((row: any) => {
+        const path = `${userId}/${row.name}`;
+        return {
+          name: row.name,
+          url: `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
+          size: Number(row.metadata?.size || 0),
+        };
+      });
+    return { photos };
+  } catch (e: any) {
+    return { error: e.message || 'Could not load photos.' };
+  }
+}
+
+export async function deleteProfilePhoto(name: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  if (!name || name.includes('/') || name.includes('..')) return { error: 'Invalid photo path.' };
+  try {
+    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: [`${user.id}/${name}`] }),
+    });
+    if (!response.ok) return { error: (await response.text()) || 'Could not delete photo.' };
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Could not delete photo.' };
+  }
+}

@@ -1,5 +1,5 @@
 name: Deploy production Cloudflare Pages
-# Rebuild production with forced Supabase refresh immediately before Random Chat.
+# Rebuild production with Supabase refresh before profile and Random Chat auth checks.
 
 on:
   workflow_dispatch:

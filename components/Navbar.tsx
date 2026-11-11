@@ -160,7 +160,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
             {[
               { id: 'home', label: 'Home' },
               ...(user ? [{ id: 'messages' as const, label: 'Messages' }] : []),
-              ...(user ? [{ id: 'profile' as const, label: 'Profile' }] : []),
+              ...(user ? [{ id: 'profile' as const, label: 'Profile' }, { id: 'settings' as const, label: 'Settings' }] : []),
               ...(admin ? [{ id: 'admin' as const, label: 'Admin' }] : []),
               { id: 'privacy', label: 'Privacy' },
               { id: 'terms', label: 'Terms' },
@@ -195,6 +195,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
         <div style={styles.topLinks}>
           <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
           {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
+          {user && <button style={page === 'settings' ? styles.linkActive : styles.link} onClick={() => setPage('settings')}>Settings</button>}
           {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>
             Messages
             {unreadCount > 0 && <span style={{

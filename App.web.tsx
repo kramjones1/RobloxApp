@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken } from './supabaseClient';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -389,9 +389,8 @@ export default function WebApp() {
     setPage('home');
   }
 
-  async function connect(): Promise<WebSocket | null> {
+  async function connect(accessToken: string): Promise<WebSocket | null> {
     setWsStatus('connecting');
-    const accessToken = await getValidAccessToken();
     if (!accessToken) { setWsStatus('error'); addLog('Your session expired. Please sign in again.'); return null; }
     const socketUrl = new URL(WS_URL);
     socketUrl.searchParams.set('access_token', accessToken);
@@ -674,6 +673,16 @@ export default function WebApp() {
       lsRef.current = null;
     }
     try {
+      // Refresh with Supabase before opening the signaling socket or entering the queue.
+      // A JWT can be locally unexpired but no longer accepted by the Auth API.
+      const freshAccessToken = await refreshAccessToken();
+      if (!freshAccessToken) {
+        addLog('Authentication error: Supabase could not refresh your session. Please sign in again.');
+        setCamError('Your sign-in session could not be refreshed. Please sign in again.');
+        setWsStatus('error');
+        setState('idle');
+        return;
+      }
       addLog('Requesting camera...');
       // Request camera and microphone together. Never enter the match queue with only one device.
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -691,7 +700,7 @@ export default function WebApp() {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         addLog('WS not open, reconnecting...');
         await new Promise<void>((resolve) => {
-          connect().then((ws) => {
+          connect(freshAccessToken).then((ws) => {
             if (!ws) { resolve(); return; }
             if (ws.readyState === WebSocket.OPEN) { resolve(); return; }
             ws.addEventListener('open', () => resolve(), { once: true });
@@ -708,17 +717,7 @@ export default function WebApp() {
         lsRef.current = null;
         return;
       }
-      // Refresh the Supabase JWT immediately before entering the match queue.
-      // The WebSocket may have been opened before the session token was rotated.
-      const freshAccessToken = await getValidAccessToken();
-      if (!freshAccessToken) {
-        addLog('Your session expired. Please sign in again.');
-        setWsStatus('error');
-        setState('idle');
-        lsRef.current?.getTracks().forEach((t: any) => t.stop());
-        lsRef.current = null;
-        return;
-      }
+      // Use the same freshly refreshed JWT for socket authentication and queue entry.
       wsRef.current.send(JSON.stringify({ type: 'find', accessToken: freshAccessToken }));
       addLog('Searching for partner...');
     } catch (e: any) {

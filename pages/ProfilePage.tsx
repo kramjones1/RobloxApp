@@ -85,6 +85,10 @@ hoverStyles.textContent = `
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; }
   .profile-main-content { min-width: 0; }
+  .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .profile-tabs::-webkit-scrollbar { display: none; }
+  @media (max-width: 699px) { .profile-tabs { top: calc(48px + env(safe-area-inset-top, 0px)); } }
+  html[data-theme="light"] .profile-tabs { background: #f4f6fb !important; border-color: rgba(25,35,55,.14) !important; }
   @media (max-width: 699px) {
     .profile-content-area { padding: 8px 16px 32px !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; }
     .profile-sidebar { position: static; max-height: none; overflow: visible; }
@@ -102,6 +106,9 @@ if (!document.getElementById('profile-hover-styles')) {
 export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
   const [bio, setBio] = useState('');
+  const [work, setWork] = useState('');
+  const [education, setEducation] = useState('');
+  const [shareDetails, setShareDetails] = useState(true);
   const [shareName, setShareName] = useState(false);
   const [shareBio, setShareBio] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -112,7 +119,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [coverUrl, setCoverUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string } | null>(null);
+  const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string; work: string; education: string; shareDetails: boolean } | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [posts, setPosts] = useState<ChatPost[]>([]);
@@ -165,6 +172,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       if (profile) {
         setDisplayName(profile.display_name);
         setBio(profile.bio);
+        setWork(profile.work || '');
+        setEducation(profile.education || '');
+        setShareDetails(profile.share_details !== false);
         setShareName(profile.share_name);
         setShareBio(profile.share_bio);
         setAvatarUrl(profile.avatar_url || localStorage.getItem('profile_avatar') || '');
@@ -507,7 +517,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     if (!isViewingOther) { setViewedUser(null); return; }
     setLoadingViewed(true);
     getUserProfile(viewUserId).then(({ profile }) => {
-      if (profile) setViewedUser({ name: profile.display_name || 'User', bio: profile.bio || '', avatar: profile.avatar_url || '', cover: profile.cover_url || '' });
+      if (profile) setViewedUser({ name: profile.display_name || 'User', bio: profile.bio || '', avatar: profile.avatar_url || '', cover: profile.cover_url || '', work: profile.work || '', education: profile.education || '', shareDetails: profile.share_details !== false });
       setLoadingViewed(false);
     });
   }, [viewUserId, user?.id]);
@@ -524,7 +534,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       const nextCover = slot === 'cover' ? photoUrl : coverUrl;
       const { error: profileError } = await upsertChatProfile({
         display_name: displayName, bio, avatar_url: nextAvatar, cover_url: nextCover,
-        share_name: shareName, share_bio: shareBio
+        share_name: shareName, share_bio: shareBio, work, education, share_details: shareDetails
       });
       if (profileError) {
         await deleteProfilePhoto(photo.name);
@@ -621,7 +631,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </section>
             <section className="profile-section" style={{ ...s.card, paddingTop: 18, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,.08)' }}>
               <h2 style={{ ...s.cardTitle, marginBottom: 10 }}>Profile details</h2>
-              <p style={{ color: '#ccc', fontSize: 13, margin: 0, overflowWrap: 'anywhere' }}>{authorName}</p>
+              <p style={{ color: '#ccc', fontSize: 13, margin: '0 0 8px', overflowWrap: 'anywhere' }}>{authorName}</p>
+              {(canEdit ? shareDetails : viewedUser?.shareDetails) && (canEdit ? work : viewedUser?.work) && <p style={{ color: '#aaa', fontSize: 13, lineHeight: 1.5, margin: '6px 0' }}><strong>Work</strong><br />{canEdit ? work : viewedUser?.work}</p>}
+              {(canEdit ? shareDetails : viewedUser?.shareDetails) && (canEdit ? education : viewedUser?.education) && <p style={{ color: '#aaa', fontSize: 13, lineHeight: 1.5, margin: '6px 0' }}><strong>Education</strong><br />{canEdit ? education : viewedUser?.education}</p>}
+              {canEdit && <button type="button" onClick={() => setActiveTab('About')} style={{ marginTop: 8, border: 0, background: 'rgba(255,255,255,.08)', color: '#ddd', borderRadius: 7, padding: '7px 10px', fontSize: 12, fontWeight: 650, cursor: 'pointer' }}>Edit details</button>}
             </section>
             <section className="profile-section" style={{ ...s.card, paddingTop: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
@@ -642,11 +655,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </section>
           </aside>
           <main className="profile-main">
-            <nav aria-label="Profile sections" style={{ display: 'flex', gap: 4, padding: '0 0 0', borderBottom: '1px solid rgba(255,255,255,.08)', overflowX: 'auto' }}>
+            <nav className="profile-tabs" aria-label="Profile sections" style={{ padding: '0 0 0', borderBottom: '1px solid rgba(255,255,255,.08)', background: document.documentElement.dataset.theme === 'light' ? '#f4f6fb' : '#161616' }}>
           {tabs.map(tab => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{
               background: 'transparent', border: 0, borderBottom: activeTab === tab ? '2px solid #7770ff' : '2px solid transparent',
-              color: activeTab === tab ? '#fff' : '#999', padding: '13px 14px', fontSize: 13, fontWeight: 650, cursor: 'pointer', whiteSpace: 'nowrap'
+              color: activeTab === tab ? (document.documentElement.dataset.theme === 'light' ? '#292d38' : '#fff') : (document.documentElement.dataset.theme === 'light' ? '#687080' : '#999'), padding: '13px 14px', fontSize: 13, fontWeight: 650, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0
             }}>{tab}</button>
           ))}
             </nav>
@@ -691,6 +704,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <input style={{ ...s.input, opacity: displayName !== 'Anonymous' && displayName !== '' ? 0.6 : 1, cursor: displayName !== 'Anonymous' && displayName !== '' ? 'not-allowed' : 'text' }} value={displayName} readOnly={displayName !== 'Anonymous' && displayName !== ''} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
                 <label style={s.label}>Bio</label>
                 <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} placeholder="Tell people about yourself..." />
+                <h3 style={{ ...s.cardTitle, marginTop: 10, marginBottom: 12 }}>Work & Education</h3>
+                <label style={s.label}>Work</label>
+                <input style={s.input} value={work} onChange={e => setWork(e.target.value)} maxLength={120} placeholder="e.g. Designer at ABC Studio" />
+                <label style={s.label}>Education</label>
+                <input style={s.input} value={education} onChange={e => setEducation(e.target.value)} maxLength={120} placeholder="e.g. University · Course or degree" />
+                <div style={s.toggleRow}><span style={s.toggleLabel}>Show work and education on my profile</span><button type="button" style={{ ...s.toggleBtn, background: shareDetails ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareDetails(!shareDetails)}>{shareDetails ? 'ON' : 'OFF'}</button></div>
                 <div style={s.toggleRow}><span style={s.toggleLabel}>Show name to partner</span><button type="button" style={{ ...s.toggleBtn, background: shareName ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareName(!shareName)}>{shareName ? 'ON' : 'OFF'}</button></div>
                 <div style={s.toggleRow}><span style={s.toggleLabel}>Show bio to partner</span><button type="button" style={{ ...s.toggleBtn, background: shareBio ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareBio(!shareBio)}>{shareBio ? 'ON' : 'OFF'}</button></div>
                 <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
@@ -701,6 +720,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             <section style={s.card}>
               <h2 style={s.cardTitle}>About</h2>
               <p style={{ color: '#ccc', fontSize: 14, whiteSpace: 'pre-wrap' }}>{viewedUser?.bio || 'No bio added.'}</p>
+              {viewedUser?.shareDetails && <div style={{ marginTop: 18 }}>
+                {viewedUser.work && <p style={{ color: '#ccc', fontSize: 13, margin: '8px 0' }}><strong>Work:</strong> {viewedUser.work}</p>}
+                {viewedUser.education && <p style={{ color: '#ccc', fontSize: 13, margin: '8px 0' }}><strong>Education:</strong> {viewedUser.education}</p>}
+              </div>}
             </section>
           ))}
             </div>
@@ -721,7 +744,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     if (!displayName || displayName.length < 1) { setMsg('Display name is required'); return; }
     setSaving(true);
     setMsg('');
-    const { error } = await upsertChatProfile({ display_name: displayName, bio, avatar_url: avatarUrl, cover_url: coverUrl, share_name: shareName, share_bio: shareBio });
+    const { error } = await upsertChatProfile({ display_name: displayName, bio, avatar_url: avatarUrl, cover_url: coverUrl, share_name: shareName, share_bio: shareBio, work, education, share_details: shareDetails });
     setSaving(false);
     if (error) setMsg(error);
     else setMsg('Saved!');

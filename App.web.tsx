@@ -36,6 +36,7 @@ const themeStyle = document.createElement('style');
 themeStyle.textContent = `
   html[data-theme="light"] body { background: #f4f6fb !important; color: #20232a !important; color-scheme: light; }
   html[data-theme="light"] .page-content { background-color: #f4f6fb !important; color: #20232a !important; }
+  html[data-theme="light"] .page-content > div { background-color: transparent !important; }
   html[data-theme="light"] .page-content p,
   html[data-theme="light"] .page-content h1,
   html[data-theme="light"] .page-content h2,

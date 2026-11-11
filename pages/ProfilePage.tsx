@@ -83,16 +83,27 @@ const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
   .profile-content-area { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 28px; align-items: start; }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
-  .profile-main { min-width: 0; }
-  /* Desktop only: keep the profile tab panel independently scrollable. */
+  .profile-main { min-width: 0; min-height: 0; }
   .profile-main-content { min-width: 0; }
   .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .profile-tabs::-webkit-scrollbar { display: none; }
   @media (min-width: 700px) {
-    .profile-main-content { max-height: calc(100vh - 148px); overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+    /* Give the desktop tab panel a definite viewport-bound height so long posts
+       and full-size photos scroll inside the panel instead of being clipped. */
+    .profile-main-content {
+      height: calc(100vh - 148px);
+      max-height: none;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-gutter: stable;
+    }
   }
   @media (max-width: 699px) {
-    .profile-main-content { max-height: none; overflow: visible; overscroll-behavior: auto; }
+    /* Mobile keeps natural document scrolling and its original layout. */
+    .profile-main-content { height: auto; min-height: 0; max-height: none; overflow: visible; overscroll-behavior: auto; }
     .profile-tabs { position: static; }
   }
   html[data-theme="light"] .profile-tabs { background: #f4f6fb !important; border-color: rgba(25,35,55,.14) !important; }

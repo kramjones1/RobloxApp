@@ -533,8 +533,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     const { photo, error } = await uploadProfilePhoto(compressed, slot);
     if (error || !photo) throw new Error(error || 'Photo upload failed.');
     if (slot === 'avatar' || slot === 'cover') {
-      const nextAvatar = slot === 'avatar' ? photo.url : avatarUrl;
-      const nextCover = slot === 'cover' ? photo.url : coverUrl;
+      // avatar.webp/cover.webp use stable storage paths with long cache headers;
+      // a version query ensures browsers fetch the newly uploaded image.
+      const photoUrl = `${photo.url}?v=${Date.now()}`;
+      const nextAvatar = slot === 'avatar' ? photoUrl : avatarUrl;
+      const nextCover = slot === 'cover' ? photoUrl : coverUrl;
       const { error: profileError } = await upsertChatProfile({
         display_name: displayName, bio, avatar_url: nextAvatar, cover_url: nextCover,
         share_name: shareName, share_bio: shareBio
@@ -544,10 +547,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         throw new Error(profileError);
       }
       if (slot === 'avatar') {
-        setAvatarUrl(photo.url);
+        setAvatarUrl(photoUrl);
         localStorage.removeItem('profile_avatar');
       } else {
-        setCoverUrl(photo.url);
+        setCoverUrl(photoUrl);
         localStorage.removeItem('profile_cover');
       }
     }

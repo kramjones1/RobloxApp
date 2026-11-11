@@ -81,8 +81,12 @@ const s = {
 
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
+  .profile-content-area { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .profile-sidebar { min-width: 0; }
+  .profile-main { min-width: 0; }
+  .profile-main-content { min-width: 0; }
   @media (max-width: 699px) {
-    .profile-content-area { padding: 8px 16px 32px !important; }
+    .profile-content-area { padding: 8px 16px 32px !important; grid-template-columns: minmax(0, 1fr); gap: 8px; }
     .profile-section { padding-top: 16px !important; padding-bottom: 16px !important; }
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
     .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }
@@ -604,18 +608,45 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   function renderProfileTabs(canEdit: boolean, authorName: string, authorAvatar: string) {
     const tabs: ('Posts' | 'Photos' | 'Timeline' | 'About')[] = ['Posts', 'Photos', 'Timeline', 'About'];
+    const sidebarBio = canEdit ? bio : (viewedUser?.bio || '');
     return (
       <>
-        <nav aria-label="Profile sections" style={{ display: 'flex', gap: 4, padding: '0 32px', borderBottom: '1px solid rgba(255,255,255,.08)', overflowX: 'auto' }}>
+        <div className="profile-content-area" style={s.contentArea}>
+          <aside className="profile-sidebar" style={{ minWidth: 0 }}>
+            <section className="profile-section" style={{ ...s.card, paddingBottom: 18, borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+              <h2 style={{ ...s.cardTitle, marginBottom: 10 }}>Intro</h2>
+              <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>{sidebarBio || 'No bio added yet.'}</p>
+              {canEdit && <button type="button" onClick={() => setActiveTab('About')} style={{ marginTop: 12, border: 0, background: 'rgba(255,255,255,.08)', color: '#ddd', borderRadius: 7, padding: '8px 12px', fontSize: 12, fontWeight: 650, cursor: 'pointer' }}>Edit bio</button>}
+            </section>
+            <section className="profile-section" style={{ ...s.card, paddingTop: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+                <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
+                <button type="button" onClick={() => setActiveTab('Photos')} style={{ border: 0, background: 'transparent', color: '#aaa4ff', fontSize: 11, fontWeight: 650, cursor: 'pointer' }}>See all</button>
+              </div>
+              {photosLoading ? <p style={{ color: '#777', fontSize: 12 }}>Loading photos…</p> :
+                profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 12 }}>No photos yet.</p> :
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 5 }}>
+                  {profilePhotos.slice(0, 6).map(photo => (
+                    <button key={photo.name} type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 6, overflow: 'hidden', background: '#292929', cursor: 'zoom-in' }}>
+                      <img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </button>
+                  ))}
+                </div>
+              }
+              {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 7, padding: '9px 10px', background: 'rgba(108,99,255,.16)', color: '#c2bdff', fontSize: 12, fontWeight: 650, cursor: 'pointer', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : '＋ Add photo'}</button>}
+            </section>
+          </aside>
+          <main className="profile-main">
+            <nav aria-label="Profile sections" style={{ display: 'flex', gap: 4, padding: '0 0 0', borderBottom: '1px solid rgba(255,255,255,.08)', overflowX: 'auto' }}>
           {tabs.map(tab => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{
               background: 'transparent', border: 0, borderBottom: activeTab === tab ? '2px solid #7770ff' : '2px solid transparent',
               color: activeTab === tab ? '#fff' : '#999', padding: '13px 14px', fontSize: 13, fontWeight: 650, cursor: 'pointer', whiteSpace: 'nowrap'
             }}>{tab}</button>
           ))}
-        </nav>
-        <div className="profile-content-area" style={s.contentArea}>
-          {activeTab === 'Posts' && renderPosts(canEdit, authorName, authorAvatar)}
+            </nav>
+            <div className="profile-main-content">
+              {activeTab === 'Posts' && renderPosts(canEdit, authorName, authorAvatar)}
           {activeTab === 'Photos' && (
             <section className="profile-section" style={s.card}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
@@ -667,6 +698,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               <p style={{ color: '#ccc', fontSize: 14, whiteSpace: 'pre-wrap' }}>{viewedUser?.bio || 'No bio added.'}</p>
             </section>
           ))}
+            </div>
+          </main>
         </div>
         {selectedPhoto && <div role="presentation" onClick={() => setSelectedPhoto(null)} style={{ position: 'fixed', inset: 0, zIndex: 1600, background: 'rgba(0,0,0,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <section role="dialog" aria-modal="true" aria-label="Photo viewer" onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 1100, maxHeight: '94vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -61,7 +61,7 @@ const s = {
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   nameSection: { padding: '8px 24px 16px', textAlign: 'left' as const, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,.07)' },
   name: { color: '#fff', fontSize: 25, fontWeight: 750, letterSpacing: '-.5px', margin: 0 },
-  contentArea: { padding: '8px 32px 40px', display: 'grid', gridTemplateColumns: 'minmax(0, 280px) minmax(0, 1fr)', alignItems: 'start', gap: 28 },
+  contentArea: { padding: '8px 32px 32px', display: 'grid', gridTemplateColumns: 'minmax(0, 260px) minmax(0, 1fr)', alignItems: 'start', gap: 24 },
   card: { background: 'transparent', border: 'none', borderRadius: 0, padding: 0 },
   cardTitle: { color: '#fff', fontSize: 16, fontWeight: 600, margin: '0 0 16px' },
   label: { color: '#aaa', fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' },
@@ -81,22 +81,21 @@ const s = {
 
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
-  .profile-content-area { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .profile-content-area { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 24px; align-items: start; }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .profile-main-content { min-width: 0; }
   .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .profile-tabs::-webkit-scrollbar { display: none; }
   @media (min-width: 700px) {
-    /* The tab panel begins below the profile header, so reserve a practical
-       panel height rather than subtracting only the navbar from the viewport.
-       A definite flex basis makes overflow scrolling reliable in the grid. */
+    /* Let short tabs use only the space they need. Long tabs become an
+       independently scrollable panel without leaving a large empty block. */
     .profile-main-content {
-      height: 65vh !important;
-      min-height: 320px;
-      max-height: 680px;
-      flex: 0 0 auto;
-      overflow-y: scroll !important;
+      height: auto !important;
+      min-height: 0;
+      max-height: min(68vh, 680px);
+      flex: 0 1 auto;
+      overflow-y: auto !important;
       overflow-x: hidden !important;
       overscroll-behavior-y: contain;
       -webkit-overflow-scrolling: touch;

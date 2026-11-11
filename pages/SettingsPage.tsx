@@ -19,6 +19,7 @@ export default function SettingsPage({ userId }: { userId: string }) {
     document.documentElement.dataset.theme = value;
     document.documentElement.style.colorScheme = value;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', value === 'light' ? '#f4f6fb' : '#1a1a1a');
+    window.dispatchEvent(new Event('liveme-theme-change'));
   }
 
   async function refreshPermissions() {
@@ -42,6 +43,7 @@ export default function SettingsPage({ userId }: { userId: string }) {
       document.documentElement.dataset.theme = savedTheme;
       document.documentElement.style.colorScheme = savedTheme;
       document.querySelector('meta[name="theme-color"]')?.setAttribute('content', savedTheme === 'light' ? '#f4f6fb' : '#1a1a1a');
+      window.dispatchEvent(new Event('liveme-theme-change'));
     } catch {}
     void refreshPermissions();
   }, [key]);

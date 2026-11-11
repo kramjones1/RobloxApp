@@ -633,6 +633,15 @@ export default function WebApp() {
   }
 
   async function findStranger() {
+    // Refresh before any profile or signaling request so a revoked-but-unexpired JWT is not reused.
+    const freshAccessToken = await refreshAccessToken();
+    if (!freshAccessToken) {
+      addLog('Authentication error: Supabase could not refresh your session. Please sign in again.');
+      setCamError('Your sign-in session could not be refreshed. Please sign in again.');
+      setWsStatus('error');
+      setState('idle');
+      return;
+    }
     const { profile, error } = await getChatProfile();
     if (error || !profile) {
       setCamError('We could not verify your profile. Please refresh and try again.');
@@ -673,16 +682,6 @@ export default function WebApp() {
       lsRef.current = null;
     }
     try {
-      // Refresh with Supabase before opening the signaling socket or entering the queue.
-      // A JWT can be locally unexpired but no longer accepted by the Auth API.
-      const freshAccessToken = await refreshAccessToken();
-      if (!freshAccessToken) {
-        addLog('Authentication error: Supabase could not refresh your session. Please sign in again.');
-        setCamError('Your sign-in session could not be refreshed. Please sign in again.');
-        setWsStatus('error');
-        setState('idle');
-        return;
-      }
       addLog('Requesting camera...');
       // Request camera and microphone together. Never enter the match queue with only one device.
       const stream = await navigator.mediaDevices.getUserMedia({

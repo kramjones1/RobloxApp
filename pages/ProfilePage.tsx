@@ -103,6 +103,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [openReactionPicker, setOpenReactionPicker] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [postActionMsg, setPostActionMsg] = useState('');
+  const [privacySavingPostId, setPrivacySavingPostId] = useState<string | null>(null);
+  const [postPrivacyMsg, setPostPrivacyMsg] = useState<{ id: string; text: string; error: boolean } | null>(null);
   const [postText, setPostText] = useState('');
   const [postImages, setPostImages] = useState<File[]>([]);
   const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
@@ -255,12 +257,24 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }
 
   async function togglePostPrivacy(post: ChatPost) {
+    if (privacySavingPostId) return;
     const nextPrivate = !post.is_private;
-    const { error } = await setProfilePostPrivacy(post.id, nextPrivate);
-    if (error) { setPostActionMsg(error); return; }
-    setPosts(current => current.map(item => item.id === post.id ? { ...item, is_private: nextPrivate } : item));
-    setOpenPostMenu(null);
-    setPostActionMsg(nextPrivate ? 'Post is now private.' : 'Post is now public.');
+    setPrivacySavingPostId(post.id);
+    setPostPrivacyMsg(null);
+    try {
+      const { error } = await setProfilePostPrivacy(post.id, nextPrivate);
+      if (error) {
+        setPostPrivacyMsg({ id: post.id, text: error, error: true });
+        return;
+      }
+      setPosts(current => current.map(item => item.id === post.id ? { ...item, is_private: nextPrivate } : item));
+      setOpenPostMenu(null);
+      setPostPrivacyMsg({ id: post.id, text: nextPrivate ? 'This post is now private. Only you can see it.' : 'This post is now public.', error: false });
+    } catch (error: any) {
+      setPostPrivacyMsg({ id: post.id, text: error?.message || 'Could not change post privacy. Please try again.', error: true });
+    } finally {
+      setPrivacySavingPostId(null);
+    }
   }
 
   async function reactToPost(post: ChatPost, reaction: ChatPost['reactions'][number]['reaction'] = 'like') {
@@ -333,11 +347,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 {canPublish && <button type="button" onClick={() => setOpenPostMenu(current => current === post.id ? null : post.id)} aria-label="Post options" aria-expanded={openPostMenu === post.id} style={{ border: 0, background: 'transparent', color: '#bbb', fontSize: 23, lineHeight: 1, cursor: 'pointer', padding: '4px 8px' }}>⋯</button>}
                 {canPublish && openPostMenu === post.id && <div style={{ position: 'absolute', right: 0, top: 34, zIndex: 20, minWidth: 170, padding: 6, borderRadius: 10, background: '#303030', border: '1px solid rgba(255,255,255,.12)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
                   <button type="button" onClick={() => editPost(post)} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#eee', cursor: 'pointer' }}>Edit post</button>
-                  <button type="button" onClick={() => togglePostPrivacy(post)} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#eee', cursor: 'pointer' }}>{post.is_private ? 'Make public' : 'Make private'}</button>
+                  <button type="button" disabled={privacySavingPostId === post.id} onClick={e => { e.preventDefault(); e.stopPropagation(); void togglePostPrivacy(post); }} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: privacySavingPostId === post.id ? 'rgba(255,255,255,.08)' : 'transparent', color: '#eee', cursor: privacySavingPostId === post.id ? 'wait' : 'pointer', opacity: privacySavingPostId === post.id ? .7 : 1 }}>{privacySavingPostId === post.id ? 'Saving…' : post.is_private ? 'Make public' : 'Make private'}</button>
                   <button type="button" onClick={() => { setOpenPostMenu(null); removePost(post.id); }} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#ff9292', cursor: 'pointer' }}>Delete post</button>
                 </div>}
               </div>
             </div>
+            {postPrivacyMsg?.id === post.id && <p role="status" aria-live="polite" style={{ color: postPrivacyMsg.error ? '#ff9b9b' : '#80d99a', fontSize: 12, lineHeight: 1.4, margin: '0 0 10px' }}>{postPrivacyMsg.text}</p>}
             {post.content && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 12px' }}>{post.content}</p>}
             {(post.image_paths || []).length > 0 && <div style={{ display: 'grid', gridTemplateColumns: post.image_paths.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 4, overflow: 'hidden', borderRadius: 10 }}>
               {post.image_paths.map((path, index) => <img key={path} src={`${'https://btkcubibosbtpxcronnd.supabase.co'}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} loading="lazy" style={{ width: '100%', aspectRatio: post.image_paths.length === 1 ? '16/10' : '1', objectFit: 'cover', background: '#111', gridColumn: post.image_paths.length === 3 && index === 0 ? 'span 2' : undefined }} />)}

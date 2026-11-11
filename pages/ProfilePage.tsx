@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, ChatPost } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -88,6 +88,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string } | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [admin, setAdmin] = useState(false);
+  const [posts, setPosts] = useState<ChatPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+  const [postText, setPostText] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [postMsg, setPostMsg] = useState('');
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -121,6 +126,83 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     });
     isAdmin().then(setAdmin);
   }, []);
+
+  const profileOwnerId = isViewingOther ? viewUserId : user?.id;
+
+  useEffect(() => {
+    let active = true;
+    if (!profileOwnerId) { setPosts([]); setPostsLoading(false); return; }
+    setPostsLoading(true);
+    getProfilePosts(profileOwnerId).then(({ posts: rows, error }) => {
+      if (!active) return;
+      setPosts(rows || []);
+      setPostMsg(error || '');
+      setPostsLoading(false);
+    });
+    return () => { active = false; };
+  }, [profileOwnerId]);
+
+  async function publishPost(e: React.FormEvent) {
+    e.preventDefault();
+    if (!postText.trim() || posting) return;
+    setPosting(true);
+    setPostMsg('');
+    const { post, error } = await createProfilePost(postText);
+    if (error) setPostMsg(error);
+    else if (post) { setPosts(current => [post, ...current].slice(0, 20)); setPostText(''); }
+    setPosting(false);
+  }
+
+  async function removePost(postId: string) {
+    if (!window.confirm('Delete this post?')) return;
+    const { error } = await deleteProfilePost(postId);
+    if (error) setPostMsg(error);
+    else setPosts(current => current.filter(post => post.id !== postId));
+  }
+
+  function renderPosts(canPublish: boolean, authorName: string, authorAvatar: string) {
+    return (
+      <div style={s.card}>
+        <h2 style={s.cardTitle}>Posts</h2>
+        {canPublish && (
+          <form onSubmit={publishPost} style={{ marginBottom: 18 }}>
+            <textarea
+              value={postText}
+              onChange={e => setPostText(e.target.value.slice(0, 500))}
+              maxLength={500}
+              placeholder="What's on your mind?"
+              style={{ ...s.textarea, minHeight: 92, marginBottom: 8 }}
+            />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500 · Text only to save storage</span>
+              <button type="submit" disabled={posting || !postText.trim()} style={{ ...s.saveBtn, width: 'auto', minWidth: 100, marginTop: 0, padding: '9px 18px', opacity: posting || !postText.trim() ? 0.5 : 1 }}>
+                {posting ? 'Posting...' : 'Post'}
+              </button>
+            </div>
+          </form>
+        )}
+        {postMsg && <p style={{ color: '#f0a0a0', fontSize: 12, margin: '8px 0' }}>{postMsg}</p>}
+        {postsLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading posts...</p> :
+          posts.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>{canPublish ? 'No posts yet. Share your first update!' : 'No posts yet.'}</p> :
+          posts.map(post => (
+            <article key={post.id} style={{ padding: '14px 0', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> :
+                  <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ color: '#eee', fontSize: 14, fontWeight: 650 }}>{authorName || 'Anonymous'}</div>
+                  <div style={{ color: '#777', fontSize: 11 }}>{new Date(post.created_at).toLocaleString()}</div>
+                </div>
+                {canPublish && <button type="button" onClick={() => removePost(post.id)} aria-label="Delete post" style={{ border: 0, background: 'transparent', color: '#999', fontSize: 12, cursor: 'pointer', padding: 8 }}>Delete</button>}
+              </div>
+              <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>{post.content}</p>
+            </article>
+          ))
+        }
+        {posts.length >= 20 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', marginBottom: 0 }}>Showing the latest 20 posts</p>}
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (!isViewingOther) { setViewedUser(null); return; }
@@ -197,6 +279,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               <button onClick={() => { onMessage(viewUserId); onClearView?.(); }} style={s.saveBtn}>Message</button>
             </div>
           )}
+          <div style={s.contentArea}>{renderPosts(false, viewedUser.name, viewedUser.avatar)}</div>
         </div>
       </div>
     );
@@ -265,6 +348,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           </form>
           {msg && <p style={{ ...s.msg, color: msg === 'Saved!' ? '#4caf50' : '#f44336' }}>{msg}</p>}
         </div>
+
+        {renderPosts(true, displayName, avatarUrl)}
 
         <div style={s.card}>
           <h2 style={s.cardTitle}>Recent Live</h2>

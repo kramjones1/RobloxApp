@@ -88,18 +88,22 @@ hoverStyles.textContent = `
   .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .profile-tabs::-webkit-scrollbar { display: none; }
   @media (min-width: 700px) {
-    /* Let short tabs use only the space they need. Long tabs become an
-       independently scrollable panel without leaving a large empty block. */
+    /* Desktop uses the page's normal scroll container; tab content never
+       creates a nested scrolling region or a fixed-height blank area. */
+    .profile-main { display: block; }
     .profile-main-content {
       height: auto !important;
       min-height: 0;
-      max-height: min(68vh, 680px);
-      flex: 0 1 auto;
-      overflow-y: auto !important;
-      overflow-x: hidden !important;
-      overscroll-behavior-y: contain;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-gutter: stable;
+      max-height: none !important;
+      flex: initial;
+      overflow: visible !important;
+      overscroll-behavior: auto;
+      scrollbar-gutter: auto;
+    }
+    .profile-sidebar {
+      position: static;
+      max-height: none;
+      overflow: visible;
     }
   }
   @media (max-width: 699px) {

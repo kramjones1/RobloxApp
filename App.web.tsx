@@ -200,12 +200,12 @@ export default function WebApp() {
     e.preventDefault();
     setAuthMsg('');
     if (authMode === 'register') {
-      if (password.length < 10 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\\d/.test(password)) {
+      if (password.length < 10 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password)) {
         setAuthMsg('Use at least 10 characters with uppercase, lowercase, and a number.');
         return;
       }
       const normalizedEmail = email.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\\.[^\s@]+$/.test(normalizedEmail)) { setAuthMsg('Enter a valid email address.'); return; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) { setAuthMsg('Enter a valid email address.'); return; }
       setSubmitting(true);
       const res = await signUp(normalizedEmail, password);
       setSubmitting(false);

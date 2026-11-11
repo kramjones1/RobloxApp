@@ -127,7 +127,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     isAdmin().then(setAdmin);
   }, []);
 
-  const profileOwnerId = isViewingOther ? viewUserId : user?.id;
+  const profileOwnerId = isViewingOther && viewUserId ? viewUserId : (user?.id || '');
 
   useEffect(() => {
     let active = true;
@@ -174,7 +174,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               style={{ ...s.textarea, minHeight: 92, marginBottom: 8 }}
             />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500 · Text only to save storage</span>
+              <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500 · Text only · latest 100 posts retained</span>
               <button type="submit" disabled={posting || !postText.trim()} style={{ ...s.saveBtn, width: 'auto', minWidth: 100, marginTop: 0, padding: '9px 18px', opacity: posting || !postText.trim() ? 0.5 : 1 }}>
                 {posting ? 'Posting...' : 'Post'}
               </button>

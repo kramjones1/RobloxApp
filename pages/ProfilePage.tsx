@@ -99,6 +99,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [posts, setPosts] = useState<ChatPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [postText, setPostText] = useState('');
+  const [postImages, setPostImages] = useState<File[]>([]);
+  const [postPreviewOpen, setPostPreviewOpen] = useState(false);
   const [posting, setPosting] = useState(false);
   const [postMsg, setPostMsg] = useState('');
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
@@ -110,6 +112,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const postImagesInputRef = useRef<HTMLInputElement>(null);
 
   const isViewingOther = viewUserId && viewUserId !== user?.id;
 
@@ -161,15 +164,51 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     return () => { active = false; };
   }, [profileOwnerId]);
 
-  async function publishPost(e: React.FormEvent) {
-    e.preventDefault();
-    if (!postText.trim() || posting) return;
+  async function handlePostImageSelection(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!selected.length) return;
+    const remaining = Math.max(0, 5 - postImages.length);
+    if (!remaining) { setPostMsg('A post can contain up to 5 photos.'); return; }
+    try {
+      const compressed = await Promise.all(selected.slice(0, remaining).map(compressProfileImage));
+      setPostImages(current => [...current, ...compressed].slice(0, 5));
+      setPostMsg('');
+    } catch (error: any) {
+      setPostMsg(error.message || 'Could not prepare these photos.');
+    }
+  }
+
+  function removeDraftImage(index: number) {
+    setPostImages(current => current.filter((_, i) => i !== index));
+  }
+
+  async function publishPost() {
+    if (posting || (!postText.trim() && postImages.length === 0)) return;
     setPosting(true);
     setPostMsg('');
-    const { post, error } = await createProfilePost(postText);
-    if (error) setPostMsg(error);
-    else if (post) { setPosts(current => [post, ...current].slice(0, 20)); setPostText(''); }
-    setPosting(false);
+    const uploadedPaths: string[] = [];
+    try {
+      for (const file of postImages) {
+        const { photo, error } = await uploadProfilePhoto(file, 'post');
+        if (error || !photo) throw new Error(error || 'A photo could not be uploaded.');
+        uploadedPaths.push(`${user.id}/${photo.name}`);
+      }
+      const { post, error } = await createProfilePost(postText, uploadedPaths);
+      if (error || !post) throw new Error(error || 'Post was not published.');
+      setPosts(current => [post, ...current].slice(0, 20));
+      setPostText('');
+      setPostImages([]);
+      setPostPreviewOpen(false);
+      const { photos } = await getProfilePhotos(profileOwnerId);
+      setProfilePhotos(photos || []);
+      setPostMsg('Post published.');
+    } catch (error: any) {
+      await Promise.all(uploadedPaths.map(path => deleteProfilePhoto(path.replace(`${user.id}/`, ''))));
+      setPostMsg(error.message || 'Could not publish post.');
+    } finally {
+      setPosting(false);
+    }
   }
 
   async function removePost(postId: string) {
@@ -180,45 +219,79 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }
 
   function renderPosts(canPublish: boolean, authorName: string, authorAvatar: string) {
+    const canPreview = Boolean(postText.trim() || postImages.length);
     return (
-      <div style={s.card}>
-        <h2 style={s.cardTitle}>Posts</h2>
-        {canPublish && (
-          <form onSubmit={publishPost} style={{ marginBottom: 18 }}>
-            <textarea
-              value={postText}
-              onChange={e => setPostText(e.target.value.slice(0, 500))}
-              maxLength={500}
-              placeholder="What's on your mind?"
-              style={{ ...s.textarea, minHeight: 92, marginBottom: 8 }}
-            />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500 · Text only · latest 100 posts retained</span>
-              <button type="submit" disabled={posting || !postText.trim()} style={{ ...s.saveBtn, width: 'auto', minWidth: 100, marginTop: 0, padding: '9px 18px', opacity: posting || !postText.trim() ? 0.5 : 1 }}>
-                {posting ? 'Posting...' : 'Post'}
-              </button>
-            </div>
-          </form>
-        )}
-        {postMsg && <p style={{ color: '#f0a0a0', fontSize: 12, margin: '8px 0' }}>{postMsg}</p>}
-        {postsLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading posts...</p> :
-          posts.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>{canPublish ? 'No posts yet. Share your first update!' : 'No posts yet.'}</p> :
-          posts.map(post => (
-            <article key={post.id} style={{ padding: '14px 0', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> :
-                  <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ color: '#eee', fontSize: 14, fontWeight: 650 }}>{authorName || 'Anonymous'}</div>
-                  <div style={{ color: '#777', fontSize: 11 }}>{new Date(post.created_at).toLocaleString()}</div>
-                </div>
-                {canPublish && <button type="button" onClick={() => removePost(post.id)} aria-label="Delete post" style={{ border: 0, background: 'transparent', color: '#999', fontSize: 12, cursor: 'pointer', padding: 8 }}>Delete</button>}
+      <div style={{ ...s.card, padding: 0, overflow: 'hidden' }}>
+        <div style={{ padding: '18px 20px 12px' }}>
+          <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>Posts</h2>
+          {canPublish && (
+            <div style={{ background: '#252525', border: '1px solid rgba(255,255,255,.07)', borderRadius: 14, padding: 14, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
+                <div><strong style={{ color: '#f5f5f5', fontSize: 13 }}>{authorName || 'Anonymous'}</strong><div style={{ color: '#777', fontSize: 11 }}>Share an update with everyone</div></div>
               </div>
-              <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>{post.content}</p>
+              <textarea value={postText} onChange={e => setPostText(e.target.value.slice(0, 500))} maxLength={500}
+                placeholder="What's on your mind?" style={{ ...s.textarea, minHeight: 90, marginBottom: 10, background: '#1d1d1d', borderRadius: 11 }} />
+              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 7, marginBottom: 12 }}>
+                {postImages.map((file, index) => <div key={index} style={{ position: 'relative', aspectRatio: postImages.length === 1 ? '16/10' : '1', borderRadius: 9, overflow: 'hidden', background: '#111' }}>
+                  <img src={URL.createObjectURL(file)} alt={`Selected photo ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button type="button" onClick={() => removeDraftImage(index)} aria-label="Remove selected photo" style={{ position: 'absolute', top: 7, right: 7, width: 28, height: 28, border: 0, borderRadius: 20, color: '#fff', background: 'rgba(0,0,0,.75)', cursor: 'pointer' }}>×</button>
+                </div>)}
+              </div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,.07)', paddingTop: 10 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button type="button" onClick={() => postImagesInputRef.current?.click()} disabled={postImages.length >= 5 || posting} style={{ border: 0, borderRadius: 9, padding: '9px 11px', background: 'rgba(108,99,255,.16)', color: '#b7b2ff', cursor: 'pointer', fontSize: 12 }}>＋ Photo {postImages.length ? `(${postImages.length}/5)` : ''}</button>
+                  <span style={{ color: '#777', fontSize: 10 }}>Max 5 photos · 200 KB each</span>
+                </div>
+                <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500</span>
+              </div>
+              <input ref={postImagesInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePostImageSelection} style={s.hiddenInput} />
+              <button type="button" onClick={() => setPostPreviewOpen(true)} disabled={!canPreview || posting} style={{ ...s.saveBtn, marginTop: 12, opacity: !canPreview || posting ? .45 : 1 }}>Preview post</button>
+            </div>
+          )}
+          {postMsg && <p role="status" style={{ color: postMsg === 'Post published.' ? '#71cf8a' : '#f0a0a0', fontSize: 12, margin: '8px 0' }}>{postMsg}</p>}
+          {postsLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading posts...</p> :
+            posts.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>{canPublish ? 'No posts yet. Share your first update!' : 'No posts yet.'}</p> : null}
+        </div>
+        {posts.map(post => (
+          <article key={post.id} style={{ padding: '16px 20px 20px', borderTop: '1px solid rgba(255,255,255,.07)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ color: '#eee', fontSize: 14, fontWeight: 650 }}>{authorName || 'Anonymous'}</div>
+                <div style={{ color: '#777', fontSize: 11 }}>{new Date(post.created_at).toLocaleString()}</div>
+              </div>
+              {canPublish && <button type="button" onClick={() => removePost(post.id)} aria-label="Delete post" style={{ border: 0, background: 'transparent', color: '#999', fontSize: 12, cursor: 'pointer', padding: 8 }}>Delete</button>}
+            </div>
+            {post.content && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 12px' }}>{post.content}</p>}
+            {(post.image_paths || []).length > 0 && <div style={{ display: 'grid', gridTemplateColumns: post.image_paths.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 4, overflow: 'hidden', borderRadius: 10 }}>
+              {post.image_paths.map((path, index) => <img key={path} src={`${'https://btkcubibosbtpxcronnd.supabase.co'}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} loading="lazy" style={{ width: '100%', aspectRatio: post.image_paths.length === 1 ? '16/10' : '1', objectFit: 'cover', background: '#111', gridColumn: post.image_paths.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
+            </div>}
+          </article>
+        ))}
+        {posts.length >= 20 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '0 20px 14px', margin: 0 }}>Showing the latest 20 posts</p>}
+        {postPreviewOpen && <div role="presentation" onClick={() => !posting && setPostPreviewOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="post-preview-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 18, boxShadow: '0 20px 70px rgba(0,0,0,.55)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+              <h3 id="post-preview-title" style={{ color: '#fff', fontSize: 17, margin: 0 }}>Preview your post</h3>
+              <button type="button" onClick={() => setPostPreviewOpen(false)} disabled={posting} style={{ border: 0, background: 'transparent', color: '#aaa', fontSize: 24, cursor: 'pointer' }}>×</button>
+            </div>
+            <article style={{ background: '#171717', borderRadius: 12, padding: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
+                <strong style={{ color: '#eee', fontSize: 13 }}>{authorName || 'Anonymous'}</strong>
+              </div>
+              {postText.trim() && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', margin: '0 0 12px' }}>{postText.trim()}</p>}
+              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 4, borderRadius: 9, overflow: 'hidden' }}>
+                {postImages.map((file, index) => <img key={index} src={URL.createObjectURL(file)} alt={`Preview photo ${index + 1}`} style={{ width: '100%', aspectRatio: postImages.length === 1 ? '16/10' : '1', objectFit: 'cover', gridColumn: postImages.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
+              </div>}
             </article>
-          ))
-        }
-        {posts.length >= 20 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', marginBottom: 0 }}>Showing the latest 20 posts</p>}
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button type="button" onClick={() => setPostPreviewOpen(false)} disabled={posting} style={{ flex: 1, border: '1px solid rgba(255,255,255,.12)', borderRadius: 10, padding: 12, background: '#303030', color: '#ddd', cursor: 'pointer' }}>Edit</button>
+              <button type="button" onClick={publishPost} disabled={posting} style={{ ...s.saveBtn, flex: 1, marginTop: 0, opacity: posting ? .6 : 1 }}>{posting ? 'Publishing…' : 'Publish post'}</button>
+            </div>
+          </section>
+        </div>}
       </div>
     );
   }
@@ -332,7 +405,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
                 {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 5} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 5 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
               </div>
-              {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{profilePhotos.length}/5 photos · max 200 KB each · 1 MB total · WebP only</p>}
+              {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{profilePhotos.length}/25 photos · max 200 KB each · 5 MB total · WebP only</p>}
               {canEdit && msg && <p style={{ color: msg.includes('saved') || msg.includes('deleted') ? '#4caf50' : '#f44336', fontSize: 12 }}>{msg}</p>}
               {photosLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading photos…</p> :
                 profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :

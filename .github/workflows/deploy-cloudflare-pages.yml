@@ -1,5 +1,5 @@
 name: Deploy production Cloudflare Pages
-# Rebuild production after Random Chat session-token refresh fix.
+# Rebuild production with forced Supabase refresh immediately before Random Chat.
 
 on:
   workflow_dispatch:

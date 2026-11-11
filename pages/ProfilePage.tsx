@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -98,6 +98,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [admin, setAdmin] = useState(false);
   const [posts, setPosts] = useState<ChatPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
+  const [openPostMenu, setOpenPostMenu] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [postActionMsg, setPostActionMsg] = useState('');
   const [postText, setPostText] = useState('');
   const [postImages, setPostImages] = useState<File[]>([]);
   const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
@@ -223,6 +226,47 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     else setPosts(current => current.filter(post => post.id !== postId));
   }
 
+  async function editPost(post: ChatPost) {
+    const next = window.prompt('Edit your post caption (max 500 characters):', post.content || '');
+    if (next === null) return;
+    const { error } = await updateProfilePost(post.id, next);
+    if (error) { setPostActionMsg(error); return; }
+    setPosts(current => current.map(item => item.id === post.id ? { ...item, content: next.trim() } : item));
+    setOpenPostMenu(null);
+    setPostActionMsg('Post updated.');
+  }
+
+  async function togglePostPrivacy(post: ChatPost) {
+    const nextPrivate = !post.is_private;
+    const { error } = await setProfilePostPrivacy(post.id, nextPrivate);
+    if (error) { setPostActionMsg(error); return; }
+    setPosts(current => current.map(item => item.id === post.id ? { ...item, is_private: nextPrivate } : item));
+    setOpenPostMenu(null);
+    setPostActionMsg(nextPrivate ? 'Post is now private.' : 'Post is now public.');
+  }
+
+  async function reactToPost(post: ChatPost, reaction: ChatPost['reactions'][number]['reaction'] = 'like') {
+    const mine = post.reactions.find(item => item.user_id === user?.id);
+    const next = mine?.reaction === reaction ? null : reaction;
+    const { error } = await setProfilePostReaction(post.id, next);
+    if (error) { setPostActionMsg(error); return; }
+    setPosts(current => current.map(item => {
+      if (item.id !== post.id) return item;
+      const withoutMine = item.reactions.filter(row => row.user_id !== user?.id);
+      return { ...item, reactions: next ? [...withoutMine, { post_id: post.id, user_id: user.id, reaction: next }] : withoutMine };
+    }));
+  }
+
+  async function submitPostComment(postId: string) {
+    const content = (commentDrafts[postId] || '').trim();
+    if (!content) return;
+    const { comment, error } = await addProfilePostComment(postId, content);
+    if (error || !comment) { setPostActionMsg(error || 'Comment was not saved.'); return; }
+    setPosts(current => current.map(item => item.id === postId ? { ...item, comments: [...item.comments, comment] } : item));
+    setCommentDrafts(current => ({ ...current, [postId]: '' }));
+    setPostActionMsg('');
+  }
+
   function renderPosts(canPublish: boolean, authorName: string, authorAvatar: string) {
     const canPreview = Boolean(postText.trim() || postImages.length);
     return (
@@ -266,12 +310,43 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <div style={{ color: '#eee', fontSize: 14, fontWeight: 650 }}>{authorName || 'Anonymous'}</div>
                 <div style={{ color: '#777', fontSize: 11 }}>{new Date(post.created_at).toLocaleString()}</div>
               </div>
-              {canPublish && <button type="button" onClick={() => removePost(post.id)} aria-label="Delete post" style={{ border: 0, background: 'transparent', color: '#999', fontSize: 12, cursor: 'pointer', padding: 8 }}>Delete</button>}
+              <div style={{ position: 'relative' }}>
+                {post.is_private && <span style={{ color: '#b8b8b8', fontSize: 10, marginRight: 8 }}>🔒 Private</span>}
+                {canPublish && <button type="button" onClick={() => setOpenPostMenu(current => current === post.id ? null : post.id)} aria-label="Post options" aria-expanded={openPostMenu === post.id} style={{ border: 0, background: 'transparent', color: '#bbb', fontSize: 23, lineHeight: 1, cursor: 'pointer', padding: '4px 8px' }}>⋯</button>}
+                {canPublish && openPostMenu === post.id && <div style={{ position: 'absolute', right: 0, top: 34, zIndex: 20, minWidth: 170, padding: 6, borderRadius: 10, background: '#303030', border: '1px solid rgba(255,255,255,.12)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+                  <button type="button" onClick={() => editPost(post)} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#eee', cursor: 'pointer' }}>Edit post</button>
+                  <button type="button" onClick={() => togglePostPrivacy(post)} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#eee', cursor: 'pointer' }}>{post.is_private ? 'Make public' : 'Make private'}</button>
+                  <button type="button" onClick={() => { setOpenPostMenu(null); removePost(post.id); }} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#ff9292', cursor: 'pointer' }}>Delete post</button>
+                </div>}
+              </div>
             </div>
             {post.content && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 12px' }}>{post.content}</p>}
             {(post.image_paths || []).length > 0 && <div style={{ display: 'grid', gridTemplateColumns: post.image_paths.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 4, overflow: 'hidden', borderRadius: 10 }}>
               {post.image_paths.map((path, index) => <img key={path} src={`${'https://btkcubibosbtpxcronnd.supabase.co'}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} loading="lazy" style={{ width: '100%', aspectRatio: post.image_paths.length === 1 ? '16/10' : '1', objectFit: 'cover', background: '#111', gridColumn: post.image_paths.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
             </div>}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '12px 2px 8px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+              <div style={{ color: '#999', fontSize: 11 }}>
+                {post.reactions.length > 0 ? `👍 ${post.reactions.length} reaction${post.reactions.length === 1 ? '' : 's'}` : 'Be the first to react'}
+                {post.comments.length > 0 ? ` · ${post.comments.length} comment${post.comments.length === 1 ? '' : 's'}` : ''}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+              <button type="button" onClick={() => reactToPost(post)} style={{ flex: 1, border: 0, background: 'transparent', color: post.reactions.some(item => item.user_id === user?.id) ? '#76aaff' : '#bbb', fontWeight: 650, padding: 8, cursor: 'pointer' }}>
+                {post.reactions.some(item => item.user_id === user?.id) ? '👍 Liked' : '👍 Like'}
+              </button>
+              <button type="button" onClick={() => document.getElementById(`comment-${post.id}`)?.focus()} style={{ flex: 1, border: 0, background: 'transparent', color: '#bbb', fontWeight: 600, padding: 8, cursor: 'pointer' }}>💬 Comment</button>
+            </div>
+            {post.comments.map(comment => <div key={comment.id} style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#383838', color: '#ddd', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 11 }}>{comment.user_id === user?.id ? 'Y' : 'M'}</div>
+              <div style={{ background: '#292929', borderRadius: 12, padding: '7px 11px', minWidth: 0, flex: 1 }}>
+                <div style={{ color: '#ddd', fontSize: 11, fontWeight: 700, marginBottom: 3 }}>{comment.user_id === user?.id ? 'You' : 'Member'}</div>
+                <div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div>
+              </div>
+            </div>)}
+            <form onSubmit={e => { e.preventDefault(); submitPostComment(post.id); }} style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <input id={`comment-${post.id}`} value={commentDrafts[post.id] || ''} onChange={e => setCommentDrafts(current => ({ ...current, [post.id]: e.target.value.slice(0, 500) }))} placeholder="Write a comment..." maxLength={500} style={{ flex: 1, minWidth: 0, border: '1px solid rgba(255,255,255,.1)', borderRadius: 20, padding: '10px 14px', background: '#292929', color: '#eee', outline: 'none', fontSize: 13 }} />
+              <button type="submit" disabled={!(commentDrafts[post.id] || '').trim()} style={{ border: 0, borderRadius: 20, padding: '0 14px', background: '#3978d6', color: '#fff', fontWeight: 650, opacity: (commentDrafts[post.id] || '').trim() ? 1 : .45, cursor: 'pointer' }}>Send</button>
+            </form>
           </article>
         ))}
         {posts.length >= 20 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '0 20px 14px', margin: 0 }}>Showing the latest 20 posts</p>}

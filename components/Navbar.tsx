@@ -90,6 +90,13 @@ const styles = {
 
 export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false, admin = false, avatar }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [lightMode, setLightMode] = useState(() => document.documentElement.dataset.theme === 'light');
+  useEffect(() => {
+    const syncTheme = () => setLightMode(document.documentElement.dataset.theme === 'light');
+    syncTheme();
+    window.addEventListener('liveme-theme-change', syncTheme);
+    return () => window.removeEventListener('liveme-theme-change', syncTheme);
+  }, []);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -115,8 +122,8 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
           height: 'calc(48px + env(safe-area-inset-top, 0px))',
           display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
           paddingLeft: 14, paddingRight: 14, paddingBottom: 0,
-          background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          background: lightMode ? 'rgba(255,255,255,0.96)' : 'rgba(10,10,10,0.94)', backdropFilter: 'blur(12px)',
+          borderBottom: lightMode ? '1px solid #e2e6ee' : '1px solid rgba(255,255,255,0.09)',
         }}>
           <span style={{
             marginBottom: 12, fontSize: 18, fontWeight: 700, cursor: 'pointer',
@@ -125,7 +132,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
           }} onClick={() => nav('home')}>LiveMe</span>
           <div style={{ position: 'relative' }}>
             <button onClick={() => setMenuOpen(o => !o)} style={{
-              background: 'none', border: 'none', color: '#fff', fontSize: 24,
+              background: 'none', border: 'none', color: lightMode ? '#20232a' : '#fff', fontSize: 24,
               cursor: 'pointer', marginBottom: 10, padding: '0 0 0 8px',
               fontFamily: 'inherit', lineHeight: 1,
             }}>{menuOpen ? '✕' : '☰'}</button>
@@ -144,9 +151,9 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
         {menuOpen && (
           <div style={{
             position: 'fixed', top: 'calc(48px + env(safe-area-inset-top, 0px))', left: 0, right: 0, zIndex: 99,
-            background: 'rgba(15,15,15,0.97)', backdropFilter: 'blur(16px)',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            padding: '8px 0', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            background: lightMode ? 'rgba(255,255,255,0.99)' : 'rgba(18,18,20,0.99)', backdropFilter: 'blur(16px)',
+            borderBottom: lightMode ? '1px solid #dfe3eb' : '1px solid rgba(255,255,255,0.1)',
+            padding: '8px 0', boxShadow: lightMode ? '0 8px 28px rgba(25,35,55,0.16)' : '0 8px 32px rgba(0,0,0,0.55)',
           }}>
             {callActive && (
               <button onClick={() => { setPage('chat'); setMenuOpen(false); }} style={{
@@ -168,7 +175,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               <button key={t.id} onClick={() => nav(t.id)} style={{
                 display: 'block', width: '100%', textAlign: 'left', padding: '10px 20px',
                 background: page === t.id ? 'rgba(108,99,255,0.12)' : 'transparent',
-                border: 'none', color: page === t.id ? '#fff' : '#bbb', fontSize: 15,
+                border: 'none', color: page === t.id ? (lightMode ? '#252a35' : '#fff') : (lightMode ? '#586171' : '#c4c4c4'), fontSize: 15,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}>
                 {t.label}
@@ -181,7 +188,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
             {user && (
               <button onClick={() => { onLogout(); setMenuOpen(false); }} style={{
                 display: 'block', width: '100%', textAlign: 'left', padding: '10px 20px',
-                background: 'transparent', border: 'none', color: '#f44336', fontSize: 15,
+                background: 'transparent', border: 'none', color: '#e53935', fontSize: 15,
                 cursor: 'pointer', fontFamily: 'inherit', borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 4,
               }}>Logout</button>
             )}
@@ -190,13 +197,13 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
       </div>
 
       {/* Desktop navbar */}
-      <nav className="desktop-nav" style={{ ...styles.topNav, display: 'none' }}>
+      <nav className="desktop-nav" style={{ ...styles.topNav, display: 'none', background: lightMode ? 'rgba(255,255,255,0.96)' : 'rgba(10,10,10,0.88)', borderBottom: lightMode ? '1px solid #e2e6ee' : '1px solid rgba(255,255,255,0.06)' }}>
         <span style={styles.logo} onClick={() => setPage('home')}>LiveMe</span>
         <div style={styles.topLinks}>
-          <button style={page === 'home' ? styles.linkActive : styles.link} onClick={() => setPage('home')}>Home</button>
+          <button style={page === 'home' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('home')}>Home</button>
           {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
-          {user && <button style={page === 'settings' ? styles.linkActive : styles.link} onClick={() => setPage('settings')}>Settings</button>}
-          {user && <button style={page === 'messages' ? styles.linkActive : styles.link} onClick={() => setPage('messages')}>
+          {user && <button style={page === 'settings' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('settings')}>Settings</button>}
+          {user && <button style={page === 'messages' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('messages')}>
             Messages
             {unreadCount > 0 && <span style={{
               position: 'absolute', top: -6, right: -14, minWidth: 16, height: 16,
@@ -206,8 +213,8 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
             }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </button>}
           {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Admin</button>}
-          <button style={page === 'privacy' ? styles.linkActive : styles.link} onClick={() => setPage('privacy')}>Privacy</button>
-          <button style={page === 'terms' ? styles.linkActive : styles.link} onClick={() => setPage('terms')}>Terms</button>
+          <button style={page === 'privacy' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('privacy')}>Privacy</button>
+          <button style={page === 'terms' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('terms')}>Terms</button>
         </div>
         {user && (
           <div style={styles.userSection}>
@@ -215,7 +222,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               {avatar ? <img src={avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#333', flexShrink: 0 }} />}
             </div>
             <span style={styles.email}>{user.email}</span>
-            <button style={styles.logoutBtn} onClick={onLogout}>Logout</button>
+            <button style={{ ...styles.logoutBtn, border: lightMode ? '1px solid #cbd1dc' : '1px solid #444', color: lightMode ? '#424b5a' : '#aaa' }} onClick={onLogout}>Logout</button>
           </div>
         )}
       </nav>

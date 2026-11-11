@@ -84,11 +84,17 @@ hoverStyles.textContent = `
   .profile-content-area { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 28px; align-items: start; }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; }
-  .profile-main-content { min-width: 0; max-height: calc(100vh - 148px); overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
-  @media (max-width: 699px) { .profile-main-content { max-height: calc(100vh - 124px); } }
+  /* Desktop only: keep the profile tab panel independently scrollable. */
+  .profile-main-content { min-width: 0; }
   .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .profile-tabs::-webkit-scrollbar { display: none; }
-  @media (max-width: 699px) { .profile-tabs { top: calc(48px + env(safe-area-inset-top, 0px)); } }
+  @media (min-width: 700px) {
+    .profile-main-content { max-height: calc(100vh - 148px); overflow-y: auto; overscroll-behavior-y: contain; -webkit-overflow-scrolling: touch; }
+  }
+  @media (max-width: 699px) {
+    .profile-main-content { max-height: none; overflow: visible; overscroll-behavior: auto; }
+    .profile-tabs { position: static; }
+  }
   html[data-theme="light"] .profile-tabs { background: #f4f6fb !important; border-color: rgba(25,35,55,.14) !important; }
   @media (max-width: 699px) {
     .profile-content-area { padding: 8px 16px 32px !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; }

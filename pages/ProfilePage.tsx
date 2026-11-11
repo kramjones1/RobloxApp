@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { watchRecentLive } from '../chatPresence';
 import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, setProfileCommentReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
@@ -164,13 +165,36 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       }
       setLoading(false);
     })();
-    getRecentLive().then(({ entries }) => {
-      if (entries) setRecent(entries.map(e => ({ id: e.partner_id, name: e.partner_name, bio: e.partner_bio, avatar: e.partner_avatar, time: e.created_at })));
-    });
     isAdmin().then(setAdmin);
   }, []);
 
   const profileOwnerId = isViewingOther && viewUserId ? viewUserId : (user?.id || '');
+
+  // Keep the owner's Recent Live chatheads synchronized across tabs/devices.
+  // Initial fetch handles the current snapshot; Realtime refreshes after inserts/deletes.
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (!ownerId || isViewingOther) return;
+    let active = true;
+    const refreshRecentLive = async () => {
+      const { entries } = await getRecentLive();
+      if (active && entries) {
+        setRecent(entries.map(e => ({
+          id: e.partner_id,
+          name: e.partner_name,
+          bio: e.partner_bio,
+          avatar: e.partner_avatar,
+          time: e.created_at,
+        })));
+      }
+    };
+    void refreshRecentLive();
+    const stopWatching = watchRecentLive(ownerId, () => { void refreshRecentLive(); });
+    return () => {
+      active = false;
+      stopWatching();
+    };
+  }, [user?.id, isViewingOther]);
 
   useEffect(() => {
     let active = true;

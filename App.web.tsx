@@ -108,7 +108,6 @@ export default function WebApp() {
 
   useEffect(() => {
     let oauthLogin = false;
-    let oauthSignup = false;
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
@@ -125,23 +124,24 @@ export default function WebApp() {
         if (type === 'recovery') setRecoveryMode(true);
         else {
           oauthLogin = true;
-          if (type === 'signup') oauthSignup = true;
         }
       }
     }
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
-    let onboardingSet = false;
-    if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob'); } else if (!onboardingSet) setOnboardingStep('welcome'); }); }
-    if (u && oauthLogin) {
-      if (oauthSignup) { setOnboardingStep('welcome'); onboardingSet = true; }
-      else {
-        getChatProfile().then(({ profile }) => {
-          if (!profile) setOnboardingStep('welcome');
-          else setPage('profile');
-        });
-      }
+    if (u?.id) {
+      isAdmin().then(setAdmin);
+      getChatProfile().then(({ profile, error }) => {
+        // Never treat a failed profile request as a new registration.
+        if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; }
+        if (profile) {
+          setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+          if (oauthLogin) setPage('profile');
+        } else {
+          setOnboardingStep('welcome');
+        }
+      });
     }
     // Listen for OAuth tokens from popup windows
     function handleOAuthMessage(e: MessageEvent) {
@@ -155,21 +155,19 @@ export default function WebApp() {
         setUser(u2);
         if (!u2?.id) { setPage('profile'); return; }
         isAdmin().then(setAdmin);
-        getChatProfile().then(({ profile }) => {
+        getChatProfile().then(({ profile, error }) => {
+          if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; }
           if (profile) {
             setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
-            if (!profile.date_of_birth) setOnboardingStep('dob');
-            else setPage('profile');
-          } else {
-            setOnboardingStep('welcome');
-          }
+            setPage('profile');
+          } else setOnboardingStep('welcome');
         });
       }
     }
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('welcome'); }); }
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile, error }) => { if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; } if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('welcome'); }); }
       else { setAdmin(false); setMyProfile(null); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
@@ -263,6 +261,7 @@ export default function WebApp() {
     } else if (onboardingStep === 'dob') {
       if (!onboardingDob) { setAuthMsg('Please enter your date of birth'); return; }
       const age = calcAge(onboardingDob);
+      if (age < 0) { setAuthMsg('Please enter a valid date of birth that is not in the future.'); return; }
       if (age < 18) {
         setSubmitting(true);
         const { error } = await upsertChatProfile({
@@ -273,7 +272,9 @@ export default function WebApp() {
           share_name: myProfile?.share_name !== undefined ? myProfile.share_name : true,
           share_bio: myProfile?.share_bio !== undefined ? myProfile.share_bio : true,
           date_of_birth: onboardingDob,
-        });
+          terms_accepted_at: new Date().toISOString(),
+          terms_version: '2026-11-11',
+        } as any);
         setSubmitting(false);
         if (error) setAuthMsg(error);
         else {
@@ -307,14 +308,12 @@ export default function WebApp() {
       }
     } else if (onboardingStep === 'name') {
       if (!onboardingName || onboardingName.length < 1) { setAuthMsg('Display name is required'); return; }
-      setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: '', avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
-      setSubmitting(false);
-      if (error) setAuthMsg(error);
-      else setOnboardingStep('bio');
+      // Keep the profile absent until the full onboarding flow is completed.
+      // Otherwise a partially completed registration could look like an old account on reload.
+      setOnboardingStep('bio');
     } else {
       setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob, terms_accepted_at: new Date().toISOString(), terms_version: '2026-11-11' } as any);
       setSubmitting(false);
       if (error) setAuthMsg(error);
       else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); }
@@ -1230,14 +1229,15 @@ export default function WebApp() {
             <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, marginBottom: 4, textAlign: 'center', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
             <p style={{ color: '#888', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>Welcome! Before you start...</p>
             <div style={{ color: '#ccc', fontSize: 13, textAlign: 'left', lineHeight: 1.6, marginBottom: 12 }}>
-              <p style={{ marginBottom: 10 }}>LiveMe connects you with people around the world through live video chat and instant messaging.</p>
-              <p style={{ marginBottom: 8, color: '#6c63ff', fontWeight: 600 }}>Your Security</p>
-              <p style={{ marginBottom: 6 }}>• All messages are encrypted in transit. Your personal data is never shared with third parties.</p>
-              <p style={{ marginBottom: 6 }}>• You control what appears on your public profile. Display name and bio sharing can be toggled on/off.</p>
-              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Account Safety</p>
-              <p style={{ marginBottom: 6 }}>• Never share your password or personal information with strangers.</p>
-              <p style={{ marginBottom: 6 }}>• Report any suspicious or abusive behavior immediately — we take action on every report.</p>
-              <p style={{ marginBottom: 6 }}>• You can block and report users directly from the chat or messaging interface.</p>
+              <p style={{ marginBottom: 10 }}>Meet people through Random Chat, build your profile, and continue conversations with private messages.</p>
+              <p style={{ marginBottom: 8, color: '#6c63ff', fontWeight: 600 }}>Quick start tips</p>
+              <p style={{ marginBottom: 6 }}>• Random Chat: allow camera and microphone access when you are ready to meet someone.</p>
+              <p style={{ marginBottom: 6 }}>• Messaging: use your inbox to continue conversations with people you choose.</p>
+              <p style={{ marginBottom: 6 }}>• Your profile: choose what name and bio details you share publicly.</p>
+              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Stay safe</p>
+              <p style={{ marginBottom: 6 }}>• Never share passwords, financial details, or your home address with strangers.</p>
+              <p style={{ marginBottom: 6 }}>• Use report and block tools if someone behaves abusively or makes you uncomfortable.</p>
+              <p style={{ marginBottom: 6 }}>• Be respectful and remember that people you meet online may not be who they claim to be.</p>
               <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Age Requirement</p>
               <p style={{ marginBottom: 6 }}>• Live video chat is restricted to users aged 18 and older.</p>
               <p style={{ marginBottom: 6 }}>• If you are under 18, you can still use the text messaging system to chat with other users.</p>

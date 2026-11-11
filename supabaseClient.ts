@@ -836,7 +836,10 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
           body: JSON.stringify({ prefix: `${user.id}/posts`, limit: 1000, offset: 0 }),
         }),
       ]);
-      if (Array.isArray(savedPosts) && storedImages.ok) {
+      const newPostIsConfirmed = Array.isArray(savedPosts) && savedPosts.some((row: any) =>
+        imagePaths.length === 0 || imagePaths.every(path => (row.image_paths || []).includes(path))
+      );
+      if (newPostIsConfirmed && storedImages.ok) {
         const keep = new Set(savedPosts.flatMap((row: any) => row.image_paths || []));
         const files = await storedImages.json();
         const stale = (Array.isArray(files) ? files : [])

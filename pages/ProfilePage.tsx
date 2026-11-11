@@ -290,8 +290,6 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   async function handleDeletePhoto(photo: ProfilePhoto) {
     if (!window.confirm('Delete this photo?')) return;
-    const { error } = await deleteProfilePhoto(photo.name);
-    if (error) { setMsg(error); return; }
     if (photo.name === 'avatar.webp' || photo.name === 'cover.webp') {
       const nextAvatar = photo.name === 'avatar.webp' ? '' : avatarUrl;
       const nextCover = photo.name === 'cover.webp' ? '' : coverUrl;
@@ -303,6 +301,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       setAvatarUrl(nextAvatar);
       setCoverUrl(nextCover);
     }
+    const { error } = await deleteProfilePhoto(photo.name);
+    if (error) { setMsg(error); return; }
     setProfilePhotos(current => current.filter(item => item.name !== photo.name));
     setMsg('Photo deleted.');
   }
@@ -328,6 +328,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 5} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 5 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
               </div>
               {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{profilePhotos.length}/5 photos · max 200 KB each · 1 MB total · WebP only</p>}
+              {canEdit && msg && <p style={{ color: msg.includes('saved') || msg.includes('deleted') ? '#4caf50' : '#f44336', fontSize: 12 }}>{msg}</p>}
               {photosLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading photos…</p> :
                 profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
@@ -343,11 +344,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           )}
           {activeTab === 'Timeline' && (
             <>
-              <section style={s.card}>
+              {canEdit && <section style={s.card}>
                 <h2 style={s.cardTitle}>Recent Live activity</h2>
                 {recent.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No recent interactions yet.</p> :
                   recent.map((entry, index) => <div key={entry.id || index} style={{ color: '#aaa', fontSize: 13, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,.05)' }}>Connected with {entry.name || 'someone'} · {new Date(entry.time).toLocaleDateString()}</div>)}
-              </section>
+              </section>}
               {renderPosts(false, authorName, authorAvatar)}
             </>
           )}

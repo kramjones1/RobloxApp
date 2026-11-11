@@ -855,14 +855,14 @@ export interface ChatPost {
   comments: ChatPostComment[];
 }
 
-export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPost[]; error?: string }> {
+export async function getProfilePosts(userId: string, before?: string, pageSize = 20): Promise<{ posts?: ChatPost[]; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   if (!userId) return { error: 'Profile not found' };
   try {
     const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` };
     const rows = await supabaseFetch(
-      `${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,is_private,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=20`,
+      `${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,is_private,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${Math.min(30, Math.max(1, pageSize))}${before ? `&created_at=lt.${encodeURIComponent(before)}` : ''}`,
       { headers }
     );
     if (rows?.error) return { error: rows.error };

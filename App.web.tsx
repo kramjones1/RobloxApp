@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken } from './supabaseClient';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -8,9 +8,14 @@ import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
+import SettingsPage from './pages/SettingsPage';
 
-const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
-const API_URL = 'https://omegle-signaling-server-251a.onbelmo.uk';
+const WS_URL = 'wss://omegle-signaling-server.kafka9607.workers.dev';
+const API_URL = 'https://omegle-signaling-server.kafka9607.workers.dev';
+// Netlify deploy previews and local development use an isolated matchmaker queue.
+const SIGNALING_ENV = typeof window !== 'undefined' &&
+  (window.location.hostname.includes('deploy-preview-') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'staging' : 'production';
 
 const meta = document.createElement('meta');
 meta.name = 'theme-color';
@@ -21,6 +26,43 @@ const style = document.createElement('style');
 style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes spin{to{transform:rotate(360deg)}}.page-content{padding-top:60px}.mobile-nav{display:none!important}.desktop-nav{display:none!important}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}.mobile-nav{display:block!important}}@media(min-width:700px){.mobile-auth{display:none!important}.desktop-nav{display:flex!important}}';
 document.head.appendChild(style);
 
+try {
+  const savedTheme = localStorage.getItem('liveme-theme') === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = savedTheme;
+  document.documentElement.style.colorScheme = savedTheme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', savedTheme === 'light' ? '#f4f6fb' : '#1a1a1a');
+} catch {}
+const themeStyle = document.createElement('style');
+themeStyle.textContent = `
+  html[data-theme="light"] body { background: #f4f6fb !important; color: #20232a !important; color-scheme: light; }
+  html[data-theme="light"] .page-content { background-color: #f4f6fb !important; color: #20232a !important; }
+  html[data-theme="light"] .page-content > div { background-color: transparent !important; }
+  html[data-theme="light"] .page-content p,
+  html[data-theme="light"] .page-content h1,
+  html[data-theme="light"] .page-content h2,
+  html[data-theme="light"] .page-content h3,
+  html[data-theme="light"] .page-content label,
+  html[data-theme="light"] .page-content small,
+  html[data-theme="light"] .page-content strong,
+  html[data-theme="light"] .page-content span,
+  html[data-theme="light"] .page-content li { color: #20232a !important; }
+  html[data-theme="light"] .page-content input:not([type="checkbox"]),
+  html[data-theme="light"] .page-content textarea,
+  html[data-theme="light"] .page-content select { background: #fff !important; color: #20232a !important; border-color: #d7dce5 !important; }
+  html[data-theme="light"] .page-content button:not([style*="linear-gradient"]) { border-color: rgba(25,35,55,.16); }
+  html[data-theme="light"] .profile-section { border-color: rgba(25,35,55,.12) !important; }
+`;
+document.head.appendChild(themeStyle);
+
+function isValidSignupPassword(value: string): boolean {
+  // Count Unicode code points and check each required character class explicitly.
+  const chars = Array.from(value);
+  return chars.length >= 10 &&
+    /[a-z]/i.test(value) &&
+    /[A-Z]/.test(value) &&
+    /[0-9]/.test(value);
+}
+
 export default function WebApp() {
   const [page, setPage] = useState('home');
   const [user, setUser] = useState<any>(null);
@@ -28,6 +70,10 @@ export default function WebApp() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signupVerification, setSignupVerification] = useState(false);
+  const [signupCode, setSignupCode] = useState('');
+  const [signupResendCooldown, setSignupResendCooldown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
   const [authMsg, setAuthMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
@@ -52,12 +98,17 @@ export default function WebApp() {
   const [log, setLog] = useState('');
   const [wsStatus, setWsStatus] = useState('connecting');
   const [partnerId, setPartnerId] = useState('');
+  // WebSocket callbacks retain the render in which the socket was created;
+  // keep the active partner in a ref so SDP/ICE validation uses current state.
+  const partnerIdRef = useRef('');
   const [reportSent, setReportSent] = useState(false);
   const [reportPending, setReportPending] = useState(false);
   const [camError, setCamError] = useState('');
   const [noAudio, setNoAudio] = useState(false);
   const localRef = useRef<HTMLVideoElement>(null);
   const remoteRef = useRef<HTMLVideoElement>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+  const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
   const pcRef = useRef<any>(null);
   const lsRef = useRef<any>(null);
   const wsRef = useRef<WebSocket>(null);
@@ -73,6 +124,7 @@ export default function WebApp() {
   const [partnerLeft, setPartnerLeft] = useState(false);
   const inCallRef = useRef(false);
   const frameIntervalRef = useRef<any>(null);
+  const callSetupTimeoutRef = useRef<any>(null);
   const [banned, setBanned] = useState(false);
   const [bannedReason, setBannedReason] = useState('');
 
@@ -82,7 +134,7 @@ export default function WebApp() {
     async function fetchLive() {
       const token = await getValidAccessToken();
       if (!token) { setLiveUsers([]); setLiveTs(Date.now()); return; }
-      fetch(`${API_URL}/api/live`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
+      fetch(`${API_URL}/api/live?environment=${SIGNALING_ENV}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.ok ? r.json() : []).then(d => { if (Array.isArray(d)) setLiveUsers(d); setLiveTs(Date.now()); }).catch(() => {});
     }
     fetchLive();
     const iv = setInterval(fetchLive, 5000);
@@ -97,7 +149,6 @@ export default function WebApp() {
 
   useEffect(() => {
     let oauthLogin = false;
-    let oauthSignup = false;
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
@@ -114,23 +165,24 @@ export default function WebApp() {
         if (type === 'recovery') setRecoveryMode(true);
         else {
           oauthLogin = true;
-          if (type === 'signup') oauthSignup = true;
         }
       }
     }
     const u = getSession();
     setUser(u);
     setAuthLoading(false);
-    let onboardingSet = false;
-    if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob'); } else if (!onboardingSet) setOnboardingStep('welcome'); }); }
-    if (u && oauthLogin) {
-      if (oauthSignup) { setOnboardingStep('welcome'); onboardingSet = true; }
-      else {
-        getChatProfile().then(({ profile }) => {
-          if (!profile) setOnboardingStep('welcome');
-          else setPage('profile');
-        });
-      }
+    if (u?.id) {
+      isAdmin().then(setAdmin);
+      getChatProfile().then(({ profile, error }) => {
+        // Never treat a failed profile request as a new registration.
+        if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; }
+        if (profile) {
+          setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+          if (oauthLogin) setPage('profile');
+        } else {
+          setOnboardingStep('welcome');
+        }
+      });
     }
     // Listen for OAuth tokens from popup windows
     function handleOAuthMessage(e: MessageEvent) {
@@ -144,21 +196,19 @@ export default function WebApp() {
         setUser(u2);
         if (!u2?.id) { setPage('profile'); return; }
         isAdmin().then(setAdmin);
-        getChatProfile().then(({ profile }) => {
+        getChatProfile().then(({ profile, error }) => {
+          if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; }
           if (profile) {
             setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
-            if (!profile.date_of_birth) setOnboardingStep('dob');
-            else setPage('profile');
-          } else {
-            setOnboardingStep('welcome');
-          }
+            setPage('profile');
+          } else setOnboardingStep('welcome');
         });
       }
     }
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('welcome'); }); }
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile, error }) => { if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; } if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('welcome'); }); }
       else { setAdmin(false); setMyProfile(null); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
@@ -186,20 +236,56 @@ export default function WebApp() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     if (authMode === 'register') {
+      if (!isValidSignupPassword(password)) {
+        setAuthMsg('Use at least 10 characters with at least one uppercase letter, one lowercase letter, and one number.');
+        return;
+      }
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) { setAuthMsg('Enter a valid email address.'); return; }
       setSubmitting(true);
-      const res = await signUp(email, password);
+      const res = await signUp(normalizedEmail, password);
       setSubmitting(false);
       if (res.error) { setAuthMsg(res.error); return; }
-      setAuthMsg('Check your email for a confirmation link, then sign in.');
+      setEmail(normalizedEmail);
+      setSignupCode('');
+      setSignupVerification(true);
+      setAuthMsg('We sent a 6-digit verification code to your email. Enter it below to finish creating your account.');
+      setSignupResendCooldown(60);
+      const timer = setInterval(() => setSignupResendCooldown(prev => { if (prev <= 1) { clearInterval(timer); return 0; } return prev - 1; }), 1000);
       return;
     }
+    if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     setSubmitting(true);
     const { error } = await signIn(email, password);
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPage('profile');
+  }
+
+  async function handleSignupVerification(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthMsg('');
+    if (!/^\d{6}$/.test(signupCode.trim())) { setAuthMsg('Enter the 6-digit code from your email.'); return; }
+    setSubmitting(true);
+    const result = await verifySignupOtp(email, signupCode);
+    setSubmitting(false);
+    if (result.error) { setAuthMsg(result.error); return; }
+    setSignupVerification(false);
+    setSignupCode('');
+    setAuthMsg('');
+    setPage('profile');
+  }
+
+  async function handleResendSignupCode() {
+    if (signupResendCooldown > 0 || submitting) return;
+    setSubmitting(true);
+    const result = await resendSignupOtp(email);
+    setSubmitting(false);
+    if (result.error) { setAuthMsg(result.error); return; }
+    setAuthMsg('A new verification code has been sent if this address has a pending signup.');
+    setSignupResendCooldown(60);
+    const timer = setInterval(() => setSignupResendCooldown(prev => { if (prev <= 1) { clearInterval(timer); return 0; } return prev - 1; }), 1000);
   }
 
   async function handleForgotPassword(e: React.FormEvent) {
@@ -252,29 +338,12 @@ export default function WebApp() {
     } else if (onboardingStep === 'dob') {
       if (!onboardingDob) { setAuthMsg('Please enter your date of birth'); return; }
       const age = calcAge(onboardingDob);
+      if (age < 0) { setAuthMsg('Please enter a valid date of birth that is not in the future.'); return; }
       if (age < 18) {
-        setSubmitting(true);
-        const { error } = await upsertChatProfile({
-          display_name: myProfile?.name || '',
-          bio: myProfile?.bio || '',
-          avatar_url: myProfile?.avatar || '',
-          cover_url: myProfile?.cover || '',
-          share_name: myProfile?.share_name !== undefined ? myProfile.share_name : true,
-          share_bio: myProfile?.share_bio !== undefined ? myProfile.share_bio : true,
-          date_of_birth: onboardingDob,
-        });
-        setSubmitting(false);
-        if (error) setAuthMsg(error);
-        else {
-          setUnderage(true);
-          if (myProfile) {
-            setMyProfile({ ...myProfile, date_of_birth: onboardingDob });
-            setOnboardingStep(null);
-            setPage('profile');
-          } else {
-            setOnboardingStep('name');
-          }
-        }
+        // Keep the registration incomplete until name and bio are submitted.
+        // The final profile write stores the DOB and accepted terms together.
+        setUnderage(true);
+        setOnboardingStep('name');
         return;
       }
       if (myProfile) {
@@ -296,14 +365,12 @@ export default function WebApp() {
       }
     } else if (onboardingStep === 'name') {
       if (!onboardingName || onboardingName.length < 1) { setAuthMsg('Display name is required'); return; }
-      setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: '', avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
-      setSubmitting(false);
-      if (error) setAuthMsg(error);
-      else setOnboardingStep('bio');
+      // Keep the profile absent until the full onboarding flow is completed.
+      // Otherwise a partially completed registration could look like an old account on reload.
+      setOnboardingStep('bio');
     } else {
       setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob, terms_accepted_at: new Date().toISOString(), terms_version: '2026-11-11' } as any);
       setSubmitting(false);
       if (error) setAuthMsg(error);
       else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); }
@@ -321,7 +388,10 @@ export default function WebApp() {
     setWsStatus('connecting');
     const accessToken = await getValidAccessToken();
     if (!accessToken) { setWsStatus('error'); addLog('Your session expired. Please sign in again.'); return null; }
-    const ws = new WebSocket(`${WS_URL}?access_token=${encodeURIComponent(accessToken)}`);
+    const socketUrl = new URL(WS_URL);
+    socketUrl.searchParams.set('access_token', accessToken);
+    socketUrl.searchParams.set('environment', SIGNALING_ENV);
+    const ws = new WebSocket(socketUrl.toString());
     wsRef.current = ws;
     ws.onopen = () => { setWsStatus('connected'); addLog('Connected'); };
     ws.onmessage = (e) => {
@@ -329,8 +399,35 @@ export default function WebApp() {
       addLog('Signal: ' + msg.type);
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
-        case 'matched': inCallRef.current = true; setPartnerId(msg.partner); if (msg.userId) setPartnerProfile(prev => ({ userId: msg.userId, name: prev?.name || '', bio: prev?.bio || '', avatar: prev?.avatar || '' })); roomRef.current = msg.room || ''; setReportSent(false); setReportPending(false); startCall(ws, msg.role); break;
-        case 'partner_left': addLog('Partner ended the call'); setPartnerId(''); break;
+        case 'matched': {
+          // Ignore malformed, stale, duplicate, or cross-socket match events.
+          // A live room must never be replaced by an unsolicited second match.
+          if (wsRef.current !== ws || !msg.room || !msg.partner) {
+            addLog('Ignored invalid or stale match event');
+            break;
+          }
+          if (roomRef.current === msg.room && pcRef.current) {
+            addLog('Ignored duplicate match event');
+            break;
+          }
+          if (inCallRef.current && roomRef.current && roomRef.current !== msg.room) {
+            addLog('Ignored unexpected match while another room is active');
+            break;
+          }
+          if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
+          if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.close(); pcRef.current = null; }
+          dcRef.current?.close?.(); dcRef.current = null;
+          inCallRef.current = true; roomRef.current = msg.room || '';
+          remoteStreamRef.current = null; pendingIceRef.current = [];
+          partnerIdRef.current = msg.partner; setPartnerId(msg.partner); setPartnerLeft(false);
+          if (msg.userId) setPartnerProfile({ userId: msg.userId, name: '', bio: '', avatar: '' });
+          setChatMessages([]); setShowChat(false); setReportSent(false); setReportPending(false);
+          addLog('Connecting video and chat…');
+          startCall(ws, msg.role); break;
+        }
+        case 'partner_left':
+          if (!msg.room || msg.room !== roomRef.current) break;
+          addLog('Partner ended the call'); void cleanup(true); setPartnerLeft(true); break;
         case 'reported': addLog('You have been reported'); break;
         case 'report_ack': setReportSent(true); setReportPending(false); addLog('Report submitted'); break;
         case 'report_error': setReportSent(false); setReportPending(false); addLog(msg.reason || 'Report could not be submitted.'); break;
@@ -342,12 +439,27 @@ export default function WebApp() {
       }
     };
     ws.onerror = () => { setWsStatus('error'); addLog('WS error'); };
-    ws.onclose = () => { setWsStatus('disconnected'); addLog('Disconnected'); };
+    ws.onclose = (e) => {
+      if (wsRef.current !== ws) return;
+      setWsStatus('disconnected'); addLog(`Disconnected (code ${e.code}${e.reason ? ': ' + e.reason : ''})`);
+      if (inCallRef.current) { void cleanup(true); setPartnerLeft(true); }
+    };
     return ws;
   }
 
+  function updateCallReadiness(pc: RTCPeerConnection, dc: RTCDataChannel, callRoom: string) {
+    if (pcRef.current !== pc || roomRef.current !== callRoom || dcRef.current !== dc) return;
+    const videoReady = pc.connectionState === 'connected' ||
+      pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed';
+    const chatReady = dc.readyState === 'open';
+    if (videoReady && chatReady) addLog('Chat ready');
+    else if (videoReady) addLog('Video connected; preparing chat…');
+    else if (chatReady) addLog('Chat channel connected; waiting for video…');
+    else addLog('Connecting video and chat…');
+  }
+
   async function startCall(ws: WebSocket, role?: string) {
-    addLog('Starting call...');
+    addLog('Connecting video and chat…');
     setState('connecting');
     const pc = new RTCPeerConnection({
       iceServers: [
@@ -359,16 +471,65 @@ export default function WebApp() {
       ],
     });
     pcRef.current = pc;
-    pc.onicecandidate = (e) => { if (e.candidate) ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate })); };
-    pc.ontrack = (e) => {
-      if (e.streams?.[0] && remoteRef.current) remoteRef.current.srcObject = e.streams[0];
+    const callRoom = roomRef.current;
+    // A data channel can open before media ICE is connected. Never leave the
+    // user on an infinite loading overlay if the media transport stalls.
+    callSetupTimeoutRef.current = setTimeout(() => {
+      if (pcRef.current !== pc || roomRef.current !== callRoom || pc.connectionState === 'connected') return;
+      addLog('Video connection timed out. Please try Next and reconnect.');
+      notifyMatchEnded(callRoom);
+      void cleanup(true);
+      setPartnerLeft(true);
+    }, 25000);
+    pc.onicecandidate = (e) => {
+      if (e.candidate && pcRef.current === pc && roomRef.current === callRoom && ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: 'ice', candidate: e.candidate, room: callRoom }));
     };
-    pc.oniceconnectionstatechange = () => { addLog('ICE: ' + pc.iceConnectionState); if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') setPartnerLeft(true); };
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'connected') addLog('Connected!'); };
+    pc.ontrack = (e) => {
+      if (pcRef.current !== pc || roomRef.current !== callRoom || !remoteRef.current) return;
+      // Some browsers deliver streamless tracks (event.streams is empty). Build
+      // one stable remote stream instead of silently dropping those video tracks.
+      const remoteStream = e.streams?.[0] || remoteStreamRef.current || new MediaStream();
+      if (!e.streams?.[0] && !remoteStream.getTracks().some(track => track.id === e.track.id)) {
+        remoteStream.addTrack(e.track);
+      }
+      remoteStreamRef.current = remoteStream;
+      if (remoteRef.current.srcObject !== remoteStream) remoteRef.current.srcObject = remoteStream;
+      const playRemote = () => {
+        const video = remoteRef.current;
+        if (video && pcRef.current === pc && roomRef.current === callRoom && video.srcObject === remoteStream)
+          void video.play().catch(error => addLog('Remote video playback needs a tap: ' + (error?.name || 'autoplay blocked')));
+      };
+      e.track.onunmute = playRemote;
+      e.track.onended = () => { if (pcRef.current === pc && roomRef.current === callRoom) addLog('Partner video track ended'); };
+      playRemote();
+    };
+    pc.oniceconnectionstatechange = () => {
+      if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+      addLog('ICE: ' + pc.iceConnectionState);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
+        setState('connected');
+        if (dcRef.current) updateCallReadiness(pc, dcRef.current, callRoom);
+      }
+      if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
+      else if (pc.iceConnectionState === 'disconnected') addLog('Connection interrupted. Trying to recover…');
+    };
+    pc.onconnectionstatechange = () => {
+      if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+      addLog('Peer connection: ' + pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
+        addLog('Video connection established'); setState('connected');
+        if (dcRef.current) updateCallReadiness(pc, dcRef.current, callRoom);
+      }
+      if (pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
+    };
 
     function onDcMessage(e: any) {
       try {
         const data = JSON.parse(e.data);
+        if (pcRef.current !== pc) return;
         if (data.type === 'msg') {
           const msg = { me: false, text: data.text };
           setChatMessages(prev => [...prev, msg]);
@@ -382,13 +543,14 @@ export default function WebApp() {
     if (role === 'offer') {
       const dc = pc.createDataChannel('chat');
       dcRef.current = dc;
-      dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+      dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; updateCallReadiness(pc, dc, callRoom); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
       dc.onmessage = onDcMessage;
     } else {
       pc.ondatachannel = (e) => {
+        if (pcRef.current !== pc || roomRef.current !== callRoom) { e.channel.close(); return; }
         const dc = e.channel;
         dcRef.current = dc;
-        dc.onopen = () => { addLog('Chat ready'); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
+        dc.onopen = () => { if (pcRef.current !== pc || roomRef.current !== callRoom) return; updateCallReadiness(pc, dc, callRoom); if (myProfile) dc.send(JSON.stringify({ type: 'profile', userId: myProfile.userId, name: myProfile.name, bio: myProfile.bio, avatar: myProfile.avatar })); };
         dc.onmessage = onDcMessage;
       };
     }
@@ -401,44 +563,89 @@ export default function WebApp() {
       });
     }
     if (role === 'offer') {
-      addLog('Creating offer...');
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
-      addLog('Sent offer');
+      try {
+        addLog('Creating offer...');
+        const offer = await pc.createOffer();
+        if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+        await pc.setLocalDescription(offer);
+        if (pcRef.current !== pc || roomRef.current !== callRoom) return;
+        if (ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: callRoom }));
+        addLog('Sent offer');
+      } catch (error: any) {
+        if (pcRef.current === pc) { notifyMatchEnded(callRoom); addLog('Could not start call: ' + (error?.message || 'connection setup failed')); void cleanup(true); setPartnerLeft(true); }
+      }
     } else {
       addLog('Waiting for offer...');
     }
-    setState('connected');
   }
 
   async function handleSDP(ws: WebSocket, msg: any) {
     const pc = pcRef.current;
-    if (!pc) { addLog('Error: no PC'); return; }
+    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerIdRef.current) return;
+    const activeRoom = roomRef.current;
     addLog('Received ' + msg.sdp.type);
-    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+    } catch (error: any) {
+      if (pcRef.current === pc && roomRef.current === activeRoom) { notifyMatchEnded(activeRoom); addLog('Could not process call setup: ' + (error?.message || 'invalid signaling')); void cleanup(true); setPartnerLeft(true); }
+      return;
+    }
+    if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
+    // ICE can arrive before the remote SDP on slower/mobile networks. Apply
+    // queued candidates only after setRemoteDescription has completed.
+    const queuedCandidates = pendingIceRef.current.splice(0);
+    for (const candidate of queuedCandidates) {
+      if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
+      try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
+      catch (error: any) { addLog('Queued ICE candidate rejected: ' + (error?.message || 'unknown error')); }
+    }
     if (msg.sdp.type === 'offer') {
       addLog('Creating answer...');
       const answer = await pc.createAnswer();
+      if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
       await pc.setLocalDescription(answer);
-      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription }));
+      if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
+      if (ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: activeRoom }));
       addLog('Sent answer');
     }
   }
 
+  function notifyMatchEnded(room: string) {
+    const ws = wsRef.current;
+    if (room && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'end', room }));
+  }
+
   async function handleICE(msg: any) {
-    try { await pcRef.current?.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch (_) {}
+    const pc = pcRef.current;
+    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerIdRef.current || !msg.candidate) return;
+    if (!pc.remoteDescription?.type) {
+      pendingIceRef.current.push(msg.candidate);
+      return;
+    }
+    try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); }
+    catch (error: any) { addLog('ICE candidate rejected: ' + (error?.message || 'unknown error')); }
   }
 
   async function findStranger() {
-    const { profile } = await getChatProfile();
-    if (!profile?.date_of_birth) {
-      setCamError('Please add your date of birth before starting video chat.');
-      setOnboardingDob('');
-      setOnboardingStep('dob');
+    const { profile, error } = await getChatProfile();
+    if (error || !profile) {
+      setCamError('We could not verify your profile. Please refresh and try again.');
+      return;
+    }
+    if (!profile.date_of_birth) {
+      // Existing accounts are not forced through first-time onboarding.
+      // Keep video chat gated until a valid age record is available.
+      setCamError('Video chat requires a valid age record. Please contact support to update your account.');
       return;
     }
     const currentAge = calcAge(profile.date_of_birth);
+    if (currentAge < 0) {
+      setUnderage(false);
+      setCamError('Your date of birth is invalid or in the future. Please contact support to correct it.');
+      return;
+    }
     if (currentAge < 18) {
       setUnderage(true);
       setCamError('Video chat is not available for users under 18. You can use the messaging system instead.');
@@ -449,6 +656,13 @@ export default function WebApp() {
     // independently enforces the same 18+ rule.
     setUnderage(false);
     setCamError('');
+    try {
+      if (user?.id && localStorage.getItem('liveme-media-auto-request:' + user.id) === 'false') {
+        setCamError('Automatic camera and microphone requests are turned off. Open Settings and enable “Automatically request both when starting Random Chat”.');
+        setState('idle');
+        return;
+      }
+    } catch {}
     if (user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
@@ -456,16 +670,18 @@ export default function WebApp() {
     }
     try {
       addLog('Requesting camera...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } } });
-      try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getAudioTracks().forEach(t => stream.addTrack(t));
-      } catch {
-        setNoAudio(true);
-      }
+      // Request camera and microphone together. Never enter the match queue with only one device.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      setNoAudio(false);
       addLog('Camera OK');
       lsRef.current = stream;
-      if (localRef.current) localRef.current.srcObject = stream;
+      if (localRef.current) {
+        localRef.current.srcObject = stream;
+        void localRef.current.play().catch(error => addLog('Local camera preview playback blocked: ' + (error?.name || 'autoplay blocked')));
+      }
       setState('searching');
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         addLog('WS not open, reconnecting...');
@@ -494,11 +710,11 @@ export default function WebApp() {
       const notFound = e.name === 'NotFoundError';
       const inUse = e.message?.includes('already in use') || e.name === 'NotReadableError';
       const camFail = e.message?.includes('Could not start');
-      if (denied) setCamError('Camera permission denied. Please allow camera access in your browser settings and try again.');
-      else if (notFound) setCamError('No camera found on this device.');
-      else if (inUse) setCamError('Camera is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\n\nIf no other apps are open:\n• Open Task Manager and end ALL Chrome processes\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\n• Or try a different browser (Firefox, Edge)');
-      else if (camFail) setCamError('Camera failed to start. Try restarting your browser or reconnecting your camera.');
-      else setCamError('Could not access camera: ' + (e.message || e.name));
+      if (denied) setCamError('Camera or microphone permission denied. Allow BOTH devices for LiveMe in your browser settings, then try again.');
+      else if (notFound) setCamError('A camera or microphone could not be found on this device.');
+      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\n\nIf no other apps are open:\n• Open Task Manager and end ALL Chrome processes\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\n• Or try a different browser (Firefox, Edge)');
+      else if (camFail) setCamError('Camera or microphone failed to start. Try restarting your browser or reconnecting your devices.');
+      else setCamError('Could not access both camera and microphone: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));
     }
   }
@@ -514,7 +730,7 @@ export default function WebApp() {
     addLog('Submitting report...');
   }
 
-  async function cleanup() {
+  async function cleanup(suppressReport = false, preserveLocalStream = false) {
     const pUserId = partnerProfile?.userId;
     let pName = partnerProfile?.name || '';
     let pBio = partnerProfile?.bio || '';
@@ -523,20 +739,35 @@ export default function WebApp() {
     const savedName = pName;
 
     inCallRef.current = false;
-    // Ask to report partner after call ends
-    if (!reportSent && !reportPending && pUserId) {
+    if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
+    const oldRoom = roomRef.current;
+    roomRef.current = '';
+    setPartnerLeft(false);
+    if (!suppressReport && !reportSent && !reportPending && pUserId) {
       const partnerDisplayName = savedName || 'this user';
       if (confirm('Report ' + partnerDisplayName + ' for abuse?')) {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: roomRef.current, messageText: '' }));
+          wsRef.current.send(JSON.stringify({ type: 'report', target: partnerId, room: oldRoom, messageText: '' }));
           setReportPending(true);
         }
       }
     }
     // Critical teardown first (sync)
-    lsRef.current?.getTracks().forEach((t: any) => t.stop());
-    lsRef.current = null; pcRef.current?.close(); pcRef.current = null; dcRef.current = null;
-    setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); setPartnerId('');
+    // Next keeps the current camera/microphone capture alive. Stopping it here
+    // races the next match: startCall can run before getUserMedia reacquires it,
+    // leaving both local preview and outgoing video permanently black.
+    if (!preserveLocalStream) {
+      lsRef.current?.getTracks().forEach((t: any) => t.stop());
+      lsRef.current = null;
+    }
+    if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.oniceconnectionstatechange = null; pcRef.current.onconnectionstatechange = null; pcRef.current.close(); }
+    pcRef.current = null;
+    dcRef.current?.close?.(); dcRef.current = null;
+    if (remoteRef.current) { remoteRef.current.pause(); remoteRef.current.srcObject = null; }
+    remoteStreamRef.current = null; pendingIceRef.current = [];
+    // Keep the live local preview attached when advancing to the next partner.
+    if (!preserveLocalStream && localRef.current) localRef.current.srcObject = null;
+    setState('idle'); setNoAudio(false); setPartnerProfile(null); setChatMessages([]); setShowChat(false); partnerIdRef.current = ''; setPartnerId('');
 
     // Save to recent_live with profile fallback if name is missing
     if (uid && !savedName) {
@@ -555,7 +786,15 @@ export default function WebApp() {
     }
   }
 
-  function skip() { cleanup(); setPartnerId(''); wsRef.current?.send(JSON.stringify({ type: 'next' })); }
+  function skip() {
+    const ws = wsRef.current;
+    if (ws?.readyState !== WebSocket.OPEN) { void cleanup(true); setCamError('Connection lost. Please reconnect before finding another partner.'); return; }
+    // Tear down only the old peer connection; retain the camera/mic stream
+    // so the next room can attach live tracks immediately on either side.
+    void cleanup(true, true);
+    setPartnerId(''); setPartnerLeft(false); setState('searching'); setLog('Finding next partner…');
+    ws.send(JSON.stringify({ type: 'next' }));
+  }
 
   function sendChat() {
     const text = chatInput.trim();
@@ -592,6 +831,23 @@ export default function WebApp() {
     fontFamily: 'system-ui, sans-serif', width: '100%',
     boxShadow: '0 4px 20px rgba(108,99,255,0.3)',
   };
+
+  if (signupVerification) {
+    return (
+      <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 8, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+        <h2 style={{ fontSize: 20, margin: '8px 0' }}>Verify your email</h2>
+        <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 340, lineHeight: 1.6, marginBottom: 18 }}>Enter the 6-digit code sent to <b style={{ color: '#fff' }}>{email}</b>. Check your spam or junk folder too.</p>
+        <form onSubmit={handleSignupVerification} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+          <input style={{ ...input, textAlign: 'center', letterSpacing: 8, fontSize: 22 }} type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="000000" value={signupCode} onChange={e => setSignupCode(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} required />
+          <button type="submit" disabled={submitting || signupCode.length !== 6} style={{ ...mobileBtn, opacity: submitting || signupCode.length !== 6 ? 0.5 : 1 }}>{submitting ? 'Verifying…' : 'Verify email and continue'}</button>
+        </form>
+        {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', maxWidth: 340, marginTop: 14 }}>{authMsg}</p>}
+        <button type="button" onClick={handleResendSignupCode} disabled={submitting || signupResendCooldown > 0} style={{ background: 'transparent', border: 0, color: '#9a91ff', padding: 14, cursor: 'pointer', marginTop: 8, opacity: submitting || signupResendCooldown > 0 ? 0.5 : 1 }}>{signupResendCooldown > 0 ? `Resend code in ${signupResendCooldown}s` : 'Resend verification code'}</button>
+        <button type="button" onClick={() => { setSignupVerification(false); setSignupCode(''); setAuthMsg(''); }} style={{ background: 'transparent', border: 0, color: '#888', padding: 8, cursor: 'pointer' }}>Back to sign up</button>
+      </div>
+    );
+  }
 
   if (recoveryMode) {
     return (
@@ -679,7 +935,7 @@ export default function WebApp() {
     <div style={{ width: '100vw', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', position: 'relative', overflow: 'hidden' }}>
       {/* Always-mounted video elements - hidden on non-chat pages so stream stays alive */}
       <div style={page === 'chat' ? { position: 'fixed', inset: 0, zIndex: 0 } : { position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-        <video ref={remoteRef} autoPlay playsInline style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
+        <video ref={remoteRef} autoPlay playsInline onLoadedMetadata={() => { const video = remoteRef.current; if (video) void video.play().catch(error => addLog('Remote playback waiting for user interaction: ' + (error?.name || 'autoplay blocked'))); }} onClick={() => { const video = remoteRef.current; if (video) void video.play().catch(error => addLog('Remote playback failed: ' + (error?.message || error?.name || 'unknown error'))); }} style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', objectFit: 'cover', background: '#111' }} />
         <video ref={localRef} autoPlay playsInline muted style={{ position: 'fixed', top: 'calc(14px + env(safe-area-inset-top, 0px))', right: 10, width: 100, height: 140, borderRadius: 10, zIndex: 10, border: '2px solid rgba(255,255,255,0.15)', objectFit: 'cover', background: '#111' }} />
       </div>
 
@@ -879,7 +1135,10 @@ export default function WebApp() {
                 <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
                 <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
                   <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-                  <input style={input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
+                    <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
+                  </div>
                   <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
@@ -930,8 +1189,10 @@ export default function WebApp() {
                 password={password}
                 onEmailChange={setEmail}
                 onPasswordChange={setPassword}
+                showPassword={showPassword}
+                onTogglePassword={() => setShowPassword(v => !v)}
                 onSubmit={handleAuth}
-                onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
+                onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setPassword(''); setShowPassword(false); setAuthMsg(''); }}
                 showForgot={showForgot}
                 forgotSent={forgotSent}
                 forgotEmail={forgotEmail}
@@ -940,8 +1201,8 @@ export default function WebApp() {
                 onForgotSubmit={handleForgotPassword}
                 onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
                 onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
-                onGoogleSignIn={() => signInWithGoogle()}
-                onGitHubSignIn={() => signInWithGitHub()}
+                onGoogleSignIn={() => { setAuthMsg(''); signInWithGoogle(); }}
+                onGitHubSignIn={() => { setAuthMsg(''); signInWithGitHub(); }}
               />
             </div>
             <Footer setPage={handleNav} />
@@ -951,9 +1212,17 @@ export default function WebApp() {
         /* Authenticated user pages */
         <>
           {page === 'profile' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
+            <div className="page-content profile-page-shell" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} />
+              <Footer setPage={handleNav} />
+            </div>
+          )}
+
+          {page === 'settings' && (
+            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
+              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
+              <SettingsPage userId={user?.id || ''} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1048,14 +1317,15 @@ export default function WebApp() {
             <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, marginBottom: 4, textAlign: 'center', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
             <p style={{ color: '#888', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>Welcome! Before you start...</p>
             <div style={{ color: '#ccc', fontSize: 13, textAlign: 'left', lineHeight: 1.6, marginBottom: 12 }}>
-              <p style={{ marginBottom: 10 }}>LiveMe connects you with people around the world through live video chat and instant messaging.</p>
-              <p style={{ marginBottom: 8, color: '#6c63ff', fontWeight: 600 }}>Your Security</p>
-              <p style={{ marginBottom: 6 }}>• All messages are encrypted in transit. Your personal data is never shared with third parties.</p>
-              <p style={{ marginBottom: 6 }}>• You control what appears on your public profile. Display name and bio sharing can be toggled on/off.</p>
-              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Account Safety</p>
-              <p style={{ marginBottom: 6 }}>• Never share your password or personal information with strangers.</p>
-              <p style={{ marginBottom: 6 }}>• Report any suspicious or abusive behavior immediately — we take action on every report.</p>
-              <p style={{ marginBottom: 6 }}>• You can block and report users directly from the chat or messaging interface.</p>
+              <p style={{ marginBottom: 10 }}>Meet people through Random Chat, build your profile, and continue conversations with private messages.</p>
+              <p style={{ marginBottom: 8, color: '#6c63ff', fontWeight: 600 }}>Quick start tips</p>
+              <p style={{ marginBottom: 6 }}>• Random Chat: allow camera and microphone access when you are ready to meet someone.</p>
+              <p style={{ marginBottom: 6 }}>• Messaging: use your inbox to continue conversations with people you choose.</p>
+              <p style={{ marginBottom: 6 }}>• Your profile: choose what name and bio details you share publicly.</p>
+              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Stay safe</p>
+              <p style={{ marginBottom: 6 }}>• Never share passwords, financial details, or your home address with strangers.</p>
+              <p style={{ marginBottom: 6 }}>• Use report and block tools if someone behaves abusively or makes you uncomfortable.</p>
+              <p style={{ marginBottom: 6 }}>• Be respectful and remember that people you meet online may not be who they claim to be.</p>
               <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Age Requirement</p>
               <p style={{ marginBottom: 6 }}>• Live video chat is restricted to users aged 18 and older.</p>
               <p style={{ marginBottom: 6 }}>• If you are under 18, you can still use the text messaging system to chat with other users.</p>

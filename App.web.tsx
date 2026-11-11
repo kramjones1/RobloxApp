@@ -9,8 +9,8 @@ import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 
-const WS_URL = 'wss://omegle-signaling-server-251a.onbelmo.uk';
-const API_URL = 'https://omegle-signaling-server-251a.onbelmo.uk';
+const WS_URL = 'wss://omegle-signaling-cloudflare.kafka9607.workers.dev';
+const API_URL = 'https://omegle-signaling-cloudflare.kafka9607.workers.dev';
 
 const meta = document.createElement('meta');
 meta.name = 'theme-color';

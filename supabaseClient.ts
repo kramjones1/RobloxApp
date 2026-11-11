@@ -325,6 +325,9 @@ export interface ChatProfile {
   cover_url: string;
   share_name: boolean;
   share_bio: boolean;
+  work?: string;
+  education?: string;
+  share_details?: boolean;
   date_of_birth?: string;
   terms_accepted_at?: string;
   terms_version?: string;
@@ -358,6 +361,14 @@ export async function getUserProfile(userId: string): Promise<{ profile?: ChatPr
       if (!Array.isArray(data) || data.length === 0) return {};
       p = data[0];
     }
+    let details: any = p;
+    if (currentUser.id !== userId) {
+      const detailRows = await supabaseFetch(
+        `${SUPABASE_URL}/rest/v1/rpc/get_public_chat_profile_details`,
+        { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ target_user_id: userId }) }
+      );
+      if (!detailRows?.error && Array.isArray(detailRows) && detailRows.length) details = { ...p, ...detailRows[0] };
+    }
     return {
       profile: {
         display_name: p.display_name || 'Anonymous',
@@ -366,6 +377,9 @@ export async function getUserProfile(userId: string): Promise<{ profile?: ChatPr
         cover_url: p.cover_url || '',
         share_name: Boolean(p.share_name),
         share_bio: Boolean(p.share_bio),
+        work: details.work || '',
+        education: details.education || '',
+        share_details: details.share_details !== false,
       },
     };
   } catch (e: any) {
@@ -386,7 +400,7 @@ export async function getChatProfile(): Promise<{ profile?: ChatProfile; error?:
     if (data.error) return { error: data.error };
     if (Array.isArray(data) && data.length > 0) {
       const p = data[0];
-      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio, date_of_birth: p.date_of_birth } };
+      return { profile: { display_name: p.display_name, bio: p.bio, avatar_url: p.avatar_url, cover_url: p.cover_url, share_name: p.share_name, share_bio: p.share_bio, work: p.work || '', education: p.education || '', share_details: p.share_details !== false, date_of_birth: p.date_of_birth } };
     }
     return {};
   } catch (e: any) {

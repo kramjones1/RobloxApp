@@ -541,6 +541,13 @@ export default function WebApp() {
     // independently enforces the same 18+ rule.
     setUnderage(false);
     setCamError('');
+    try {
+      if (user?.id && localStorage.getItem('liveme-media-auto-request:' + user.id) === 'false') {
+        setCamError('Automatic camera and microphone requests are turned off. Open Settings and enable “Automatically request both when starting Random Chat”.');
+        setState('idle');
+        return;
+      }
+    } catch {}
     if (user?.id) setMyProfile({ userId: user.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
     if (lsRef.current) {
       lsRef.current.getTracks().forEach((t: any) => t.stop());
@@ -588,11 +595,11 @@ export default function WebApp() {
       const notFound = e.name === 'NotFoundError';
       const inUse = e.message?.includes('already in use') || e.name === 'NotReadableError';
       const camFail = e.message?.includes('Could not start');
-      if (denied) setCamError('Camera permission denied. Please allow camera access in your browser settings and try again.');
-      else if (notFound) setCamError('No camera found on this device.');
-      else if (inUse) setCamError('Camera is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\n\nIf no other apps are open:\n• Open Task Manager and end ALL Chrome processes\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\n• Or try a different browser (Firefox, Edge)');
-      else if (camFail) setCamError('Camera failed to start. Try restarting your browser or reconnecting your camera.');
-      else setCamError('Could not access camera: ' + (e.message || e.name));
+      if (denied) setCamError('Camera or microphone permission denied. Allow BOTH devices for LiveMe in your browser settings, then try again.');
+      else if (notFound) setCamError('A camera or microphone could not be found on this device.');
+      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\n\nIf no other apps are open:\n• Open Task Manager and end ALL Chrome processes\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\n• Or try a different browser (Firefox, Edge)');
+      else if (camFail) setCamError('Camera or microphone failed to start. Try restarting your browser or reconnecting your devices.');
+      else setCamError('Could not access both camera and microphone: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));
     }
   }

@@ -8,6 +8,7 @@ import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
+import SettingsPage from './pages/SettingsPage';
 
 const WS_URL = 'wss://omegle-signaling-server.kafka9607.workers.dev';
 const API_URL = 'https://omegle-signaling-server.kafka9607.workers.dev';
@@ -547,13 +548,12 @@ export default function WebApp() {
     }
     try {
       addLog('Requesting camera...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } } });
-      try {
-        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioStream.getAudioTracks().forEach(t => stream.addTrack(t));
-      } catch {
-        setNoAudio(true);
-      }
+      // Request camera and microphone together. Never enter the match queue with only one device.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 320 }, height: { ideal: 240 } },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      setNoAudio(false);
       addLog('Camera OK');
       lsRef.current = stream;
       if (localRef.current) {
@@ -1062,6 +1062,14 @@ export default function WebApp() {
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} />
+              <Footer setPage={handleNav} />
+            </div>
+          )}
+
+          {page === 'settings' && (
+            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
+              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
+              <SettingsPage userId={user?.id || ''} />
               <Footer setPage={handleNav} />
             </div>
           )}

@@ -42,6 +42,8 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const pendingCallCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   const callLocalStreamRef = useRef<MediaStream | null>(null);
   const callTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const callStartedAtRef = useRef<number | null>(null);
+  const CALL_LOG_PREFIX = '[livme-call]';
   const localCallVideoRef = useRef<HTMLVideoElement>(null);
   const remoteCallVideoRef = useRef<HTMLVideoElement>(null);
   const remoteCallAudioRef = useRef<HTMLAudioElement>(null);
@@ -52,6 +54,21 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   function endLocalCall() {
+    const finishedSession = callSessionRef.current;
+    const startedAt = callStartedAtRef.current;
+    callStartedAtRef.current = null;
+    if (finishedSession?.direction === 'outgoing' && startedAt) {
+      const durationSeconds = Math.max(1, Math.floor((Date.now() - startedAt) / 1000));
+      const callLog = `${CALL_LOG_PREFIX}|${finishedSession.media}|${durationSeconds}|completed`;
+      void sendMessage(finishedSession.partnerId, callLog).then(result => {
+        if (!result.error) {
+          if (selectedId === finishedSession.partnerId) {
+            getMessages(finishedSession.partnerId).then(({ messages: latest }) => { if (latest) setMessages(latest); });
+          }
+          loadConvs();
+        }
+      });
+    }
     if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
     callTimeoutRef.current = null;
     callPcRef.current?.close();
@@ -105,6 +122,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       };
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected' && callSessionRef.current?.callId === session.callId) {
+          if (session.direction === 'outgoing' && callStartedAtRef.current === null) callStartedAtRef.current = Date.now();
           updateCallSession({ ...session, status: 'active' });
         } else if (pc.connectionState === 'failed' && callSessionRef.current?.callId === session.callId) {
           setCallError('The call connection failed. Please try again.');
@@ -356,10 +374,10 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               </>
             )}
             <div style={{ position: 'absolute', top: 'calc(18px + env(safe-area-inset-top, 0px))',
-              left: 16, right: isVideo ? (isMobileCall ? 124 : 174) : 16,
-              color: '#fff', textShadow: '0 1px 5px #000' }}>
-              <div style={{ fontSize: 16, fontWeight: 650 }}>{callerName}</div>
-              <div style={{ fontSize: 12, color: '#ddd', marginTop: 4 }}>{statusText}</div>
+              left: 16, right: 16, minWidth: 0, color: '#fff', textShadow: '0 1px 5px #000',
+              padding: '7px 11px', borderRadius: 12, background: 'rgba(0,0,0,0.38)', boxSizing: 'border-box' }}>
+              <div style={{ fontSize: 16, fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{callerName}</div>
+              <div style={{ fontSize: 13, lineHeight: '18px', color: '#fff', marginTop: 4, whiteSpace: 'nowrap', overflow: 'visible' }}>{statusText}</div>
             </div>
             <div style={{
               position: 'absolute', left: 0, right: 0, bottom: 0,
@@ -588,8 +606,42 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   if (loading) return <div style={{ background: '#161616', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
 
+  function parseCallLog(content: string) {
+    const match = content.match(/^\\[livme-call\\]\\|(audio|video)\\|(\\d+)\\|completed$/);
+    return match ? { media: match[1] as 'audio' | 'video', seconds: Number(match[2]) } : null;
+  }
+
+  function formatCallDuration(totalSeconds: number) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}` : `0:${String(seconds).padStart(2, '0')}`;
+  }
+
+  function renderCallLog(messageId: string, content: string) {
+    const call = parseCallLog(content);
+    if (!call) return null;
+    return (
+      <div key={messageId} style={{ alignSelf: 'center', maxWidth: '85%', margin: '9px 0', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, padding: '10px 14px', borderRadius: 14,
+          background: '#20202a', border: '1px solid rgba(255,255,255,0.08)', color: '#ddd' }}>
+          <span aria-hidden="true" style={{ width: 30, height: 30, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#303047', fontSize: 16 }}>{call.media === 'video' ? '▣' : '☎'}</span>
+          <span style={{ textAlign: 'left', minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 650, color: '#fff' }}>{call.media === 'video' ? 'Video call' : 'Audio call'}</span>
+            <span style={{ display: 'block', fontSize: 11, color: '#aaa', marginTop: 2 }}>Call ended · {formatCallDuration(call.seconds)}</span>
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  function getMessagePreview(content: string) {
+    const call = parseCallLog(content);
+    return call ? `${call.media === 'video' ? 'Video' : 'Audio'} call · ${formatCallDuration(call.seconds)}` : content;
+  }
+
   function renderMessages(withAvatars: boolean) {
     return messages.map((m, i) => {
+      if (parseCallLog(m.content)) return renderCallLog(m.id, m.content);
       const isMe = m.sender_id === myId;
       const showAvatar = withAvatars && !isMe && (i === 0 || messages[i - 1]?.sender_id !== m.sender_id);
       const isFirstBySender = i === 0 || messages[i - 1]?.sender_id !== m.sender_id;
@@ -721,7 +773,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                     <span style={{ color: '#666', fontSize: 11 }}>{new Date(conv.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <span style={{ color: conv.unread > 0 ? '#ccc' : '#888', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', fontWeight: conv.unread > 0 ? 600 : 400 }}>
-                    {conv.lastMessage.sender_id === myId ? 'You: ' : ''}{conv.lastMessage.content}
+                    {conv.lastMessage.sender_id === myId ? 'You: ' : ''}{getMessagePreview(conv.lastMessage.content)}
                   </span>
                 </div>
                 <span
@@ -755,6 +807,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
             {renderCallPanel()}
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {messages.map((m, i) => {
+                if (parseCallLog(m.content)) return renderCallLog(m.id, m.content);
                 const isMe = m.sender_id === myId;
                 const showAvatar = !isMe && (i === 0 || messages[i - 1]?.sender_id !== m.sender_id);
                 const isFirstBySender = i === 0 || messages[i - 1]?.sender_id !== m.sender_id;

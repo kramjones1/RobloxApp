@@ -341,6 +341,20 @@ export default function WebApp() {
       switch (msg.type) {
         case 'connected': setId(msg.id); break;
         case 'matched': {
+          // Ignore malformed, stale, duplicate, or cross-socket match events.
+          // A live room must never be replaced by an unsolicited second match.
+          if (wsRef.current !== ws || !msg.room || !msg.partner) {
+            addLog('Ignored invalid or stale match event');
+            break;
+          }
+          if (roomRef.current === msg.room && pcRef.current) {
+            addLog('Ignored duplicate match event');
+            break;
+          }
+          if (inCallRef.current && roomRef.current && roomRef.current !== msg.room) {
+            addLog('Ignored unexpected match while another room is active');
+            break;
+          }
           if (callSetupTimeoutRef.current) { clearTimeout(callSetupTimeoutRef.current); callSetupTimeoutRef.current = null; }
           if (pcRef.current) { pcRef.current.ontrack = null; pcRef.current.onicecandidate = null; pcRef.current.close(); pcRef.current = null; }
           dcRef.current?.close?.(); dcRef.current = null;
@@ -495,7 +509,7 @@ export default function WebApp() {
 
   async function handleSDP(ws: WebSocket, msg: any) {
     const pc = pcRef.current;
-    if (!pc || !msg.room || msg.room !== roomRef.current) return;
+    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerId) return;
     const activeRoom = roomRef.current;
     addLog('Received ' + msg.sdp.type);
     try {
@@ -532,7 +546,7 @@ export default function WebApp() {
 
   async function handleICE(msg: any) {
     const pc = pcRef.current;
-    if (!pc || !msg.room || msg.room !== roomRef.current || !msg.candidate) return;
+    if (!pc || !msg.room || msg.room !== roomRef.current || msg.from !== partnerId || !msg.candidate) return;
     if (!pc.remoteDescription?.type) {
       pendingIceRef.current.push(msg.candidate);
       return;

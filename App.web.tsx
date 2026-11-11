@@ -385,13 +385,13 @@ export default function WebApp() {
     pc.oniceconnectionstatechange = () => {
       if (pcRef.current !== pc || roomRef.current !== callRoom) return;
       addLog('ICE: ' + pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') { void cleanup(true); setPartnerLeft(true); }
+      if (pc.iceConnectionState === 'failed' || pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
       else if (pc.iceConnectionState === 'disconnected') addLog('Connection interrupted. Trying to recover…');
     };
     pc.onconnectionstatechange = () => {
       if (pcRef.current !== pc || roomRef.current !== callRoom) return;
       if (pc.connectionState === 'connected') { addLog('Connected!'); setState('connected'); }
-      if (pc.connectionState === 'failed') { void cleanup(true); setPartnerLeft(true); }
+      if (pc.connectionState === 'failed') { notifyMatchEnded(callRoom); void cleanup(true); setPartnerLeft(true); }
     };
 
     function onDcMessage(e: any) {
@@ -439,7 +439,7 @@ export default function WebApp() {
         ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: callRoom }));
         addLog('Sent offer');
       } catch (error: any) {
-        if (pcRef.current === pc) { addLog('Could not start call: ' + (error?.message || 'connection setup failed')); void cleanup(true); setPartnerLeft(true); }
+        if (pcRef.current === pc) { notifyMatchEnded(callRoom); addLog('Could not start call: ' + (error?.message || 'connection setup failed')); void cleanup(true); setPartnerLeft(true); }
       }
     } else {
       addLog('Waiting for offer...');
@@ -454,7 +454,7 @@ export default function WebApp() {
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
     } catch (error: any) {
-      if (pcRef.current === pc && roomRef.current === activeRoom) { addLog('Could not process call setup: ' + (error?.message || 'invalid signaling')); void cleanup(true); setPartnerLeft(true); }
+      if (pcRef.current === pc && roomRef.current === activeRoom) { notifyMatchEnded(activeRoom); addLog('Could not process call setup: ' + (error?.message || 'invalid signaling')); void cleanup(true); setPartnerLeft(true); }
       return;
     }
     if (pcRef.current !== pc || roomRef.current !== activeRoom) return;
@@ -467,6 +467,11 @@ export default function WebApp() {
       ws.send(JSON.stringify({ type: 'sdp', sdp: pc.localDescription, room: activeRoom }));
       addLog('Sent answer');
     }
+  }
+
+  function notifyMatchEnded(room: string) {
+    const ws = wsRef.current;
+    if (room && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'end', room }));
   }
 
   async function handleICE(msg: any) {

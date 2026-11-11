@@ -774,3 +774,74 @@ async function adminLog(action: string, targetId: string, details: string) {
     body: JSON.stringify({ admin_id: u.id, action, target_id: targetId, details }),
   });
 }
+
+
+export interface ChatPost {
+  id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+
+export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPost[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  if (!userId) return { error: 'Profile not found' };
+  try {
+    const rows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=20`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+    );
+    if (rows?.error) return { error: rows.error };
+    return { posts: Array.isArray(rows) ? rows as ChatPost[] : [] };
+  } catch (e: any) {
+    return { error: e.message || 'Could not load posts' };
+  }
+}
+
+export async function createProfilePost(content: string): Promise<{ post?: ChatPost; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  const clean = content.trim();
+  if (!clean) return { error: 'Write something before posting.' };
+  if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
+  try {
+    const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,created_at`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({ user_id: user.id, content: clean }),
+    });
+    if (rows?.error) return { error: rows.error };
+    if (!Array.isArray(rows) || !rows[0]) return { error: 'Post was not saved.' };
+    return { post: rows[0] as ChatPost };
+  } catch (e: any) {
+    return { error: e.message || 'Could not publish post' };
+  }
+}
+
+export async function deleteProfilePost(postId: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const result = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}`,
+      {
+        method: 'DELETE',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, Prefer: 'return=minimal' },
+      }
+    );
+    if (result?.error) return { error: result.error };
+    return {};
+  } catch (e: any) {
+    return { error: e.message || 'Could not delete post' };
+  }
+}

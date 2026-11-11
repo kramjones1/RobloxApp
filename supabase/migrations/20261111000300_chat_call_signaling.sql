@@ -11,8 +11,7 @@ to authenticated
 using (
   case
     when realtime.topic() ~ '^chat-call:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    then extension = 'broadcast'
-      and auth.uid() in (
+    then auth.uid() in (
         split_part(realtime.topic(), ':', 2)::uuid,
         split_part(realtime.topic(), ':', 3)::uuid
       )

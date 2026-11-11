@@ -607,7 +607,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   if (loading) return <div style={{ background: '#161616', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
 
   function parseCallLog(content: string) {
-    const match = content.match(/^\\[livme-call\\]\\|(audio|video)\\|(\\d+)\\|completed$/);
+    const match = content.match(/^\[livme-call\]\|(audio|video)\|(\d+)\|completed$/);
     return match ? { media: match[1] as 'audio' | 'video', seconds: Number(match[2]) } : null;
   }
 

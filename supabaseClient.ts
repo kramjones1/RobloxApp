@@ -909,7 +909,7 @@ export async function setProfilePostPrivacy(postId: string, isPrivate: boolean):
   if (!token || !user) return { error: 'Not authenticated' };
   try {
     const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}`, {
-      method: 'PATCH', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      method: 'PATCH', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
       body: JSON.stringify({ is_private: isPrivate }),
     });
     return result?.error ? { error: result.error } : {};

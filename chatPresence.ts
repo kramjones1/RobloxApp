@@ -178,26 +178,43 @@ export async function createChatCallSignaling(
   const uniquePartners = Array.from(new Set(partnerIds))
     .filter((id) => id && id !== userId);
 
-  await Promise.all(uniquePartners.map((partnerId) => new Promise<void>((resolve) => {
-    const pair = [userId, partnerId].sort();
-    const channel = realtimeClient.channel(`chat-call:${pair[0]}:${pair[1]}`, {
-      config: { private: true, broadcast: { self: false, ack: true } },
-    });
-    channels.set(partnerId, channel);
-    let settled = false;
-    const finish = () => {
-      if (!settled) { settled = true; resolve(); }
-    };
-    channel
-      .on('broadcast', { event: 'call-signal' }, ({ payload }) => {
-        const signal = payload as ChatCallSignal;
-        if (signal && signal.to === userId && signal.from === partnerId) onSignal(signal);
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') finish();
+  try {
+    await Promise.all(uniquePartners.map((partnerId) => new Promise<void>((resolve, reject) => {
+      const pair = [userId, partnerId].sort();
+      const channel = realtimeClient.channel(`chat-call:${pair[0]}:${pair[1]}`, {
+        config: { private: true, broadcast: { self: false, ack: true } },
       });
-    setTimeout(finish, 6000);
-  })));
+      channels.set(partnerId, channel);
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error('Call channel timed out while connecting. Keep the chat open and try again.'));
+      }, 12000);
+
+      channel
+        .on('broadcast', { event: 'call-signal' }, ({ payload }) => {
+          const signal = payload as ChatCallSignal;
+          if (signal && signal.to === userId && signal.from === partnerId) onSignal(signal);
+        })
+        .subscribe((status, error) => {
+          if (settled) return;
+          if (status === 'SUBSCRIBED') {
+            settled = true;
+            clearTimeout(timer);
+            resolve();
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            settled = true;
+            clearTimeout(timer);
+            reject(new Error(error?.message || `Call channel subscription failed (${status}). Check Realtime authorization and try again.`));
+          }
+        });
+    })));
+  } catch (error) {
+    channels.forEach((channel) => { void realtimeClient.removeChannel(channel); });
+    channels.clear();
+    throw error;
+  }
 
   return {
     send: async (partnerId, signal) => {
@@ -205,7 +222,7 @@ export async function createChatCallSignaling(
       if (!channel) return { error: 'This conversation is not ready for calls. Reopen the chat and try again.' };
       try {
         const result = await channel.send({ type: 'broadcast', event: 'call-signal', payload: signal });
-        if (result !== 'ok') return { error: 'Call signaling is unavailable. Please try again.' };
+        if (result !== 'ok') return { error: `Call signal was rejected (${String(result)}). Check the private channel permissions.` };
         return {};
       } catch (error: any) {
         return { error: error?.message || 'Could not send the call signal.' };

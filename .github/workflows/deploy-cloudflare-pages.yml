@@ -1,4 +1,5 @@
 name: Deploy production Cloudflare Pages
+# Rebuild production after Random Chat session-token refresh fix.
 
 on:
   workflow_dispatch:

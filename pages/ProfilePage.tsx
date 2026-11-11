@@ -42,13 +42,13 @@ async function compressProfileImage(file: File): Promise<File> {
 const s = {
   page: { background: '#161616', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
   wrap: { maxWidth: 700, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
-  coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/312' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
+  coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/280' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block', position: 'absolute' as const, inset: 0 },
   avatarWrap: { display: 'flex', justifyContent: 'flex-start', marginTop: -64, paddingLeft: 24 },
-  avatar: { width: 140, height: 140, borderRadius: '50%', border: '5px solid #0a0a0a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
+  avatar: { width: 132, height: 132, borderRadius: '50%', border: '5px solid #1a1a1a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
-  nameSection: { padding: '8px 24px 4px', textAlign: 'left' as const },
-  name: { color: '#fff', fontSize: 24, fontWeight: 700, margin: 0 },
+  nameSection: { padding: '8px 24px 16px', textAlign: 'left' as const, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,.07)' },
+  name: { color: '#fff', fontSize: 25, fontWeight: 750, letterSpacing: '-.5px', margin: 0 },
   contentArea: { padding: '8px 24px 40px', display: 'flex', flexDirection: 'column' as const, gap: 12 },
   card: { background: '#1f1f1f', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 20 },
   cardTitle: { color: '#fff', fontSize: 16, fontWeight: 600, margin: '0 0 16px' },
@@ -72,7 +72,7 @@ hoverStyles.textContent = `
   @media (max-width: 699px) {
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
     .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }
-    .profile-name-section { padding-left: 16px !important; }
+    .profile-name-section { padding: 8px 16px 14px !important; align-items: flex-start !important; }
   }
 `;
 if (!document.getElementById('profile-hover-styles')) {
@@ -100,6 +100,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [postsLoading, setPostsLoading] = useState(true);
   const [postText, setPostText] = useState('');
   const [postImages, setPostImages] = useState<File[]>([]);
+  const [postImagePreviews, setPostImagePreviews] = useState<string[]>([]);
   const [postPreviewOpen, setPostPreviewOpen] = useState(false);
   const [posting, setPosting] = useState(false);
   const [postMsg, setPostMsg] = useState('');
@@ -173,6 +174,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     try {
       const compressed = await Promise.all(selected.slice(0, remaining).map(compressProfileImage));
       setPostImages(current => [...current, ...compressed].slice(0, 5));
+      setPostImagePreviews(current => [...current, ...compressed.map(file => URL.createObjectURL(file))].slice(0, 5));
       setPostMsg('');
     } catch (error: any) {
       setPostMsg(error.message || 'Could not prepare these photos.');
@@ -181,6 +183,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   function removeDraftImage(index: number) {
     setPostImages(current => current.filter((_, i) => i !== index));
+    setPostImagePreviews(current => { const removed = current[index]; if (removed) URL.revokeObjectURL(removed); return current.filter((_, i) => i !== index); });
   }
 
   async function publishPost() {
@@ -199,6 +202,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       setPosts(current => [post, ...current].slice(0, 20));
       setPostText('');
       setPostImages([]);
+      postImagePreviews.forEach(url => URL.revokeObjectURL(url));
+      setPostImagePreviews([]);
       setPostPreviewOpen(false);
       const { photos } = await getProfilePhotos(profileOwnerId);
       setProfilePhotos(photos || []);
@@ -234,7 +239,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 placeholder="What's on your mind?" style={{ ...s.textarea, minHeight: 90, marginBottom: 10, background: '#1d1d1d', borderRadius: 11 }} />
               {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 7, marginBottom: 12 }}>
                 {postImages.map((file, index) => <div key={index} style={{ position: 'relative', aspectRatio: postImages.length === 1 ? '16/10' : '1', borderRadius: 9, overflow: 'hidden', background: '#111' }}>
-                  <img src={URL.createObjectURL(file)} alt={`Selected photo ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={postImagePreviews[index]} alt={`Selected photo ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   <button type="button" onClick={() => removeDraftImage(index)} aria-label="Remove selected photo" style={{ position: 'absolute', top: 7, right: 7, width: 28, height: 28, border: 0, borderRadius: 20, color: '#fff', background: 'rgba(0,0,0,.75)', cursor: 'pointer' }}>×</button>
                 </div>)}
               </div>}
@@ -283,7 +288,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>
               {postText.trim() && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', margin: '0 0 12px' }}>{postText.trim()}</p>}
               {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 4, borderRadius: 9, overflow: 'hidden' }}>
-                {postImages.map((file, index) => <img key={index} src={URL.createObjectURL(file)} alt={`Preview photo ${index + 1}`} style={{ width: '100%', aspectRatio: postImages.length === 1 ? '16/10' : '1', objectFit: 'cover', gridColumn: postImages.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
+                {postImages.map((file, index) => <img key={index} src={postImagePreviews[index]} alt={`Preview photo ${index + 1}`} style={{ width: '100%', aspectRatio: postImages.length === 1 ? '16/10' : '1', objectFit: 'cover', gridColumn: postImages.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
               </div>}
             </article>
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
@@ -540,8 +545,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         <input ref={galleryInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleGalleryUpload} style={s.hiddenInput} />
 
         <div className="profile-name-section" style={s.nameSection}>
-          <h1 style={s.name}>{displayName}</h1>
-          {bio && <p style={{ color: '#aaa', fontSize: 14, lineHeight: 1.45, margin: '5px 0 0' }}>{bio}</p>}
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h1 style={s.name}>{displayName}</h1>
+            {bio && <p style={{ color: '#aaa', fontSize: 14, lineHeight: 1.5, margin: '6px 0 0', maxWidth: 520 }}>{bio}</p>}
+          </div>
+          <button type="button" onClick={() => setActiveTab('About')} style={{ flexShrink: 0, border: '1px solid rgba(255,255,255,.12)', background: 'rgba(255,255,255,.06)', color: '#eee', borderRadius: 9, padding: '9px 13px', fontSize: 12, fontWeight: 650, cursor: 'pointer' }}>Edit profile</button>
         </div>
 
         <section aria-label="Recent Live" style={{ padding: '12px 24px 8px' }}>

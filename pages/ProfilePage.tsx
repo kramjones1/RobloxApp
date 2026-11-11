@@ -61,7 +61,7 @@ const s = {
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   nameSection: { padding: '8px 24px 16px', textAlign: 'left' as const, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,.07)' },
   name: { color: '#fff', fontSize: 25, fontWeight: 750, letterSpacing: '-.5px', margin: 0 },
-  contentArea: { padding: '8px 32px 40px', display: 'flex', flexDirection: 'column' as const, gap: 0 },
+  contentArea: { padding: '8px 32px 40px', display: 'grid', gridTemplateColumns: 'minmax(0, 280px) minmax(0, 1fr)', alignItems: 'start', gap: 28 },
   card: { background: 'transparent', border: 'none', borderRadius: 0, padding: 0 },
   cardTitle: { color: '#fff', fontSize: 16, fontWeight: 600, margin: '0 0 16px' },
   label: { color: '#aaa', fontSize: 13, fontWeight: 600, marginBottom: 6, display: 'block' },
@@ -86,7 +86,7 @@ hoverStyles.textContent = `
   .profile-main { min-width: 0; }
   .profile-main-content { min-width: 0; }
   @media (max-width: 699px) {
-    .profile-content-area { padding: 8px 16px 32px !important; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+    .profile-content-area { padding: 8px 16px 32px !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; }
     .profile-section { padding-top: 16px !important; padding-bottom: 16px !important; }
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
     .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }

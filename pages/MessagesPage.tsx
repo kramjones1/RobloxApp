@@ -305,6 +305,16 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   // Presence is shared only inside existing one-to-one conversations.
   // Each private channel is authorized by the chat-presence SQL policies.
+  useEffect(() => () => {
+    if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
+    callPcRef.current?.close();
+    callPcRef.current = null;
+    callLocalStreamRef.current?.getTracks().forEach(track => track.stop());
+    callLocalStreamRef.current = null;
+    callSignalingRef.current?.close();
+    callSignalingRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (!myId || !presencePartnerKey) {
       setOnlinePartners(new Set());

@@ -776,6 +776,11 @@ async function adminLog(action: string, targetId: string, details: string) {
 }
 
 
+export interface ChatPostCommentReaction {
+  comment_id: string;
+  user_id: string;
+  reaction: 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
+}
 export interface ChatPostComment {
   id: string;
   post_id: string;
@@ -784,6 +789,7 @@ export interface ChatPostComment {
   created_at: string;
   author_name?: string;
   author_avatar?: string;
+  reactions: ChatPostCommentReaction[];
 }
 export interface ChatPostReaction {
   post_id: string;
@@ -823,6 +829,12 @@ export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPos
     if (commentRows?.error) return { error: commentRows.error };
     const reactions = Array.isArray(reactionRows) ? reactionRows : [];
     const comments = Array.isArray(commentRows) ? commentRows : [];
+    const commentIds = comments.map((item: any) => item.id).filter(Boolean);
+    const commentReactionRows = commentIds.length
+      ? await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_post_comment_reactions?select=comment_id,user_id,reaction&comment_id=in.(${commentIds.join(',')})`, { headers })
+      : [];
+    if (commentReactionRows?.error) return { error: commentReactionRows.error };
+    const commentReactions = Array.isArray(commentReactionRows) ? commentReactionRows : [];
     const commenterIds = Array.from(new Set(comments.map((item: any) => item.user_id).filter(Boolean))) as string[];
     const commenterProfiles = await Promise.all(commenterIds.map(async (commenterId) => {
       try {
@@ -844,6 +856,7 @@ export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPos
         ...comment,
         author_name: profileByUser.get(comment.user_id)?.name || 'Member',
         author_avatar: profileByUser.get(comment.user_id)?.avatar || '',
+        reactions: commentReactions.filter((item: any) => item.comment_id === comment.id),
       })),
     })) as ChatPost[] };
   } catch (e: any) {
@@ -951,6 +964,23 @@ export async function setProfilePostReaction(postId: string, reaction: ChatPostR
       : await supabaseFetch(url, { method: 'DELETE', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, Prefer: 'return=minimal' } });
     return result?.error ? { error: result.error } : {};
   } catch (e: any) { return { error: e.message || 'Could not save reaction.' }; }
+}
+
+export async function setProfileCommentReaction(commentId: string, reaction: ChatPostCommentReaction['reaction'] | null): Promise<{ error?: string }> {
+  const token = getStoredSession(); const user = token ? parseJwt(token) : null;
+  if (!token || !user) return { error: 'Not authenticated' };
+  const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' };
+  try {
+    const removed = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_post_comment_reactions?comment_id=eq.${encodeURIComponent(commentId)}&user_id=eq.${encodeURIComponent(user.id)}`, {
+      method: 'DELETE', headers,
+    });
+    if (removed?.error) return { error: removed.error };
+    if (!reaction) return {};
+    const inserted = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_post_comment_reactions`, {
+      method: 'POST', headers, body: JSON.stringify({ comment_id: commentId, user_id: user.id, reaction }),
+    });
+    return inserted?.error ? { error: inserted.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not save comment reaction.' }; }
 }
 
 export async function addProfilePostComment(postId: string, content: string): Promise<{ comment?: ChatPostComment; error?: string }> {

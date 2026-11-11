@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken } from './supabaseClient';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -33,6 +33,10 @@ export default function WebApp() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [signupVerification, setSignupVerification] = useState(false);
+  const [signupCode, setSignupCode] = useState('');
+  const [signupResendCooldown, setSignupResendCooldown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
   const [authMsg, setAuthMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
@@ -197,11 +201,18 @@ export default function WebApp() {
     setAuthMsg('');
     if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     if (authMode === 'register') {
+      const normalizedEmail = email.trim().toLowerCase();
+      if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(normalizedEmail)) { setAuthMsg('Enter a valid email address.'); return; }
       setSubmitting(true);
-      const res = await signUp(email, password);
+      const res = await signUp(normalizedEmail, password);
       setSubmitting(false);
       if (res.error) { setAuthMsg(res.error); return; }
-      setAuthMsg('Check your email for a confirmation link, then sign in.');
+      setEmail(normalizedEmail);
+      setSignupCode('');
+      setSignupVerification(true);
+      setAuthMsg('We sent a 6-digit verification code to your email. Enter it below to finish creating your account.');
+      setSignupResendCooldown(60);
+      const timer = setInterval(() => setSignupResendCooldown(prev => { if (prev <= 1) { clearInterval(timer); return 0; } return prev - 1; }), 1000);
       return;
     }
     setSubmitting(true);
@@ -209,6 +220,31 @@ export default function WebApp() {
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPage('profile');
+  }
+
+  async function handleSignupVerification(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthMsg('');
+    if (!/^\\d{6}$/.test(signupCode.trim())) { setAuthMsg('Enter the 6-digit code from your email.'); return; }
+    setSubmitting(true);
+    const result = await verifySignupOtp(email, signupCode);
+    setSubmitting(false);
+    if (result.error) { setAuthMsg(result.error); return; }
+    setSignupVerification(false);
+    setSignupCode('');
+    setAuthMsg('');
+    setPage('profile');
+  }
+
+  async function handleResendSignupCode() {
+    if (signupResendCooldown > 0 || submitting) return;
+    setSubmitting(true);
+    const result = await resendSignupOtp(email);
+    setSubmitting(false);
+    if (result.error) { setAuthMsg(result.error); return; }
+    setAuthMsg('A new verification code has been sent if this address has a pending signup.');
+    setSignupResendCooldown(60);
+    const timer = setInterval(() => setSignupResendCooldown(prev => { if (prev <= 1) { clearInterval(timer); return 0; } return prev - 1; }), 1000);
   }
 
   async function handleForgotPassword(e: React.FormEvent) {
@@ -755,6 +791,23 @@ export default function WebApp() {
     boxShadow: '0 4px 20px rgba(108,99,255,0.3)',
   };
 
+  if (signupVerification) {
+    return (
+      <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 8, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+        <h2 style={{ fontSize: 20, margin: '8px 0' }}>Verify your email</h2>
+        <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 340, lineHeight: 1.6, marginBottom: 18 }}>Enter the 6-digit code sent to <b style={{ color: '#fff' }}>{email}</b>. Check your spam or junk folder too.</p>
+        <form onSubmit={handleSignupVerification} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
+          <input style={{ ...input, textAlign: 'center', letterSpacing: 8, fontSize: 22 }} type="text" inputMode="numeric" autoComplete="one-time-code" placeholder="000000" value={signupCode} onChange={e => setSignupCode(e.target.value.replace(/\\D/g, '').slice(0, 6))} maxLength={6} required />
+          <button type="submit" disabled={submitting || signupCode.length !== 6} style={{ ...mobileBtn, opacity: submitting || signupCode.length !== 6 ? 0.5 : 1 }}>{submitting ? 'Verifying…' : 'Verify email and continue'}</button>
+        </form>
+        {authMsg && <p style={{ color: '#ff9800', fontSize: 13, textAlign: 'center', maxWidth: 340, marginTop: 14 }}>{authMsg}</p>}
+        <button type="button" onClick={handleResendSignupCode} disabled={submitting || signupResendCooldown > 0} style={{ background: 'transparent', border: 0, color: '#9a91ff', padding: 14, cursor: 'pointer', marginTop: 8, opacity: submitting || signupResendCooldown > 0 ? 0.5 : 1 }}>{signupResendCooldown > 0 ? `Resend code in ${signupResendCooldown}s` : 'Resend verification code'}</button>
+        <button type="button" onClick={() => { setSignupVerification(false); setSignupCode(''); setAuthMsg(''); }} style={{ background: 'transparent', border: 0, color: '#888', padding: 8, cursor: 'pointer' }}>Back to sign up</button>
+      </div>
+    );
+  }
+
   if (recoveryMode) {
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -1041,7 +1094,10 @@ export default function WebApp() {
                 <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>{authMode === 'login' ? 'Welcome back' : 'Create an account'}</p>
                 <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
                   <input style={input} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-                  <input style={input} type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} />
+                  <div style={{ position: 'relative', width: '100%' }}>
+                    <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
+                    <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
+                  </div>
                   <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
@@ -1092,6 +1148,8 @@ export default function WebApp() {
                 password={password}
                 onEmailChange={setEmail}
                 onPasswordChange={setPassword}
+                showPassword={showPassword}
+                onTogglePassword={() => setShowPassword(v => !v)}
                 onSubmit={handleAuth}
                 onToggleAuth={() => { setAuthMode(authMode === 'login' ? 'register' : 'login'); setAuthMsg(''); }}
                 showForgot={showForgot}

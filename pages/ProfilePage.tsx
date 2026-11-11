@@ -277,7 +277,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     const oldestPost = posts[posts.length - 1];
     setLoadingOlderPosts(true);
     try {
-      const { posts: rows, error } = await getProfilePosts(profileOwnerId, oldestPost.created_at, 20);
+      const { posts: rows, error } = await getProfilePosts(profileOwnerId, oldestPost.created_at, oldestPost.id, 20);
       if (error) { setPostMsg(error); return; }
       const batch = rows || [];
       setPosts(current => {

@@ -708,7 +708,18 @@ export default function WebApp() {
         lsRef.current = null;
         return;
       }
-      wsRef.current.send(JSON.stringify({ type: 'find' }));
+      // Refresh the Supabase JWT immediately before entering the match queue.
+      // The WebSocket may have been opened before the session token was rotated.
+      const freshAccessToken = await getValidAccessToken();
+      if (!freshAccessToken) {
+        addLog('Your session expired. Please sign in again.');
+        setWsStatus('error');
+        setState('idle');
+        lsRef.current?.getTracks().forEach((t: any) => t.stop());
+        lsRef.current = null;
+        return;
+      }
+      wsRef.current.send(JSON.stringify({ type: 'find', accessToken: freshAccessToken }));
       addLog('Searching for partner...');
     } catch (e: any) {
       const denied = e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError';

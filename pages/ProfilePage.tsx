@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, ChatPost } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, ProfilePhoto } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -12,13 +12,31 @@ interface Props {
   onClearView?: () => void;
 }
 
-function readFileAsDataURL(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+async function compressProfileImage(file: File): Promise<File> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    throw new Error('Please choose a JPEG, PNG, or WebP image.');
+  }
+  const bitmap = await createImageBitmap(file);
+  try {
+    for (const maxSide of [1280, 1024, 900, 768, 640]) {
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Image compression is not supported in this browser.');
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
+        if (blob && blob.size <= 200 * 1024) {
+          return new File([blob], 'profile-photo.webp', { type: 'image/webp', lastModified: Date.now() });
+        }
+      }
+    }
+  } finally {
+    bitmap.close();
+  }
+  throw new Error('This image cannot be compressed below 200 KB. Please choose a smaller image.');
 }
 
 const s = {
@@ -84,9 +102,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [posting, setPosting] = useState(false);
   const [postMsg, setPostMsg] = useState('');
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'Posts' | 'Photos' | 'Timeline' | 'About'>('Posts');
+  const [profilePhotos, setProfilePhotos] = useState<ProfilePhoto[]>([]);
+  const [photosLoading, setPhotosLoading] = useState(false);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const isViewingOther = viewUserId && viewUserId !== user?.id;
 
@@ -110,6 +133,20 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }, []);
 
   const profileOwnerId = isViewingOther && viewUserId ? viewUserId : (user?.id || '');
+
+  useEffect(() => {
+    let active = true;
+    setPhotosLoading(true);
+    getProfilePhotos(profileOwnerId).then(({ photos }) => {
+      if (active) setProfilePhotos(photos || []);
+      if (active) setPhotosLoading(false);
+    });
+    return () => { active = false; };
+  }, [profileOwnerId]);
+
+  useEffect(() => {
+    setActiveTab('Posts');
+  }, [viewUserId]);
 
   useEffect(() => {
     let active = true;
@@ -195,32 +232,148 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     });
   }, [viewUserId, user?.id]);
 
+  async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover' | 'gallery') {
+    const compressed = await compressProfileImage(file);
+    const { photo, error } = await uploadProfilePhoto(compressed, slot);
+    if (error || !photo) throw new Error(error || 'Photo upload failed.');
+    if (slot === 'avatar' || slot === 'cover') {
+      const nextAvatar = slot === 'avatar' ? photo.url : avatarUrl;
+      const nextCover = slot === 'cover' ? photo.url : coverUrl;
+      const { error: profileError } = await upsertChatProfile({
+        display_name: displayName, bio, avatar_url: nextAvatar, cover_url: nextCover,
+        share_name: shareName, share_bio: shareBio
+      });
+      if (profileError) {
+        await deleteProfilePhoto(photo.name);
+        throw new Error(profileError);
+      }
+      if (slot === 'avatar') setAvatarUrl(photo.url);
+      else setCoverUrl(photo.url);
+    }
+    const { photos } = await getProfilePhotos(profileOwnerId);
+    setProfilePhotos(photos || []);
+    setMsg('Photo saved.');
+  }
+
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 500 * 1024) { setMsg('Image must be under 500KB'); return; }
     setUploadingAvatar(true);
-    try {
-      const url = await readFileAsDataURL(file);
-      setAvatarUrl(url);
-      localStorage.setItem('profile_avatar', url);
-      upsertChatProfile({ display_name: displayName, bio, avatar_url: url, cover_url: coverUrl, share_name: shareName, share_bio: shareBio }).catch(() => {});
-    } catch { setMsg('Failed to read avatar'); }
-    setUploadingAvatar(false);
+    setMsg('');
+    try { await saveProfilePhoto(file, 'avatar'); }
+    catch (error: any) { setMsg(error.message || 'Failed to upload profile picture.'); }
+    finally { setUploadingAvatar(false); }
   }
 
   async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 500 * 1024) { setMsg('Image must be under 500KB'); return; }
     setUploadingCover(true);
-    try {
-      const url = await readFileAsDataURL(file);
-      setCoverUrl(url);
-      localStorage.setItem('profile_cover', url);
-      upsertChatProfile({ display_name: displayName, bio, avatar_url: avatarUrl, cover_url: url, share_name: shareName, share_bio: shareBio }).catch(() => {});
-    } catch { setMsg('Failed to read cover'); }
-    setUploadingCover(false);
+    setMsg('');
+    try { await saveProfilePhoto(file, 'cover'); }
+    catch (error: any) { setMsg(error.message || 'Failed to upload cover photo.'); }
+    finally { setUploadingCover(false); }
+  }
+
+  async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploadingGallery(true);
+    setMsg('');
+    try { await saveProfilePhoto(file, 'gallery'); }
+    catch (error: any) { setMsg(error.message || 'Failed to upload photo.'); }
+    finally { setUploadingGallery(false); }
+  }
+
+  async function handleDeletePhoto(photo: ProfilePhoto) {
+    if (!window.confirm('Delete this photo?')) return;
+    const { error } = await deleteProfilePhoto(photo.name);
+    if (error) { setMsg(error); return; }
+    if (photo.name === 'avatar.webp' || photo.name === 'cover.webp') {
+      const nextAvatar = photo.name === 'avatar.webp' ? '' : avatarUrl;
+      const nextCover = photo.name === 'cover.webp' ? '' : coverUrl;
+      const { error: profileError } = await upsertChatProfile({
+        display_name: displayName, bio, avatar_url: nextAvatar, cover_url: nextCover,
+        share_name: shareName, share_bio: shareBio
+      });
+      if (profileError) { setMsg(profileError); return; }
+      setAvatarUrl(nextAvatar);
+      setCoverUrl(nextCover);
+    }
+    setProfilePhotos(current => current.filter(item => item.name !== photo.name));
+    setMsg('Photo deleted.');
+  }
+
+  function renderProfileTabs(canEdit: boolean, authorName: string, authorAvatar: string) {
+    const tabs: ('Posts' | 'Photos' | 'Timeline' | 'About')[] = ['Posts', 'Photos', 'Timeline', 'About'];
+    return (
+      <>
+        <nav aria-label="Profile sections" style={{ display: 'flex', gap: 4, padding: '0 24px', borderBottom: '1px solid rgba(255,255,255,.08)', overflowX: 'auto' }}>
+          {tabs.map(tab => (
+            <button key={tab} type="button" onClick={() => setActiveTab(tab)} style={{
+              background: 'transparent', border: 0, borderBottom: activeTab === tab ? '2px solid #7770ff' : '2px solid transparent',
+              color: activeTab === tab ? '#fff' : '#999', padding: '13px 14px', fontSize: 13, fontWeight: 650, cursor: 'pointer', whiteSpace: 'nowrap'
+            }}>{tab}</button>
+          ))}
+        </nav>
+        <div style={s.contentArea}>
+          {activeTab === 'Posts' && renderPosts(canEdit, authorName, authorAvatar)}
+          {activeTab === 'Photos' && (
+            <section style={s.card}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+                <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
+                {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 5} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 5 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
+              </div>
+              {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{profilePhotos.length}/5 photos · max 200 KB each · 1 MB total · WebP only</p>}
+              {photosLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading photos…</p> :
+                profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+                  {profilePhotos.map(photo => (
+                    <div key={photo.name} style={{ position: 'relative', aspectRatio: '1', background: '#292929', borderRadius: 9, overflow: 'hidden' }}>
+                      <img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      {canEdit && <button type="button" onClick={() => handleDeletePhoto(photo)} aria-label="Delete photo" style={{ position: 'absolute', top: 6, right: 6, border: 0, borderRadius: 20, background: 'rgba(0,0,0,.72)', color: '#fff', width: 26, height: 26, cursor: 'pointer' }}>×</button>}
+                    </div>
+                  ))}
+                </div>
+              }
+            </section>
+          )}
+          {activeTab === 'Timeline' && (
+            <>
+              <section style={s.card}>
+                <h2 style={s.cardTitle}>Recent Live activity</h2>
+                {recent.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No recent interactions yet.</p> :
+                  recent.map((entry, index) => <div key={entry.id || index} style={{ color: '#aaa', fontSize: 13, padding: '7px 0', borderBottom: '1px solid rgba(255,255,255,.05)' }}>Connected with {entry.name || 'someone'} · {new Date(entry.time).toLocaleDateString()}</div>)}
+              </section>
+              {renderPosts(false, authorName, authorAvatar)}
+            </>
+          )}
+          {activeTab === 'About' && (canEdit ? (
+            <div style={s.card}>
+              <h2 style={s.cardTitle}>About</h2>
+              <form onSubmit={handleSave}>
+                <label style={s.label}>Display Name {displayName !== 'Anonymous' && displayName !== '' && <span style={{ color: '#666', fontSize: 12, fontWeight: 400 }}>(locked — set at signup)</span>}</label>
+                <input style={{ ...s.input, opacity: displayName !== 'Anonymous' && displayName !== '' ? 0.6 : 1, cursor: displayName !== 'Anonymous' && displayName !== '' ? 'not-allowed' : 'text' }} value={displayName} readOnly={displayName !== 'Anonymous' && displayName !== ''} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
+                <label style={s.label}>Bio</label>
+                <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} placeholder="Tell people about yourself..." />
+                <div style={s.toggleRow}><span style={s.toggleLabel}>Show name to partner</span><button type="button" style={{ ...s.toggleBtn, background: shareName ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareName(!shareName)}>{shareName ? 'ON' : 'OFF'}</button></div>
+                <div style={s.toggleRow}><span style={s.toggleLabel}>Show bio to partner</span><button type="button" style={{ ...s.toggleBtn, background: shareBio ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareBio(!shareBio)}>{shareBio ? 'ON' : 'OFF'}</button></div>
+                <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+              </form>
+              {msg && <p style={{ ...s.msg, color: msg === 'Saved!' || msg === 'Photo saved.' || msg === 'Photo deleted.' ? '#4caf50' : '#f44336' }}>{msg}</p>}
+            </div>
+          ) : (
+            <section style={s.card}>
+              <h2 style={s.cardTitle}>About</h2>
+              <p style={{ color: '#ccc', fontSize: 14, whiteSpace: 'pre-wrap' }}>{viewedUser?.bio || 'No bio added.'}</p>
+            </section>
+          ))}
+        </div>
+      </>
+    );
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -261,7 +414,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               <button onClick={() => { onMessage(viewUserId); onClearView?.(); }} style={s.saveBtn}>Message</button>
             </div>
           )}
-          <div style={s.contentArea}>{renderPosts(false, viewedUser.name, viewedUser.avatar)}</div>
+          {renderProfileTabs(false, viewedUser.name, viewedUser.avatar)}
         </div>
       </div>
     );
@@ -273,7 +426,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         <div className="cover-wrap" style={{ ...s.coverWrap, cursor: 'pointer' }} onClick={() => setImageEditorOpen(true)} role="button" aria-label="Edit profile photos">
           {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
         </div>
-        <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} style={s.hiddenInput} />
+        <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverUpload} style={s.hiddenInput} />
 
         {imageEditorOpen && (
           <div role="presentation" onClick={() => setImageEditorOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
@@ -293,7 +446,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <div style={{ flex: 1, minWidth: 0 }}><strong style={{ color: '#eee', fontSize: 14 }}>Cover photo</strong><p style={{ color: '#888', fontSize: 11, margin: '3px 0 0' }}>The wide image at the top of your profile</p></div>
                 <button type="button" disabled={uploadingCover} onClick={() => coverInputRef.current?.click()} style={{ background: '#39348a', color: '#fff', border: 0, borderRadius: 8, padding: '9px 12px', fontSize: 12, cursor: 'pointer' }}>{uploadingCover ? 'Saving…' : 'Change'}</button>
               </div>
-              <p style={{ color: '#777', fontSize: 11, margin: '12px 0 0' }}>Images are limited to 500 KB each. Changes save automatically after you choose an image.</p>
+              <p style={{ color: '#777', fontSize: 11, margin: '12px 0 0' }}>JPEG, PNG, or WebP images are compressed to WebP. Maximum 200 KB each, 5 photos and 1 MB total per account. Changes save automatically.</p>
             </section>
           </div>
         )}
@@ -303,7 +456,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
           </div>
         </div>
-        <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
+        <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} style={s.hiddenInput} />
+        <input ref={galleryInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleGalleryUpload} style={s.hiddenInput} />
 
         <div className="profile-name-section" style={s.nameSection}>
           <h1 style={s.name}>{displayName}</h1>
@@ -330,39 +484,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           {recent.length > 0 && <button type="button" onClick={async () => { await clearRecentLive(); setRecent([]); }} style={{ border: 0, background: 'transparent', color: '#888', fontSize: 11, padding: '4px 0', cursor: 'pointer' }}>Clear history</button>}
         </section>
 
-        <div style={s.contentArea}>
+        {renderProfileTabs(true, displayName, avatarUrl)}
 
-        <div style={s.card}>
-          <h2 style={s.cardTitle}>About</h2>
-          <form onSubmit={handleSave}>
-            <label style={s.label}>Display Name {displayName !== 'Anonymous' && displayName !== '' && <span style={{ color: '#666', fontSize: 12, fontWeight: 400 }}>(locked — set at signup)</span>}</label>
-            <input style={{ ...s.input, opacity: displayName !== 'Anonymous' && displayName !== '' ? 0.6 : 1, cursor: displayName !== 'Anonymous' && displayName !== '' ? 'not-allowed' : 'text' }} value={displayName} readOnly={displayName !== 'Anonymous' && displayName !== ''} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
-
-            <label style={s.label}>Bio</label>
-            <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} placeholder="Tell people about yourself..." />
-
-            <div style={s.toggleRow}>
-              <span style={s.toggleLabel}>Show name to partner</span>
-              <button type="button" style={{ ...s.toggleBtn, background: shareName ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareName(!shareName)}>
-                {shareName ? 'ON' : 'OFF'}
-              </button>
-            </div>
-
-            <div style={s.toggleRow}>
-              <span style={s.toggleLabel}>Show bio to partner</span>
-              <button type="button" style={{ ...s.toggleBtn, background: shareBio ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareBio(!shareBio)}>
-                {shareBio ? 'ON' : 'OFF'}
-              </button>
-            </div>
-
-            <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
-          </form>
-          {msg && <p style={{ ...s.msg, color: msg === 'Saved!' ? '#4caf50' : '#f44336' }}>{msg}</p>}
-        </div>
-
-        {renderPosts(true, displayName, avatarUrl)}
-
-        </div>
       </div>
     </div>
   );

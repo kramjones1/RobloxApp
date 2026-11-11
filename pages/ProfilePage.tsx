@@ -99,6 +99,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [posts, setPosts] = useState<ChatPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [openPostMenu, setOpenPostMenu] = useState<string | null>(null);
+  const [openReactionPicker, setOpenReactionPicker] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [postActionMsg, setPostActionMsg] = useState('');
   const [postText, setPostText] = useState('');
@@ -331,9 +332,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
-              <button type="button" onClick={() => reactToPost(post)} style={{ flex: 1, border: 0, background: 'transparent', color: post.reactions.some(item => item.user_id === user?.id) ? '#76aaff' : '#bbb', fontWeight: 650, padding: 8, cursor: 'pointer' }}>
-                {post.reactions.some(item => item.user_id === user?.id) ? '👍 Liked' : '👍 Like'}
-              </button>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <button type="button" onClick={() => setOpenReactionPicker(current => current === post.id ? null : post.id)} style={{ width: '100%', border: 0, background: 'transparent', color: post.reactions.some(item => item.user_id === user?.id) ? '#76aaff' : '#bbb', fontWeight: 650, padding: 8, cursor: 'pointer' }}>
+                  {(() => { const mine = post.reactions.find(item => item.user_id === user?.id); const labels: Record<string,string> = { like: '👍 Like', love: '❤️ Love', haha: '😂 Haha', wow: '😮 Wow', sad: '😢 Sad', angry: '😡 Angry' }; return mine ? labels[mine.reaction] : '👍 Like'; })()}
+                </button>
+                {openReactionPicker === post.id && <div style={{ position: 'absolute', bottom: '100%', left: 0, zIndex: 30, display: 'flex', gap: 5, padding: 8, borderRadius: 24, background: '#303030', border: '1px solid rgba(255,255,255,.14)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
+                  {([{ value: 'like', emoji: '👍', label: 'Like' }, { value: 'love', emoji: '❤️', label: 'Love' }, { value: 'haha', emoji: '😂', label: 'Haha' }, { value: 'wow', emoji: '😮', label: 'Wow' }, { value: 'sad', emoji: '😢', label: 'Sad' }, { value: 'angry', emoji: '😡', label: 'Angry' }] as const).map(option => <button key={option.value} type="button" title={option.label} aria-label={option.label} onClick={() => { reactToPost(post, option.value); setOpenReactionPicker(null); }} style={{ border: 0, background: 'transparent', padding: 4, fontSize: 21, cursor: 'pointer' }}>{option.emoji}</button>)}
+                </div>}
+              </div>
               <button type="button" onClick={() => document.getElementById(`comment-${post.id}`)?.focus()} style={{ flex: 1, border: 0, background: 'transparent', color: '#bbb', fontWeight: 600, padding: 8, cursor: 'pointer' }}>💬 Comment</button>
             </div>
             {post.comments.map(comment => <div key={comment.id} style={{ display: 'flex', gap: 8, paddingTop: 10 }}>

@@ -88,23 +88,29 @@ hoverStyles.textContent = `
   .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .profile-tabs::-webkit-scrollbar { display: none; }
   @media (min-width: 700px) {
-    /* Desktop uses the page's normal scroll container; tab content never
-       creates a nested scrolling region or a fixed-height blank area. */
-    .profile-main { display: block; }
+    /* Keep the profile shell and navigation fixed in the available page
+       viewport. Only the selected tab's content gets vertical scrolling. */
+    .profile-page-root { height: 100%; min-height: 0; overflow: hidden; }
+    .profile-page-root > .profile-wrap { height: 100%; min-height: 0; overflow: hidden; padding-bottom: 0; }
+    .profile-main { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
     .profile-main-content {
-      height: auto !important;
+      display: block;
+      flex: 1 1 auto;
+      height: 0;
       min-height: 0;
       max-height: none !important;
-      flex: initial;
-      overflow: visible !important;
-      overscroll-behavior: auto;
-      scrollbar-gutter: auto;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      overscroll-behavior-y: contain;
+      scrollbar-gutter: stable;
+      scrollbar-width: thin;
+      -webkit-overflow-scrolling: touch;
     }
-    .profile-sidebar {
-      position: static;
-      max-height: none;
-      overflow: visible;
-    }
+    .profile-main-content::-webkit-scrollbar { width: 8px; }
+    .profile-main-content::-webkit-scrollbar-thumb { background: rgba(145,145,160,.42); border-radius: 8px; }
+    .profile-tabs { position: relative; top: auto; flex: 0 0 auto; overflow-x: auto; overflow-y: hidden; }
+    .profile-sidebar { position: static; max-height: none; overflow: visible; }
+    .profile-content-area { flex: 1 1 auto; height: 0; min-height: 280px; overflow: hidden; align-items: stretch; }
   }
   @media (max-width: 699px) {
     /* Mobile keeps natural document scrolling and its original layout. */
@@ -850,8 +856,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }
 
   return (
-    <div style={s.page}>
-      <div style={s.wrap}>
+    <div className="profile-page-root" style={s.page}>
+      <div className="profile-wrap" style={s.wrap}>
         <div className="cover-wrap" style={{ ...s.coverWrap, cursor: 'pointer' }} onClick={() => setImageEditorOpen(true)} role="button" aria-label="Edit profile photos">
           {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
         </div>

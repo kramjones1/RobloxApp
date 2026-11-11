@@ -780,6 +780,7 @@ export interface ChatPost {
   id: string;
   user_id: string;
   content: string;
+  image_paths: string[];
   created_at: string;
 }
 
@@ -789,7 +790,7 @@ export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPos
   if (!userId) return { error: 'Profile not found' };
   try {
     const rows = await supabaseFetch(
-      `${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=20`,
+      `${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=20`,
       { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
     );
     if (rows?.error) return { error: rows.error };
@@ -799,16 +800,18 @@ export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPos
   }
 }
 
-export async function createProfilePost(content: string): Promise<{ post?: ChatPost; error?: string }> {
+export async function createProfilePost(content: string, imagePaths: string[] = []): Promise<{ post?: ChatPost; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
   const clean = content.trim();
-  if (!clean) return { error: 'Write something before posting.' };
+  if (!clean && imagePaths.length === 0) return { error: 'Write a caption or add at least one photo.' };
+  if (imagePaths.length > 5) return { error: 'You can add up to 5 photos per post.' };
+  if (imagePaths.some(path => !path.startsWith(`${user.id}/posts/`) || !path.endsWith('.webp'))) return { error: 'Invalid post photo path.' };
   if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
   try {
-    const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,created_at`, {
+    const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,created_at`, {
       method: 'POST',
       headers: {
         apikey: SUPABASE_ANON_KEY,
@@ -816,7 +819,7 @@ export async function createProfilePost(content: string): Promise<{ post?: ChatP
         'Content-Type': 'application/json',
         Prefer: 'return=representation',
       },
-      body: JSON.stringify({ user_id: user.id, content: clean }),
+      body: JSON.stringify({ user_id: user.id, content: clean, image_paths: imagePaths }),
     });
     if (rows?.error) return { error: rows.error };
     if (!Array.isArray(rows) || !rows[0]) return { error: 'Post was not saved.' };
@@ -853,7 +856,7 @@ export interface ProfilePhoto {
   size: number;
 }
 
-export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 'gallery'): Promise<{ photo?: ProfilePhoto; error?: string }> {
+export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 'gallery' | 'post'): Promise<{ photo?: ProfilePhoto; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
@@ -861,7 +864,7 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
   if (file.type !== 'image/webp' || file.size < 1 || file.size > 200 * 1024) {
     return { error: 'Photos must be WebP and no larger than 200 KB.' };
   }
-  const name = slot === 'avatar' ? 'avatar.webp' : slot === 'cover' ? 'cover.webp' : `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+  const name = slot === 'avatar' ? 'avatar.webp' : slot === 'cover' ? 'cover.webp' : slot === 'post' ? `posts/post-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.webp` : `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
   const path = `${user.id}/${name}`;
   try {
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`, {
@@ -871,7 +874,7 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
         Authorization: `Bearer ${token}`,
         'Content-Type': 'image/webp',
         'Cache-Control': '31536000',
-        'x-upsert': slot === 'gallery' ? 'false' : 'true',
+        'x-upsert': slot === 'gallery' || slot === 'post' ? 'false' : 'true',
       },
       body: file,
     });
@@ -881,7 +884,7 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
       try { const parsed = JSON.parse(body); message = parsed.message || parsed.error || parsed.msg || body; } catch {}
       if (response.status === 413) return { error: 'This photo is over the 200 KB limit.' };
       if (/quota|profile_photo_quota_ok|row-level security|policy/i.test(message)) {
-        return { error: 'Photo limit reached: maximum 5 photos and 1 MB total per account.' };
+        return { error: 'Photo storage limit reached: maximum 25 images and 5 MB total per account.' };
       }
       return { error: message || 'Photo upload failed.' };
     }
@@ -902,27 +905,28 @@ export async function getProfilePhotos(userId: string): Promise<{ photos?: Profi
   if (!token) return { error: 'Not authenticated' };
   if (!userId) return { photos: [] };
   try {
-    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
-      method: 'POST',
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prefix: userId, limit: 10, offset: 0, sortBy: { column: 'name', order: 'asc' } }),
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      return { error: body || 'Could not load photos.' };
-    }
-    const rows = await response.json();
-    const photos = (Array.isArray(rows) ? rows : [])
-      .filter((row: any) => typeof row.name === 'string' && row.name.toLowerCase().endsWith('.webp'))
-      .map((row: any) => {
-        const path = `${userId}/${row.name}`;
-        return {
-          name: row.name,
-          url: `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
-          size: Number(row.metadata?.size || 0),
-        };
+    const listPrefix = async (prefix: string) => {
+      const response = await fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefix, limit: 100, offset: 0, sortBy: { column: 'name', order: 'asc' } }),
       });
-    return { photos };
+      if (!response.ok) throw new Error((await response.text()) || 'Could not load photos.');
+      return await response.json();
+    };
+    const [rootRows, postRows] = await Promise.all([listPrefix(userId), listPrefix(`${userId}/posts`)]);
+    const rows = [
+      ...(Array.isArray(rootRows) ? rootRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: row.name })) : []),
+      ...(Array.isArray(postRows) ? postRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: `posts/${row.name}` })) : []),
+    ];
+    return { photos: rows.map((row: any) => {
+      const path = `${userId}/${row.relativeName}`;
+      return {
+        name: row.relativeName,
+        url: `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
+        size: Number(row.metadata?.size || 0),
+      };
+    }) };
   } catch (e: any) {
     return { error: e.message || 'Could not load photos.' };
   }
@@ -933,7 +937,7 @@ export async function deleteProfilePhoto(name: string): Promise<{ error?: string
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
-  if (!name || name.includes('/') || name.includes('..')) return { error: 'Invalid photo path.' };
+  if (!name || name.includes('..') || !/^(?:avatar|cover|gallery-[a-zA-Z0-9-]+|posts\/post-[a-zA-Z0-9-]+)\.webp$/.test(name)) return { error: 'Invalid photo path.' };
   try {
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
       method: 'DELETE',

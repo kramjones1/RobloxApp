@@ -99,6 +99,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [posts, setPosts] = useState<ChatPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
   const [openPostMenu, setOpenPostMenu] = useState<string | null>(null);
+  const postMenuRef = useRef<HTMLDivElement>(null);
   const [openReactionPicker, setOpenReactionPicker] = useState<string | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [postActionMsg, setPostActionMsg] = useState('');
@@ -122,6 +123,20 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const postImagesInputRef = useRef<HTMLInputElement>(null);
 
   const isViewingOther = viewUserId && viewUserId !== user?.id;
+
+  useEffect(() => {
+    if (!openPostMenu) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      if (postMenuRef.current && !postMenuRef.current.contains(event.target as Node)) setOpenPostMenu(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpenPostMenu(null); };
+    document.addEventListener('pointerdown', closeOnOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [openPostMenu]);
 
   useEffect(() => {
     (async () => {
@@ -313,7 +328,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <div style={{ color: '#eee', fontSize: 14, fontWeight: 650 }}>{authorName || 'Anonymous'}</div>
                 <div style={{ color: '#777', fontSize: 11 }}>{new Date(post.created_at).toLocaleString()}</div>
               </div>
-              <div style={{ position: 'relative' }}>
+              <div ref={openPostMenu === post.id ? postMenuRef : null} style={{ position: 'relative' }}>
                 {post.is_private && <span title="Only you can see this post" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#fff', background: 'rgba(145,112,255,.2)', border: '1px solid rgba(170,145,255,.55)', borderRadius: 20, padding: '5px 10px', marginRight: 7, fontSize: 11, fontWeight: 750, whiteSpace: 'nowrap' }}>🔒 PRIVATE · ONLY YOU</span>}
                 {canPublish && <button type="button" onClick={() => setOpenPostMenu(current => current === post.id ? null : post.id)} aria-label="Post options" aria-expanded={openPostMenu === post.id} style={{ border: 0, background: 'transparent', color: '#bbb', fontSize: 23, lineHeight: 1, cursor: 'pointer', padding: '4px 8px' }}>⋯</button>}
                 {canPublish && openPostMenu === post.id && <div style={{ position: 'absolute', right: 0, top: 34, zIndex: 20, minWidth: 170, padding: 6, borderRadius: 10, background: '#303030', border: '1px solid rgba(255,255,255,.12)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>

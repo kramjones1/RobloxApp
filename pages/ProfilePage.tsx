@@ -82,11 +82,12 @@ const s = {
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
   .profile-content-area { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 28px; align-items: start; }
-  .profile-sidebar { min-width: 0; }
+  .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; }
   .profile-main-content { min-width: 0; }
   @media (max-width: 699px) {
     .profile-content-area { padding: 8px 16px 32px !important; grid-template-columns: minmax(0, 1fr) !important; gap: 8px !important; }
+    .profile-sidebar { position: static; max-height: none; overflow: visible; }
     .profile-section { padding-top: 16px !important; padding-bottom: 16px !important; }
     .profile-avatar { width: 100px !important; height: 100px !important; font-size: 32px !important; }
     .profile-avatar-wrap { margin-top: -48px !important; padding-left: 16px !important; }
@@ -617,6 +618,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               <h2 style={{ ...s.cardTitle, marginBottom: 10 }}>Intro</h2>
               <p style={{ color: '#ccc', fontSize: 13, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: 0 }}>{sidebarBio || 'No bio added yet.'}</p>
               {canEdit && <button type="button" onClick={() => setActiveTab('About')} style={{ marginTop: 12, border: 0, background: 'rgba(255,255,255,.08)', color: '#ddd', borderRadius: 7, padding: '8px 12px', fontSize: 12, fontWeight: 650, cursor: 'pointer' }}>Edit bio</button>}
+            </section>
+            <section className="profile-section" style={{ ...s.card, paddingTop: 18, paddingBottom: 16, borderBottom: '1px solid rgba(255,255,255,.08)' }}>
+              <h2 style={{ ...s.cardTitle, marginBottom: 10 }}>Profile details</h2>
+              <p style={{ color: '#ccc', fontSize: 13, margin: 0, overflowWrap: 'anywhere' }}>{authorName}</p>
             </section>
             <section className="profile-section" style={{ ...s.card, paddingTop: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>

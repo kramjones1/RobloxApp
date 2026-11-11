@@ -776,12 +776,27 @@ async function adminLog(action: string, targetId: string, details: string) {
 }
 
 
+export interface ChatPostComment {
+  id: string;
+  post_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+}
+export interface ChatPostReaction {
+  post_id: string;
+  user_id: string;
+  reaction: 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'angry';
+}
 export interface ChatPost {
   id: string;
   user_id: string;
   content: string;
   image_paths: string[];
+  is_private: boolean;
   created_at: string;
+  reactions: ChatPostReaction[];
+  comments: ChatPostComment[];
 }
 
 export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPost[]; error?: string }> {
@@ -789,12 +804,28 @@ export async function getProfilePosts(userId: string): Promise<{ posts?: ChatPos
   if (!token) return { error: 'Not authenticated' };
   if (!userId) return { error: 'Profile not found' };
   try {
+    const headers = { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` };
     const rows = await supabaseFetch(
-      `${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=20`,
-      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+      `${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,is_private,created_at&user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=20`,
+      { headers }
     );
     if (rows?.error) return { error: rows.error };
-    return { posts: Array.isArray(rows) ? rows as ChatPost[] : [] };
+    const basePosts = Array.isArray(rows) ? rows as any[] : [];
+    if (!basePosts.length) return { posts: [] };
+    const ids = basePosts.map(post => post.id).join(',');
+    const [reactionRows, commentRows] = await Promise.all([
+      supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_post_reactions?select=post_id,user_id,reaction&post_id=in.(${ids})`, { headers }),
+      supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_post_comments?select=id,post_id,user_id,content,created_at&post_id=in.(${ids})&order=created_at.asc&limit=100`, { headers }),
+    ]);
+    if (reactionRows?.error) return { error: reactionRows.error };
+    if (commentRows?.error) return { error: commentRows.error };
+    const reactions = Array.isArray(reactionRows) ? reactionRows : [];
+    const comments = Array.isArray(commentRows) ? commentRows : [];
+    return { posts: basePosts.map(post => ({
+      ...post,
+      reactions: reactions.filter((item: any) => item.post_id === post.id),
+      comments: comments.filter((item: any) => item.post_id === post.id),
+    })) as ChatPost[] };
   } catch (e: any) {
     return { error: e.message || 'Could not load posts' };
   }
@@ -857,6 +888,62 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
   } catch (e: any) {
     return { error: e.message || 'Could not publish post' };
   }
+}
+
+export async function updateProfilePost(postId: string, content: string): Promise<{ error?: string }> {
+  const token = getStoredSession(); const user = token ? parseJwt(token) : null;
+  if (!token || !user) return { error: 'Not authenticated' };
+  const clean = content.trim();
+  if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}`, {
+      method: 'PATCH', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ content: clean }),
+    });
+    return result?.error ? { error: result.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not update post.' }; }
+}
+
+export async function setProfilePostPrivacy(postId: string, isPrivate: boolean): Promise<{ error?: string }> {
+  const token = getStoredSession(); const user = token ? parseJwt(token) : null;
+  if (!token || !user) return { error: 'Not authenticated' };
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}`, {
+      method: 'PATCH', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ is_private: isPrivate }),
+    });
+    return result?.error ? { error: result.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not change post privacy.' }; }
+}
+
+export async function setProfilePostReaction(postId: string, reaction: ChatPostReaction['reaction'] | null): Promise<{ error?: string }> {
+  const token = getStoredSession(); const user = token ? parseJwt(token) : null;
+  if (!token || !user) return { error: 'Not authenticated' };
+  try {
+    const url = `${SUPABASE_URL}/rest/v1/chat_post_reactions?post_id=eq.${encodeURIComponent(postId)}&user_id=eq.${encodeURIComponent(user.id)}`;
+    const result = reaction
+      ? await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_post_reactions?on_conflict=post_id,user_id`, {
+          method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify({ post_id: postId, user_id: user.id, reaction }),
+        })
+      : await supabaseFetch(url, { method: 'DELETE', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, Prefer: 'return=minimal' } });
+    return result?.error ? { error: result.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not save reaction.' }; }
+}
+
+export async function addProfilePostComment(postId: string, content: string): Promise<{ comment?: ChatPostComment; error?: string }> {
+  const token = getStoredSession(); const user = token ? parseJwt(token) : null;
+  if (!token || !user) return { error: 'Not authenticated' };
+  const clean = content.trim();
+  if (!clean || clean.length > 500) return { error: 'Comments must be between 1 and 500 characters.' };
+  try {
+    const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_post_comments?select=id,post_id,user_id,content,created_at`, {
+      method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=representation' },
+      body: JSON.stringify({ post_id: postId, user_id: user.id, content: clean }),
+    });
+    if (rows?.error) return { error: rows.error };
+    return Array.isArray(rows) && rows[0] ? { comment: rows[0] as ChatPostComment } : { error: 'Comment was not saved.' };
+  } catch (e: any) { return { error: e.message || 'Could not add comment.' }; }
 }
 
 export async function removeProfilePostImage(postId: string, imagePath: string): Promise<{ error?: string }> {

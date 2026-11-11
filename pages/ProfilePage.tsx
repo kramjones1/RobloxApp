@@ -247,8 +247,13 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         await deleteProfilePhoto(photo.name);
         throw new Error(profileError);
       }
-      if (slot === 'avatar') setAvatarUrl(photo.url);
-      else setCoverUrl(photo.url);
+      if (slot === 'avatar') {
+        setAvatarUrl(photo.url);
+        localStorage.removeItem('profile_avatar');
+      } else {
+        setCoverUrl(photo.url);
+        localStorage.removeItem('profile_cover');
+      }
     }
     const { photos } = await getProfilePhotos(profileOwnerId);
     setProfilePhotos(photos || []);
@@ -437,6 +442,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <button type="button" onClick={() => setImageEditorOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 0, color: '#aaa', fontSize: 24, cursor: 'pointer' }}>×</button>
               </div>
               <p style={{ color: '#999', fontSize: 13, margin: '0 0 18px' }}>Choose which photo you want to update.</p>
+              {msg && <p role="status" style={{ color: msg === 'Photo saved.' ? '#78c98a' : '#f0a0a0', fontSize: 12, margin: '0 0 12px' }}>{msg}</p>}
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.08)' }}>
                 {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: 58, height: 58, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 58, height: 58, borderRadius: '50%', background: '#333', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 22 }}>{initial}</div>}
                 <div style={{ flex: 1, minWidth: 0 }}><strong style={{ color: '#eee', fontSize: 14 }}>Profile picture</strong><p style={{ color: '#888', fontSize: 11, margin: '3px 0 0' }}>Shown beside your name and posts</p></div>

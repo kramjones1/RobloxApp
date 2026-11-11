@@ -141,6 +141,8 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     }
     if (!current || current.callId !== signal.callId || current.partnerId !== signal.from) return;
     if (signal.action === 'accept' && current.direction === 'outgoing') {
+      if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
+      callTimeoutRef.current = null;
       updateCallSession({ ...current, status: 'connecting' });
       await startCallMedia({ ...current, status: 'connecting' }, true);
     } else if (signal.action === 'decline' || signal.action === 'busy') {
@@ -315,7 +317,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   useEffect(() => {
     if (!myId) return;
     let active = true;
-    const partners = Array.from(new Set([...presencePartnerIds, selectedId])).filter(Boolean);
+    const partners = Array.from(new Set(presencePartnerIds)).filter(Boolean);
     createChatCallSignaling(myId, partners, handleCallSignal).then(controller => {
       if (!active) controller.close();
       else callSignalingRef.current = controller;
@@ -327,7 +329,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       callSignalingRef.current?.close();
       callSignalingRef.current = null;
     };
-  }, [myId, presencePartnerKey, selectedId]);
+  }, [myId, presencePartnerKey]);
 
   useEffect(() => {
     if (localCallVideoRef.current && localCallStream) localCallVideoRef.current.srcObject = localCallStream;

@@ -111,7 +111,15 @@ hoverStyles.textContent = `
     .profile-main-content::-webkit-scrollbar-thumb { background: rgba(145,145,160,.42); border-radius: 8px; }
     .profile-tabs { position: relative; top: auto; flex: 0 0 auto; overflow-x: auto; overflow-y: hidden; }
     .profile-sidebar { position: static; max-height: none; overflow: visible; }
-    .profile-content-area { flex: 1 1 auto; height: 0; min-height: 280px; overflow: hidden; align-items: stretch; }
+    /* Compact the profile's top identity area so the tab feed has useful
+       viewport space on common laptop displays. */
+    .cover-wrap { height: clamp(180px, 26vh, 230px) !important; aspect-ratio: auto !important; }
+    .profile-avatar-wrap { margin-top: -54px !important; }
+    .profile-avatar { width: 112px !important; height: 112px !important; }
+    .profile-name-section { padding: 6px 24px 10px !important; }
+    .profile-page-root > .profile-wrap > section[aria-label="Recent Live"] { padding: 8px 24px 4px !important; }
+    .profile-page-root > .profile-wrap > section[aria-label="Recent Live"] h2 { margin-bottom: 7px !important; }
+    .profile-content-area { flex: 1 1 auto; height: 0; min-height: 180px; overflow: hidden; align-items: stretch; }
   }
   @media (max-width: 699px) {
     /* Mobile keeps natural document scrolling and its original layout. */

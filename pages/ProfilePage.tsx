@@ -1,5 +1,6 @@
 import heic2any from 'heic2any';
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { watchRecentLive, watchUserPresence } from '../chatPresence';
 import OnlineDot from '../components/OnlineDot';
 import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, setProfileCommentReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, updateChatProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
@@ -344,6 +345,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [profilePhotos, setProfilePhotos] = useState<ProfilePhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; alt: string } | null>(null);
   const [openPhotoMenu, setOpenPhotoMenu] = useState<string | null>(null);
+  const [photoMenuPosition, setPhotoMenuPosition] = useState<{ top: number; left: number } | null>(null);
+  const [cropSaveStage, setCropSaveStage] = useState('');
   const [selectedPost, setSelectedPost] = useState<ChatPost | null>(null);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
@@ -788,15 +791,17 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     });
   }, [viewUserId, user?.id]);
 
-  async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover') {
+  async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover', onStage?: (stage: string) => void) {
     // Each photo has its own storage upload and only patches its own profile column.
     // Saving a cover can never overwrite the avatar, and vice versa.
     const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 200 * 1024
       ? file
       : await compressProfileImage(file);
+    onStage?.('Uploading photo to storage…');
     const { photo, error } = await uploadProfilePhoto(uploadFile, slot);
     if (error || !photo) throw new Error(error || 'Photo upload failed.');
     const photoUrl = `${photo.url}?v=${Date.now()}`;
+    onStage?.('Saving profile photo…');
     const { error: profileError } = await updateChatProfilePhoto(slot, photoUrl);
     if (profileError) {
       void deleteProfilePhoto(photo.name).catch(() => {});
@@ -810,6 +815,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       localStorage.removeItem('profile_cover');
     }
     setMsg(slot === 'avatar' ? 'Profile picture saved.' : 'Cover photo saved.');
+    onStage?.('Photo saved.');
     void getProfilePhotos(profileOwnerId).then(({ photos }) => {
       if (photos) setProfilePhotos(photos);
     }).catch(() => {});
@@ -841,19 +847,23 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }
 
   async function applyPhotoCrop() {
-    if (!cropDraft) return;
-    const slot = cropDraft.slot;
+    if (!cropDraft || savingCrop) return;
+    const draft = cropDraft;
+    const slot = draft.slot;
     setSavingCrop(true);
+    setCropSaveStage('Preparing photo…');
     if (slot === 'avatar') setUploadingAvatar(true);
     else setUploadingCover(true);
     setMsg('');
     try {
-      const cropped = await cropProfileImage(cropDraft.file, slot, cropZoom, cropX, cropY);
-      await saveProfilePhoto(cropped, slot);
-      URL.revokeObjectURL(cropDraft.url);
+      const cropped = await cropProfileImage(draft.file, slot, cropZoom, cropX, cropY);
+      await saveProfilePhoto(cropped, slot, setCropSaveStage);
+      URL.revokeObjectURL(draft.url);
       setCropDraft(null);
+      setCropSaveStage('');
     } catch (error: any) {
       setMsg(error.message || 'Could not save this photo.');
+      setCropSaveStage('');
     } finally {
       setSavingCrop(false);
       setUploadingAvatar(false);
@@ -866,6 +876,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     cropPointersRef.current.clear();
     cropGestureRef.current = null;
     setCropDraft(null);
+    setCropSaveStage('');
   }
 
   function cropPointerDown(event: React.PointerEvent<HTMLDivElement>) {
@@ -1039,13 +1050,16 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                     <div key={photo.name} style={{ position: 'relative', background: '#292929', borderRadius: 9 }}>
                       <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 9, overflow: 'hidden', background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
                       {canEdit && <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 4 }}>
-                        <button type="button" aria-label="Photo options" aria-haspopup="menu" aria-expanded={openPhotoMenu === photo.name} onClick={() => setOpenPhotoMenu(current => current === photo.name ? null : photo.name)} style={{ width: 32, height: 32, border: '1px solid rgba(255,255,255,.18)', borderRadius: '50%', background: 'rgba(0,0,0,.76)', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>⋯</button>
-                        {openPhotoMenu === photo.name && <div role="menu" aria-label="Photo options" style={{ position: 'absolute', top: 38, right: 0, width: 190, padding: 5, borderRadius: 9, background: '#252525', border: '1px solid rgba(255,255,255,.14)', boxShadow: '0 8px 28px rgba(0,0,0,.5)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); useGalleryPhoto(photo, 'avatar'); }} style={{ border: 0, borderRadius: 6, padding: '10px 9px', textAlign: 'left', background: 'transparent', color: '#eee', fontSize: 12, cursor: 'pointer' }}>Set as profile picture</button>
-                          <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); useGalleryPhoto(photo, 'cover'); }} style={{ border: 0, borderRadius: 6, padding: '10px 9px', textAlign: 'left', background: 'transparent', color: '#eee', fontSize: 12, cursor: 'pointer' }}>Set as cover photo</button>
-                          <div style={{ height: 1, background: 'rgba(255,255,255,.1)', margin: '2px 4px' }} />
-                          <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); handleDeletePhoto(photo); }} style={{ border: 0, borderRadius: 6, padding: '10px 9px', textAlign: 'left', background: 'transparent', color: '#ff8b8b', fontSize: 12, cursor: 'pointer' }}>Delete photo</button>
-                        </div>}
+                        <button type="button" aria-label="Photo options" aria-haspopup="menu" aria-expanded={openPhotoMenu === photo.name} onClick={event => {
+                          if (openPhotoMenu === photo.name) { setOpenPhotoMenu(null); setPhotoMenuPosition(null); return; }
+                          const rect = event.currentTarget.getBoundingClientRect();
+                          const menuWidth = Math.min(208, window.innerWidth - 24);
+                          const left = Math.max(12, Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 12));
+                          const menuHeight = 148;
+                          const top = rect.bottom + menuHeight + 8 > window.innerHeight ? Math.max(12, rect.top - menuHeight - 8) : rect.bottom + 6;
+                          setPhotoMenuPosition({ top, left });
+                          setOpenPhotoMenu(photo.name);
+                        }} style={{ width: 34, height: 34, border: '1px solid rgba(255,255,255,.22)', borderRadius: '50%', background: 'rgba(0,0,0,.82)', color: '#fff', fontSize: 23, lineHeight: 1, cursor: 'pointer', display: 'grid', placeItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.35)' }}>⋯</button>
                       </div>}
                     </div>
                   ))}
@@ -1096,6 +1110,23 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </div>
           </main>
         </div>
+        {openPhotoMenu && photoMenuPosition && createPortal(
+          <div role="presentation" onClick={() => { setOpenPhotoMenu(null); setPhotoMenuPosition(null); }} style={{ position: 'fixed', inset: 0, zIndex: 5000 }}>
+            <div role="menu" aria-label="Photo options" onClick={event => event.stopPropagation()} style={{ position: 'fixed', top: photoMenuPosition.top, left: photoMenuPosition.left, width: 'min(208px, calc(100vw - 24px))', boxSizing: 'border-box', padding: 6, borderRadius: 10, background: '#252525', border: '1px solid rgba(255,255,255,.16)', boxShadow: '0 12px 34px rgba(0,0,0,.62)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {(() => {
+                const photo = profilePhotos.find(item => item.name === openPhotoMenu);
+                if (!photo) return null;
+                return <>
+                  <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); setPhotoMenuPosition(null); useGalleryPhoto(photo, 'avatar'); }} style={{ border: 0, borderRadius: 7, padding: '11px 10px', textAlign: 'left', background: 'transparent', color: '#eee', fontSize: 13, cursor: 'pointer', width: '100%' }}>Set as profile picture</button>
+                  <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); setPhotoMenuPosition(null); useGalleryPhoto(photo, 'cover'); }} style={{ border: 0, borderRadius: 7, padding: '11px 10px', textAlign: 'left', background: 'transparent', color: '#eee', fontSize: 13, cursor: 'pointer', width: '100%' }}>Set as cover photo</button>
+                  <div style={{ height: 1, background: 'rgba(255,255,255,.1)', margin: '2px 4px' }} />
+                  <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); setPhotoMenuPosition(null); handleDeletePhoto(photo); }} style={{ border: 0, borderRadius: 7, padding: '11px 10px', textAlign: 'left', background: 'transparent', color: '#ff8b8b', fontSize: 13, cursor: 'pointer', width: '100%' }}>Delete photo</button>
+                </>;
+              })()}
+            </div>
+          </div>,
+          document.body
+        )}
         {selectedPhoto && <div role="presentation" onClick={() => setSelectedPhoto(null)} style={{ position: 'fixed', inset: 0, zIndex: 1600, background: 'rgba(0,0,0,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <section role="dialog" aria-modal="true" aria-label="Photo viewer" onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 1100, maxHeight: '94vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Close photo" style={{ position: 'absolute', zIndex: 2, top: -12, right: -8, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(35,35,35,.9)', color: '#fff', fontSize: 28, cursor: 'pointer' }}>×</button>
@@ -1189,7 +1220,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               <input aria-label="Zoom crop" type="range" min="1" max="3" step="0.05" value={cropZoom} disabled={savingCrop} onChange={e => setCropZoom(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 18 }} />
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={closePhotoCrop} disabled={savingCrop} style={{ flex: 1, padding: 12, borderRadius: 9, border: '1px solid rgba(255,255,255,.16)', background: '#303030', color: '#ddd', cursor: savingCrop ? 'not-allowed' : 'pointer' }}>Cancel</button>
-                <button type="button" onClick={applyPhotoCrop} disabled={savingCrop} style={{ ...s.saveBtn, flex: 1, margin: 0, opacity: savingCrop ? .6 : 1 }}>{savingCrop ? 'Uploading photo…' : 'Save photo'}</button>
+                <button type="button" onClick={applyPhotoCrop} disabled={savingCrop} style={{ ...s.saveBtn, flex: 1, margin: 0, opacity: savingCrop ? .6 : 1 }}>{savingCrop ? (cropSaveStage || 'Saving photo…') : 'Save photo'}</button>
               </div>
             </section>
           </div>

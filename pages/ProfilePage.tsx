@@ -501,12 +501,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     const selected = Array.from(e.target.files || []);
     e.target.value = '';
     if (!selected.length) return;
-    const remaining = Math.max(0, 3 - postImages.length);
-    if (!remaining) { setPostMsg('A post can contain up to 3 photos.'); return; }
+    const remaining = Math.max(0, 5 - postImages.length);
+    if (!remaining) { setPostMsg('A post can contain up to 5 photos.'); return; }
     try {
       const compressed = await Promise.all(selected.slice(0, remaining).map(compressProfileImage));
-      setPostImages(current => [...current, ...compressed].slice(0, 3));
-      setPostImagePreviews(current => [...current, ...compressed.map(file => URL.createObjectURL(file))].slice(0, 3));
+      setPostImages(current => [...current, ...compressed].slice(0, 5));
+      setPostImagePreviews(current => [...current, ...compressed.map(file => URL.createObjectURL(file))].slice(0, 5));
       setPostMsg('');
     } catch (error: any) {
       setPostMsg(error.message || 'Could not prepare these photos.');
@@ -656,8 +656,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,.07)', paddingTop: 10 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button type="button" onClick={() => postImagesInputRef.current?.click()} disabled={postImages.length >= 3 || posting} style={{ border: 0, borderRadius: 9, padding: '9px 11px', background: 'rgba(108,99,255,.16)', color: '#b7b2ff', cursor: 'pointer', fontSize: 12 }}>＋ Photo {postImages.length ? `(${postImages.length}/3)` : ''}</button>
-                  <span style={{ color: '#777', fontSize: 10 }}>Max 3 photos · 200 KB each</span>
+                  <button type="button" onClick={() => postImagesInputRef.current?.click()} disabled={postImages.length >= 5 || posting} style={{ border: 0, borderRadius: 9, padding: '9px 11px', background: 'rgba(108,99,255,.16)', color: '#b7b2ff', cursor: 'pointer', fontSize: 12 }}>＋ Photo {postImages.length ? `(${postImages.length}/5)` : ''}</button>
+                  <span style={{ color: '#777', fontSize: 10 }}>Max 5 photos · 200 KB each</span>
                 </div>
                 <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500</span>
               </div>
@@ -689,8 +689,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </div>
             {postPrivacyMsg?.id === post.id && <p role="status" aria-live="polite" style={{ color: postPrivacyMsg.error ? '#ff9b9b' : '#80d99a', fontSize: 12, lineHeight: 1.4, margin: '0 0 10px' }}>{postPrivacyMsg.text}</p>}
             {post.content && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 12px' }}>{post.content}</p>}
-            {(post.image_paths || []).length > 0 && <div style={{ display: 'grid', gridTemplateColumns: post.image_paths.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gridTemplateRows: post.image_paths.length === 3 ? 'repeat(2,minmax(0,1fr))' : undefined, aspectRatio: post.image_paths.length === 1 ? '16/10' : post.image_paths.length === 3 ? '2 / 1' : undefined, gap: 4, overflow: 'hidden', borderRadius: 10 }}>
-              {post.image_paths.map((path, index) => <img key={path} src={`${'https://btkcubibosbtpxcronnd.supabase.co'}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} loading="lazy" style={{ width: '100%', height: '100%', minHeight: 0, aspectRatio: post.image_paths.length === 1 ? '16/10' : undefined, objectFit: 'cover', background: '#111', gridRow: post.image_paths.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
+            {(post.image_paths || []).length > 0 && <div style={{ display: 'grid', gridTemplateColumns: post.image_paths.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gridTemplateRows: post.image_paths.length >= 3 ? 'repeat(2,minmax(0,1fr))' : undefined, aspectRatio: post.image_paths.length === 1 ? '16/10' : post.image_paths.length >= 3 ? '2 / 1' : undefined, gap: 4, overflow: 'hidden', borderRadius: 10 }}>
+              {post.image_paths.slice(0, 3).map((path, index) => <div key={path} style={{ position: 'relative', minWidth: 0, minHeight: 0, overflow: 'hidden', background: '#111', gridRow: post.image_paths.length >= 3 && index === 0 ? 'span 2' : undefined }}><img src={`https://btkcubibosbtpxcronnd.supabase.co/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} loading="lazy" style={{ display: 'block', width: '100%', height: '100%', minHeight: 0, aspectRatio: post.image_paths.length === 1 ? '16/10' : undefined, objectFit: 'cover', background: '#111' }} />{index === 2 && post.image_paths.length > 3 && <div aria-label={`${post.image_paths.length - 3} more photos`} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.58)', color: '#fff', fontSize: 'clamp(24px, 5vw, 38px)', fontWeight: 750 }}>+{post.image_paths.length - 3}</div>}</div>)}
             </div>}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '12px 2px 8px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
               <div style={{ color: '#999', fontSize: 11 }}>
@@ -764,8 +764,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <strong style={{ color: '#eee', fontSize: 13 }}>{authorName || 'Anonymous'}</strong>
               </div>
               {postText.trim() && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', margin: '0 0 12px' }}>{postText.trim()}</p>}
-              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gridTemplateRows: postImages.length === 3 ? 'repeat(2,minmax(0,1fr))' : undefined, aspectRatio: postImages.length === 1 ? '16/10' : postImages.length === 3 ? '2 / 1' : undefined, gap: 4, borderRadius: 9, overflow: 'hidden' }}>
-                {postImages.map((file, index) => <img key={index} src={postImagePreviews[index]} alt={`Preview photo ${index + 1}`} style={{ width: '100%', height: '100%', minHeight: 0, aspectRatio: postImages.length === 1 ? '16/10' : undefined, objectFit: 'cover', gridRow: postImages.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
+              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gridTemplateRows: postImages.length >= 3 ? 'repeat(2,minmax(0,1fr))' : undefined, aspectRatio: postImages.length === 1 ? '16/10' : postImages.length >= 3 ? '2 / 1' : undefined, gap: 4, borderRadius: 9, overflow: 'hidden' }}>
+                {postImages.slice(0, 3).map((file, index) => <div key={index} style={{ position: 'relative', minWidth: 0, minHeight: 0, overflow: 'hidden', gridRow: postImages.length >= 3 && index === 0 ? 'span 2' : undefined }}><img src={postImagePreviews[index]} alt={`Preview photo ${index + 1}`} style={{ display: 'block', width: '100%', height: '100%', minHeight: 0, aspectRatio: postImages.length === 1 ? '16/10' : undefined, objectFit: 'cover' }} />{index === 2 && postImages.length > 3 && <div aria-label={`${postImages.length - 3} more photos`} style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.58)', color: '#fff', fontSize: 32, fontWeight: 750 }}>+{postImages.length - 3}</div>}</div>)}
               </div>}
             </article>
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
@@ -1027,7 +1027,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             <section className="profile-section" style={s.card}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
                 <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
-                {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 5 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
+                {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
               </div>
               {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{profilePhotos.length}/25 photos · max 200 KB each · 5 MB total · WebP only</p>}
               {canEdit && msg && <p style={{ color: msg.includes('saved') || msg.includes('deleted') ? '#4caf50' : '#f44336', fontSize: 12 }}>{msg}</p>}

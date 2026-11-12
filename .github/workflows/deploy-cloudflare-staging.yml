@@ -1,0 +1,68 @@
+name: Deploy staging Cloudflare Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - staging
+    paths:
+      - '**'
+      - '!README.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pages-staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging source
+        uses: actions/checkout@v4
+
+      - name: Point staging build to the current signaling Worker
+        run: sed -i 's/omegle-signaling-server\\.kafka9607\\.workers\\.dev/omegle-signaling-cloudflare.kafka9607.workers.dev/g' App.web.tsx
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web app
+        run: npx expo export --platform web
+
+      - name: Ensure staging Pages project exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_NAME="livme-staging"
+          PROJECT_URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
+          STATUS=$(curl -sS -o /tmp/pages-project.json -w "%{http_code}" \\
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \\
+            "${PROJECT_URL}")
+          if [ "${STATUS}" = "200" ]; then
+            echo "Cloudflare Pages project ${PROJECT_NAME} already exists."
+          elif [ "${STATUS}" = "404" ]; then
+            echo "Creating Cloudflare Pages project ${PROJECT_NAME}..."
+            npx wrangler pages project create "${PROJECT_NAME}" --production-branch=staging
+          else
+            cat /tmp/pages-project.json
+            echo "Unable to check Pages project (HTTP ${STATUS})."
+            exit 1
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy staging site
+        run: npx wrangler pages deploy dist --project-name=livme-staging --branch=staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

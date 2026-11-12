@@ -51,31 +51,31 @@ function setStoredTokens(t: SessionTokens | null) {
 }
 
 let refreshPromise: Promise<string | null> | null = null;
-
+let sessionRevision = 0;
 async function doRefresh(): Promise<string | null> {
   const tokens = getStoredTokens();
   if (!tokens || !tokens.refresh_token) return null;
   if (refreshPromise) return refreshPromise;
+  const startingRevision = sessionRevision;
+  const startingRefreshToken = tokens.refresh_token;
   refreshPromise = (async () => {
     try {
       const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-        body: JSON.stringify({ refresh_token: tokens.refresh_token }),
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ refresh_token: startingRefreshToken }),
       });
       if (!r.ok) return null;
       const data = await r.json();
-      if (data.access_token) {
-        setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || tokens.refresh_token });
-        notify(parseJwt(data.access_token));
-        return data.access_token;
-      }
-      return null;
+      if (!data.access_token) return null;
+      const latest = getStoredTokens();
+      if (sessionRevision !== startingRevision || !latest || latest.refresh_token !== startingRefreshToken) return null;
+      setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || startingRefreshToken });
+      notify(parseJwt(data.access_token));
+      return data.access_token;
     } catch { return null; }
   })();
   try { return await refreshPromise; } finally { refreshPromise = null; }
 }
-
 function getStoredSession(): string | null {
   const t = getStoredTokens();
   return t ? t.access_token : null;
@@ -156,17 +156,38 @@ async function claimBrowserAccount(token: string): Promise<{ error?: string }> {
   finally { browserClaimPromise = null; }
 }
 
+const AUTH_LOGOUT_KEY = 'liveme_auth_logout_event';
+let authBroadcast: BroadcastChannel | null = null;
+function clearLocalAuthSession(broadcast = false) {
+  sessionRevision++; claimedBrowserUserId = null;
+  try { localStorage.removeItem('supa_tokens'); } catch {}
+  try { localStorage.removeItem('supa_session'); } catch {}
+  if (broadcast && typeof window !== 'undefined') {
+    const event = { type: 'logout', at: Date.now(), nonce: Math.random().toString(36).slice(2) };
+    try { localStorage.setItem(AUTH_LOGOUT_KEY, JSON.stringify(event)); } catch {}
+    try { authBroadcast?.postMessage(event); } catch {}
+  }
+  notify(null);
+}
+function applyRemoteLogout() {
+  sessionRevision++; claimedBrowserUserId = null;
+  try { localStorage.removeItem('supa_tokens'); } catch {}
+  try { localStorage.removeItem('supa_session'); } catch {}
+  notify(null);
+}
 if (typeof window !== 'undefined') {
+  try { if ('BroadcastChannel' in window) {
+    authBroadcast = new BroadcastChannel('liveme-auth-sync');
+    authBroadcast.addEventListener('message', event => { if (event.data?.type === 'logout') applyRemoteLogout(); });
+  } } catch {}
   window.addEventListener('storage', event => {
-    if (event.key !== 'supa_tokens') return;
+    if (event.key === AUTH_LOGOUT_KEY) { applyRemoteLogout(); return; }
+    if (event.key !== 'supa_tokens' && event.key !== 'supa_session') return;
     const token = getStoredSession();
-    if (!token) { notify(null); return; }
-    void claimBrowserAccount(token).then(binding => {
-      if (binding.error) {
-        if (binding.error === 'BROWSER_ACCOUNT_MISMATCH') setStoredTokens(null);
-        notify(null);
-      } else notify(parseJwt(token));
-    });
+    if (!token) { applyRemoteLogout(); return; }
+    const nextUser = parseJwt(token);
+    if (!nextUser) { applyRemoteLogout(); return; }
+    void claimBrowserAccount(token).then(binding => { if (binding.error) applyRemoteLogout(); else notify(nextUser); });
   });
 }
 
@@ -333,11 +354,14 @@ export async function verifyPhoneOtp(phone: string, token: string): Promise<{ er
 
 export async function signOut() {
   const token = getStoredSession();
+  clearLocalAuthSession(true);
   try {
-    if (token) await fetch(`${SUPABASE_URL}/auth/v1/logout`, { method: 'POST', headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } });
+    if (token) await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+      keepalive: true,
+    });
   } catch {}
-  setStoredSession(null);
-  notify(null);
 }
 
 export function signInWithGoogle() {

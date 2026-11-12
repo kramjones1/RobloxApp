@@ -105,3 +105,5 @@ jobs:
 # Deploy post-backed Photos gallery and image-only gallery posts 2026-11-12
 
 # Deploy shared post detail modal and paginated image gallery 2026-11-12
+
+# Deploy isolated avatar and cover upload completion handling 2026-11-12

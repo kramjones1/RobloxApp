@@ -745,6 +745,18 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     finally { setUploadingGallery(false); }
   }
 
+  async function useGalleryPhoto(photo: ProfilePhoto, slot: 'avatar' | 'cover') {
+    try {
+      const response = await fetch(photo.url);
+      if (!response.ok) throw new Error('Could not open this gallery photo.');
+      const blob = await response.blob();
+      const file = new File([blob], photo.name.split('/').pop() || 'gallery-photo.webp', { type: blob.type || 'image/webp' });
+      beginPhotoCrop(file, slot);
+    } catch (error: any) {
+      setMsg(error.message || 'Could not use this photo.');
+    }
+  }
+
   async function handleDeletePhoto(photo: ProfilePhoto) {
     if (!window.confirm('Delete this photo?')) return;
     let postImageRemoved = false;
@@ -836,9 +848,15 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                   {profilePhotos.map(photo => (
-                    <div key={photo.name} style={{ position: 'relative', aspectRatio: '1', background: '#292929', borderRadius: 9, overflow: 'hidden' }}>
-                      <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', height: '100%', padding: 0, border: 0, background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
-                      {canEdit && <button type="button" onClick={() => handleDeletePhoto(photo)} aria-label="Delete photo" style={{ position: 'absolute', top: 6, right: 6, border: 0, borderRadius: 20, background: 'rgba(0,0,0,.72)', color: '#fff', width: 26, height: 26, cursor: 'pointer' }}>×</button>}
+                    <div key={photo.name} style={{ position: 'relative', background: '#292929', borderRadius: 9, overflow: 'hidden' }}>
+                      <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
+                      {canEdit && <>
+                        <button type="button" onClick={() => handleDeletePhoto(photo)} aria-label="Delete photo" style={{ position: 'absolute', top: 6, right: 6, border: 0, borderRadius: 20, background: 'rgba(0,0,0,.72)', color: '#fff', width: 26, height: 26, cursor: 'pointer' }}>×</button>
+                        <div style={{ display: 'flex', gap: 4, padding: 5 }}>
+                          <button type="button" onClick={() => useGalleryPhoto(photo, 'avatar')} style={{ flex: 1, minWidth: 0, border: 0, borderRadius: 6, padding: '6px 3px', background: 'rgba(108,99,255,.2)', color: '#c9c4ff', fontSize: 10, cursor: 'pointer' }}>Set profile</button>
+                          <button type="button" onClick={() => useGalleryPhoto(photo, 'cover')} style={{ flex: 1, minWidth: 0, border: 0, borderRadius: 6, padding: '6px 3px', background: 'rgba(108,99,255,.2)', color: '#c9c4ff', fontSize: 10, cursor: 'pointer' }}>Set cover</button>
+                        </div>
+                      </>}
                     </div>
                   ))}
                 </div>

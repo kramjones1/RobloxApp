@@ -92,3 +92,4 @@ jobs:
 # Deploy unified profile and cover photo gallery plus five-photo Facebook-style post frames.
 # Version profile gallery URLs after avatar and cover overwrites to avoid stale browser cache.
 # Trigger production deploy for Photos tab overflow menu refactor.
+# Trigger production deploy for profile photo save-state and portal menu fixes.

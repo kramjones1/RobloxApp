@@ -70,20 +70,31 @@ async function decodeProfileImage(file: File, onStage?: (stage: string) => void)
     try {
       loaded = await loadImage(file);
     } catch (nativeError) {
-      // Android/iOS photo pickers can return HEIC/HEIF files even when the
-      // filename or MIME metadata looks generic. Convert those bytes to JPEG.
+      // Do not send every unreadable JPEG/PNG/WebP through the heavyweight
+      // HEIC decoder. Some Android gallery providers use generic MIME types,
+      // so inspect the ISO-BMFF brand in the file header as the reliable test.
+      const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+      const brand = header.length >= 12
+        ? String.fromCharCode(...header.slice(8, 12)).toLowerCase()
+        : '';
+      const isHeic = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand)
+        || /\\.(heic|heif)$/i.test(file.name || '');
+      if (!isHeic) {
+        const detail = nativeError instanceof Error ? nativeError.message : 'The browser could not decode this image.';
+        throw new Error(`This photo could not be read (${detail}). Please choose a JPEG, PNG, or WebP image.`);
+      }
+
+      onStage?.('Converting HEIC photo…');
       try {
-        onStage?.('Converting photo format…');
-        // Some mobile HEIC converters can remain pending indefinitely. Bound
-        // this fallback so the editor always reports a useful failure.
+        // HEIC conversion is only attempted after confirming the file format.
         const converted = await Promise.race([
-          heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 }),
-          new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('Photo format conversion timed out. Please choose a JPEG or PNG copy of this photo.')), 15000)),
+          heic2any({ blob: file, toType: 'image/jpeg', quality: 0.88 }),
+          new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('HEIC conversion timed out. Export this photo as JPEG and try again.')), 12000)),
         ]);
         const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
         loaded = await loadImage(jpegBlob);
-      } catch {
-        throw new Error('This photo format is not supported by the browser. Choose a JPEG/PNG/WebP photo, or export this HEIC/HEIF image as JPEG first.');
+      } catch (conversionError: any) {
+        throw new Error(conversionError?.message || 'HEIC conversion failed. Export this photo as JPEG and try again.');
       }
     }
     return {

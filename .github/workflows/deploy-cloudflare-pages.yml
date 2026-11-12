@@ -89,3 +89,4 @@ jobs:
 # Deploy non-blocking photo-post publish flow and concurrent image uploads.
 # Deploy verified avatar and cover profile-save timeout handling.
 # Deploy profile photo upsert, crop speed, feed crash guard, and three-slot post collage.
+# Deploy unified profile and cover photo gallery plus five-photo Facebook-style post frames.

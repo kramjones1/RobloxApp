@@ -165,35 +165,57 @@ export default function WebApp() {
           window.close();
           return;
         }
-        setSessionToken(token, params.get('refresh_token'));
         history.replaceState(null, '', window.location.pathname + window.location.search);
-        if (type === 'recovery') setRecoveryMode(true);
-        else {
-          oauthLogin = true;
-        }
+        setAuthLoading(true);
+        void setSessionToken(token, params.get('refresh_token')).then(result => {
+          if (result.error) {
+            setAuthMsg(result.error);
+            setAuthLoading(false);
+            return;
+          }
+          if (type === 'recovery') {
+            setRecoveryMode(true);
+            setAuthLoading(false);
+          } else {
+            window.location.reload();
+          }
+        });
+        return;
       }
     }
     const u = getSession();
-    setUser(u);
-    setAuthLoading(false);
     if (u?.id) {
-      isAdmin().then(setAdmin);
-      getChatProfile().then(({ profile, error }) => {
-        // Never treat a failed profile request as a new registration.
-        if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; }
-        if (profile) {
-          setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
-          if (oauthLogin) setPage('profile');
-        } else {
-          setOnboardingStep('welcome');
+      void getValidAccessToken().then(validToken => {
+        if (!validToken) {
+          setUser(null);
+          setAuthLoading(false);
+          setAuthMsg('This browser could not verify its linked account. Please sign in with the account originally used here.');
+          return;
         }
+        setUser(u);
+        setAuthLoading(false);
+        isAdmin().then(setAdmin);
+        getChatProfile().then(({ profile, error }) => {
+          // Never treat a failed profile request as a new registration.
+          if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; }
+          if (profile) {
+            setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            if (oauthLogin) setPage('profile');
+          } else {
+            setOnboardingStep('welcome');
+          }
+        });
       });
+    } else {
+      setUser(null);
+      setAuthLoading(false);
     }
     // Listen for OAuth tokens from popup windows
-    function handleOAuthMessage(e: MessageEvent) {
+    async function handleOAuthMessage(e: MessageEvent) {
       if (e.origin !== window.location.origin || e.data?.type !== 'oauth_token') return;
-      setSessionToken(e.data.access_token, e.data.refresh_token);
+      const binding = await setSessionToken(e.data.access_token, e.data.refresh_token);
       history.replaceState(null, '', window.location.pathname + window.location.search);
+      if (binding.error) { setAuthMsg(binding.error); return; }
       const oauthType = e.data.oauthType;
       if (oauthType === 'recovery') setRecoveryMode(true);
       else {

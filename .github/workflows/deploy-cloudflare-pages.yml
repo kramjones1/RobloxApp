@@ -109,3 +109,4 @@ jobs:
 # Deploy isolated avatar and cover upload completion handling 2026-11-12
 
 # Production photo upload timeout deployment trigger
+# Deploy direct profile and cover photo uploads without the crop editor

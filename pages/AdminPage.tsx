@@ -40,7 +40,10 @@ export default function AdminPage() {
   const [banReason, setBanReason] = useState('');
   const [bannedUsers, setBannedUsers] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [reportSearch, setReportSearch] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
+  const [logSearch, setLogSearch] = useState('');
+  const [logActionFilter, setLogActionFilter] = useState('all');
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
 
@@ -486,11 +489,20 @@ export default function AdminPage() {
         {/* REPORTS */}
         {tab === 'reports' && (
           <div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              <button style={s.btn} onClick={loadReports} disabled={loading}>Refresh</button>
+            <div style={{ ...s.card, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <div>
+                  <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Report queue</h2>
+                  <p style={{ color: '#888', fontSize: 12, marginTop: 3 }}>{reports.length} report{reports.length === 1 ? '' : 's'} loaded · search by message or reported user ID</p>
+                </div>
+                <button style={s.btn} onClick={loadReports} disabled={loading}>Refresh</button>
+              </div>
+              <input style={s.input} placeholder="Filter report text or user ID…" value={reportSearch} onChange={e => setReportSearch(e.target.value)} />
             </div>
             {reports.length === 0 ? <p style={{ color: '#666', fontSize: 13 }}>No pending reports</p> :
-            reports.map(r => (
+            reports.filter(r => !reportSearch.trim() || [r.message_text, r.reported_user_id, r.reporter_id, r.reason].some(v => String(v || '').toLowerCase().includes(reportSearch.trim().toLowerCase()))).length === 0
+              ? <p style={{ color: '#666', fontSize: 13 }}>No reports match this filter.</p>
+              : reports.filter(r => !reportSearch.trim() || [r.message_text, r.reported_user_id, r.reporter_id, r.reason].some(v => String(v || '').toLowerCase().includes(reportSearch.trim().toLowerCase()))).map(r => (
               <div key={r.id} style={s.card}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Reported User: {r.reported_user_id?.slice(0, 8)}</span>
@@ -530,10 +542,39 @@ export default function AdminPage() {
         {/* LOGS */}
         {tab === 'logs' && (
           <div>
-            <button style={{ ...s.btn, marginBottom: 12 }} onClick={loadLogs} disabled={loading}>Refresh</button>
+            <div style={{ ...s.card, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+                <div>
+                  <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Operator audit trail</h2>
+                  <p style={{ color: '#888', fontSize: 12, marginTop: 3 }}>Latest {logs.length} recorded actions · search locally within loaded entries</p>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <button style={s.btn} onClick={loadLogs} disabled={loading}>Refresh</button>
+                  <button style={s.btn} disabled={!logs.length} onClick={() => {
+                    const blob = new Blob([JSON.stringify(logs, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'liveme_operator_audit_logs.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    setNotice(`Exported ${logs.length} loaded audit entries.`);
+                  }}>Export loaded logs</button>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(140px, 1fr)', gap: 8 }}>
+                <input style={s.input} placeholder="Search action, target ID, or details…" value={logSearch} onChange={e => setLogSearch(e.target.value)} />
+                <select style={s.input} value={logActionFilter} onChange={e => setLogActionFilter(e.target.value)}>
+                  <option value="all">All actions</option>
+                  {Array.from(new Set(logs.map(l => String(l.action || '')).filter(Boolean))).sort().map(action => <option key={action} value={action}>{action}</option>)}
+                </select>
+              </div>
+            </div>
             {logs.length === 0 ? <p style={{ color: '#666', fontSize: 13 }}>No logs</p> :
-            <div style={s.card}>
-              {logs.map((l, i) => (
+            logs.filter(l => (logActionFilter === 'all' || l.action === logActionFilter) && (!logSearch.trim() || [l.action, l.target_id, l.details].some(v => String(v || '').toLowerCase().includes(logSearch.trim().toLowerCase())))).length === 0
+              ? <p style={{ color: '#666', fontSize: 13 }}>No audit entries match these filters.</p>
+              : <div style={s.card}>
+              {logs.filter(l => (logActionFilter === 'all' || l.action === logActionFilter) && (!logSearch.trim() || [l.action, l.target_id, l.details].some(v => String(v || '').toLowerCase().includes(logSearch.trim().toLowerCase())))).map((l, i) => (
                 <div key={l.id || i} style={s.row}>
                   <div>
                     <span style={{ color: '#6c63ff', fontSize: 12, fontWeight: 600 }}>{l.action}</span>

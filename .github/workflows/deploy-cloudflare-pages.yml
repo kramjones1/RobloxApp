@@ -101,3 +101,5 @@ jobs:
 # Deploy profile photo post deletion consistency guard 2026-11-12
 
 # Deploy profile and cover photo Posts-tab synchronization 2026-11-12
+
+# Deploy post-backed Photos gallery and image-only gallery posts 2026-11-12

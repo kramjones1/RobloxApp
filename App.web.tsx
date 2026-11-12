@@ -40,23 +40,62 @@ try {
 } catch {}
 const themeStyle = document.createElement('style');
 themeStyle.textContent = `
-  html[data-theme="light"] body { background: #f4f6fb !important; color: #20232a !important; color-scheme: light; }
-  html[data-theme="light"] .page-content { background-color: #f4f6fb !important; color: #20232a !important; }
+  html[data-theme="light"] { color-scheme: light; }
+  html[data-theme="light"] body,
+  html[data-theme="light"] .page-content { background: #f4f6fb !important; color: #20232a !important; }
   html[data-theme="light"] .page-content > div { background-color: transparent !important; }
   html[data-theme="light"] .page-content p,
   html[data-theme="light"] .page-content h1,
   html[data-theme="light"] .page-content h2,
   html[data-theme="light"] .page-content h3,
+  html[data-theme="light"] .page-content h4,
   html[data-theme="light"] .page-content label,
   html[data-theme="light"] .page-content small,
   html[data-theme="light"] .page-content strong,
-  html[data-theme="light"] .page-content span,
   html[data-theme="light"] .page-content li { color: #20232a !important; }
   html[data-theme="light"] .page-content input:not([type="checkbox"]),
   html[data-theme="light"] .page-content textarea,
   html[data-theme="light"] .page-content select { background: #fff !important; color: #20232a !important; border-color: #d7dce5 !important; }
-  html[data-theme="light"] .page-content button:not([style*="linear-gradient"]) { border-color: rgba(25,35,55,.16); }
-  html[data-theme="light"] .profile-section { border-color: rgba(25,35,55,.12) !important; }
+  html[data-theme="light"] .page-content button:not([style*="linear-gradient"]):not([style*="#39348a"]) { border-color: rgba(25,35,55,.16); }
+  html[data-theme="light"] .profile-page-root { background: #f4f6fb !important; color: #20232a !important; }
+  html[data-theme="light"] .profile-page-root .profile-section { background: transparent !important; border-color: #dfe3eb !important; }
+  html[data-theme="light"] .profile-page-root .profile-tabs { background: #f4f6fb !important; border-color: #dfe3eb !important; }
+  html[data-theme="light"] .profile-page-root .profile-section p,
+  html[data-theme="light"] .profile-page-root .profile-section h1,
+  html[data-theme="light"] .profile-page-root .profile-section h2,
+  html[data-theme="light"] .profile-page-root .profile-section h3,
+  html[data-theme="light"] .profile-page-root .profile-section label,
+  html[data-theme="light"] .profile-page-root .profile-section strong { color: #303744 !important; }
+  html[data-theme="light"] .profile-page-root .profile-section input,
+  html[data-theme="light"] .profile-page-root .profile-section textarea,
+  html[data-theme="light"] .profile-page-root .profile-section select { background: #fff !important; color: #20232a !important; border-color: #d7dce5 !important; }
+  html[data-theme="light"] .profile-page-root .profile-section button:not([style*="#39348a"]):not([style*="linear-gradient"]) { color: #424b5a !important; }
+  html[data-theme="light"] .profile-image-editor-overlay { background: rgba(25,35,55,.48) !important; }
+  html[data-theme="light"] .profile-image-editor-dialog { background: #fff !important; border-color: #dfe3eb !important; color: #20232a !important; box-shadow: 0 18px 60px rgba(25,35,55,.2) !important; }
+  html[data-theme="light"] .profile-image-editor-dialog h2,
+  html[data-theme="light"] .profile-image-editor-dialog strong { color: #20232a !important; }
+  html[data-theme="light"] .profile-image-editor-dialog p { color: #626875 !important; }
+  html[data-theme="light"] .profile-image-editor-dialog [style*="borderTop"] { border-color: #e2e5ec !important; }
+  html[data-theme="light"] .admin-page-root { background: #f4f6fb !important; color: #20232a !important; }
+  html[data-theme="light"] .admin-page-root [style*="#1f1f1f"],
+  html[data-theme="light"] .admin-page-root [style*="#151515"],
+  html[data-theme="light"] .admin-page-root [style*="#2a2a2a"] { background: #fff !important; }
+  html[data-theme="light"] .admin-page-root h1,
+  html[data-theme="light"] .admin-page-root h2,
+  html[data-theme="light"] .admin-page-root h3,
+  html[data-theme="light"] .admin-page-root p,
+  html[data-theme="light"] .admin-page-root div,
+  html[data-theme="light"] .admin-page-root td,
+  html[data-theme="light"] .admin-page-root th,
+  html[data-theme="light"] .admin-page-root label { color: #303744; }
+  html[data-theme="light"] .admin-page-root input,
+  html[data-theme="light"] .admin-page-root textarea,
+  html[data-theme="light"] .admin-page-root select { background: #fff !important; color: #20232a !important; border-color: #d7dce5 !important; }
+  html[data-theme="light"] .admin-page-root button:not([style*="#6c63ff"]):not([style*="#f44336"]):not([style*="#ff9800"]) { color: #424b5a; }
+  html[data-theme="light"] .admin-page-root table,
+  html[data-theme="light"] .admin-page-root tr,
+  html[data-theme="light"] .admin-page-root td,
+  html[data-theme="light"] .admin-page-root th { border-color: #e2e5ec !important; }
 `;
 document.head.appendChild(themeStyle);
 

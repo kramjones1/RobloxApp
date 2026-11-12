@@ -446,7 +446,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       return;
     }
     const partnerIds = presencePartnerKey.split('|').filter(Boolean);
-    return watchUserPresence(partnerIds, setOnlinePartners);
+    return watchUserPresence(myId, partnerIds, setOnlinePartners);
   }, [myId, presencePartnerKey]);
 
   useEffect(() => {

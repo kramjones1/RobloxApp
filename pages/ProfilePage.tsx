@@ -129,21 +129,29 @@ async function compressProfileImage(file: File): Promise<File> {
   // to WebP before it reaches storage.
   const decoded = await decodeProfileImage(file);
   try {
-    // Profile and cover assets share a strict 200 KB storage limit. Keep
-    // reducing dimensions and quality until the upload-safe WebP is produced.
-    for (const maxSide of [1280, 1024, 900, 768, 640, 512, 448, 384, 320, 256]) {
-      const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height));
+    // Bound mobile CPU work: use a small, descending set of canvas sizes
+    // and qualities instead of dozens of sequential WebP encodes. Covers are
+    // already cropped to a wide 1200px output, so they usually pass early.
+    const attempts = [
+      { maxSide: 1280, quality: 0.76 },
+      { maxSide: 1024, quality: 0.66 },
+      { maxSide: 896, quality: 0.56 },
+      { maxSide: 768, quality: 0.46 },
+      { maxSide: 640, quality: 0.38 },
+      { maxSide: 512, quality: 0.32 },
+      { maxSide: 384, quality: 0.28 },
+    ];
+    for (const attempt of attempts) {
+      const scale = Math.min(1, attempt.maxSide / Math.max(decoded.width, decoded.height));
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(decoded.width * scale));
       canvas.height = Math.max(1, Math.round(decoded.height * scale));
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Image compression is not supported in this browser.');
       context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
-      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42, 0.34, 0.28]) {
-        const blob = await canvasToWebPBlob(canvas, quality);
-        if (blob.size <= 200 * 1024) {
-          return new File([blob], 'profile-photo.webp', { type: 'image/webp', lastModified: Date.now() });
-        }
+      const blob = await canvasToWebPBlob(canvas, attempt.quality);
+      if (blob.size <= 200 * 1024) {
+        return new File([blob], 'profile-photo.webp', { type: 'image/webp', lastModified: Date.now() });
       }
     }
   } finally {
@@ -166,7 +174,9 @@ async function cropProfileImage(file: File, slot: 'avatar' | 'cover', zoom: numb
     const sx = Math.min(decoded.width - sourceWidth, Math.max(0, (decoded.width - sourceWidth) * (safeX / 100)));
     const sy = Math.min(decoded.height - sourceHeight, Math.max(0, (decoded.height - sourceHeight) * (safeY / 100)));
     const canvas = document.createElement('canvas');
-    canvas.width = slot === 'avatar' ? 800 : 1640;
+    // 1200px is ample for the displayed cover while avoiding oversized
+    // 1640px WebP files that trigger expensive recompression on mobile.
+    canvas.width = slot === 'avatar' ? 800 : 1200;
     canvas.height = Math.round(canvas.width / aspect);
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Image editing is not supported in this browser.');

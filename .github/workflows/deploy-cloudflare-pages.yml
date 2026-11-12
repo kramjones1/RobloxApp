@@ -91,3 +91,4 @@ jobs:
 # Deploy profile photo upsert, crop speed, feed crash guard, and three-slot post collage.
 # Deploy unified profile and cover photo gallery plus five-photo Facebook-style post frames.
 # Version profile gallery URLs after avatar and cover overwrites to avoid stale browser cache.
+# Trigger production deploy for Photos tab overflow menu refactor.

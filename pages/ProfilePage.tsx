@@ -491,7 +491,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }
 
   useEffect(() => {
-    if (!hasMorePosts || postsLoading || loadingOlderPosts || !['Posts', 'Timeline'].includes(activeTab)) return;
+    if (!hasMorePosts || postsLoading || loadingOlderPosts || !['Posts', 'Photos', 'Timeline'].includes(activeTab)) return;
     const sentinel = postsSentinelRef.current;
     if (!sentinel || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver(entries => {
@@ -638,12 +638,13 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setPostActionMsg('');
   }
 
-  function renderPosts(canPublish: boolean, authorName: string, authorAvatar: string) {
+  function renderPosts(canPublish: boolean, authorName: string, authorAvatar: string, photosOnly = false) {
     const canPreview = Boolean(postText.trim() || postImages.length);
+    const visiblePosts = photosOnly ? posts.filter(post => (post.image_paths || []).length > 0) : posts;
     return (
       <div className="profile-section" style={{ ...s.card, padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '18px 0 12px' }}>
-          <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>Posts</h2>
+          <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>{photosOnly ? 'Photo posts' : 'Posts'}</h2>
           {canPublish && (
             <div style={{ background: 'transparent', border: 0, borderBottom: '1px solid rgba(255,255,255,.08)', borderRadius: 0, padding: '0 0 16px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -671,9 +672,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           )}
           {postMsg && <p role="status" style={{ color: postMsg === 'Post published.' ? '#71cf8a' : '#f0a0a0', fontSize: 12, margin: '8px 0' }}>{postMsg}</p>}
           {postsLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading posts...</p> :
-            posts.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>{canPublish ? 'No posts yet. Share your first update!' : 'No posts yet.'}</p> : null}
+            visiblePosts.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>{photosOnly ? 'No photo posts yet.' : canPublish ? 'No posts yet. Share your first update!' : 'No posts yet.'}</p> : null}
         </div>
-        {posts.map(post => (
+        {visiblePosts.map(post => (
           <article key={post.id} onClick={e => { if (!(e.target as HTMLElement).closest('button,input,textarea,form,a,[role="button"]')) setSelectedPost(post); }} style={{ padding: '18px 0 20px', borderTop: '1px solid rgba(255,255,255,.07)', cursor: 'zoom-in' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
@@ -717,7 +718,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         ))}
         <div ref={postsSentinelRef} aria-hidden="true" style={{ height: 1 }} />
         {loadingOlderPosts && <p role="status" aria-live="polite" style={{ color: '#888', fontSize: 12, textAlign: 'center', padding: '14px 0' }}>Loading older posts…</p>}
-        {!hasMorePosts && posts.length > 0 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '14px 0', margin: 0 }}>You’re all caught up.</p>}
+        {!hasMorePosts && visiblePosts.length > 0 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '14px 0', margin: 0 }}>You’re all caught up.</p>}
         {selectedPost && <div role="presentation" onClick={() => setSelectedPost(null)} style={{ position: 'fixed', inset: 0, zIndex: 1500, background: 'rgba(0,0,0,.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
           <section role="dialog" aria-modal="true" aria-label="Expanded post" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: '92vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><strong style={{ color: '#fff' }}>Comments</strong><button type="button" onClick={() => setSelectedPost(null)} aria-label="Close expanded post" style={{ border: 0, borderRadius: 20, background: '#383838', color: '#fff', width: 34, height: 34, fontSize: 22, cursor: 'pointer' }}>×</button></div>
@@ -792,36 +793,47 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }, [viewUserId, user?.id]);
 
   async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover', onStage?: (stage: string) => void) {
-    // Each photo has its own storage upload and only patches its own profile column.
-    // Saving a cover can never overwrite the avatar, and vice versa.
+    // Profile and cover changes are ordinary photo posts. The post's image
+    // path is the canonical file used by both the profile header and Photos tab.
     const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 200 * 1024
       ? file
       : await compressProfileImage(file);
-    onStage?.('Uploading photo to storage…');
-    const { photo, error } = await uploadProfilePhoto(uploadFile, slot);
+    onStage?.('Uploading photo…');
+    const { photo, error } = await uploadProfilePhoto(uploadFile, 'post');
     if (error || !photo) throw new Error(error || 'Photo upload failed.');
-    const photoUrl = `${photo.url}?v=${Date.now()}`;
-    onStage?.('Saving profile photo…');
-    const { error: profileError } = await updateChatProfilePhoto(slot, photoUrl);
-    if (profileError) {
-      void deleteProfilePhoto(photo.name).catch(() => {});
-      throw new Error(profileError);
+    const imagePath = `${user.id}/${photo.name}`;
+    let createdPost: ChatPost | undefined;
+    try {
+      onStage?.('Creating photo post…');
+      const caption = slot === 'avatar' ? 'Updated their profile picture.' : 'Updated their cover photo.';
+      const { post, error: postError } = await createProfilePost(caption, [imagePath]);
+      if (postError || !post) throw new Error(postError || 'Photo post was not saved.');
+      createdPost = post;
+      const photoUrl = `${photo.url}?v=${Date.now()}`;
+      onStage?.('Updating profile…');
+      const { error: profileError } = await updateChatProfilePhoto(slot, photoUrl);
+      if (profileError) throw new Error(profileError);
+      if (slot === 'avatar') {
+        setAvatarUrl(photoUrl);
+        try { window.localStorage.removeItem('profile_avatar'); } catch {}
+      } else {
+        setCoverUrl(photoUrl);
+        try { window.localStorage.removeItem('profile_cover'); } catch {}
+      }
+      setPosts(current => [createdPost!, ...current.filter(item => item.id !== createdPost!.id)]);
+      setMsg(slot === 'avatar' ? 'Profile picture saved and posted.' : 'Cover photo saved and posted.');
+      onStage?.('Photo post saved.');
+      void getProfilePhotos(profileOwnerId).then(({ photos }) => {
+        if (photos) setProfilePhotos(photos);
+      }).catch(() => {});
+    } catch (error) {
+      if (createdPost) {
+        await deleteProfilePost(createdPost.id).catch(() => {});
+      } else {
+        await deleteProfilePhoto(photo.name).catch(() => {});
+      }
+      throw error;
     }
-    if (slot === 'avatar') {
-      setAvatarUrl(photoUrl);
-      // Cache cleanup is optional. A restricted mobile browser may throw
-      // from localStorage; that must never turn a successful server save into
-      // an apparent failed upload or leave the crop dialog stuck open.
-      try { window.localStorage.removeItem('profile_avatar'); } catch {}
-    } else {
-      setCoverUrl(photoUrl);
-      try { window.localStorage.removeItem('profile_cover'); } catch {}
-    }
-    setMsg(slot === 'avatar' ? 'Profile picture saved.' : 'Cover photo saved.');
-    onStage?.('Photo saved.');
-    void getProfilePhotos(profileOwnerId).then(({ photos }) => {
-      if (photos) setProfilePhotos(photos);
-    }).catch(() => {});
   }
 
   function beginPhotoCrop(file: File, slot: 'avatar' | 'cover') {
@@ -1069,6 +1081,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 </div>
               }
             </section>
+            {renderPosts(canEdit, authorName, authorAvatar, true)}
           )}
           {activeTab === 'Timeline' && (
             <>

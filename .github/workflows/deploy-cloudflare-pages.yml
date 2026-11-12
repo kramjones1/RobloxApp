@@ -1,5 +1,6 @@
 name: Deploy production Cloudflare Pages
 # Deploy Inbox-wide user discovery with conversation-independent live presence.
+# Keep Inbox labels and surfaces synchronized with the saved light/dark appearance setting.
 
 on:
   workflow_dispatch:

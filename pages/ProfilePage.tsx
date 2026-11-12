@@ -2,7 +2,7 @@ import heic2any from 'heic2any';
 import React, { useEffect, useRef, useState } from 'react';
 import { watchRecentLive, watchUserPresence } from '../chatPresence';
 import OnlineDot from '../components/OnlineDot';
-import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, setProfileCommentReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
+import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, setProfileCommentReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, updateChatProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
 
@@ -333,7 +333,6 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [postPreviewOpen, setPostPreviewOpen] = useState(false);
   const [posting, setPosting] = useState(false);
   const [postMsg, setPostMsg] = useState('');
-  const [imageEditorOpen, setImageEditorOpen] = useState(false);
   const [cropDraft, setCropDraft] = useState<{ file: File; url: string; slot: 'avatar' | 'cover' } | null>(null);
   const [cropZoom, setCropZoom] = useState(1);
   const [cropX, setCropX] = useState(50);
@@ -778,37 +777,28 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     });
   }, [viewUserId, user?.id]);
 
-  async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover' | 'gallery') {
-    // Cropping already produces a normalized WebP. Do not decode and compress
-    // that same output a second time before uploading it.
+  async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover') {
+    // Each photo has its own storage upload and only patches its own profile column.
+    // Saving a cover can never overwrite the avatar, and vice versa.
     const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 200 * 1024
       ? file
       : await compressProfileImage(file);
     const { photo, error } = await uploadProfilePhoto(uploadFile, slot);
     if (error || !photo) throw new Error(error || 'Photo upload failed.');
-    if (slot === 'avatar' || slot === 'cover') {
-      const photoUrl = `${photo.url}?v=${Date.now()}`;
-      const nextAvatar = slot === 'avatar' ? photoUrl : avatarUrl;
-      const nextCover = slot === 'cover' ? photoUrl : coverUrl;
-      const { error: profileError } = await upsertChatProfile({
-        display_name: displayName, bio, avatar_url: nextAvatar, cover_url: nextCover,
-        share_name: shareName, share_bio: shareBio, work, education, share_details: shareDetails
-      });
-      if (profileError) {
-        await deleteProfilePhoto(photo.name);
-        throw new Error(profileError);
-      }
-      if (slot === 'avatar') {
-        setAvatarUrl(photoUrl);
-        localStorage.removeItem('profile_avatar');
-      } else {
-        setCoverUrl(photoUrl);
-        localStorage.removeItem('profile_cover');
-      }
+    const photoUrl = `${photo.url}?v=${Date.now()}`;
+    const { error: profileError } = await updateChatProfilePhoto(slot, photoUrl);
+    if (profileError) {
+      await deleteProfilePhoto(photo.name);
+      throw new Error(profileError);
     }
-    // A slow listing refresh must never keep the crop dialog stuck in
-    // "Uploading photo" after the actual upload/profile save has succeeded.
-    setMsg('Photo saved.');
+    if (slot === 'avatar') {
+      setAvatarUrl(photoUrl);
+      localStorage.removeItem('profile_avatar');
+    } else {
+      setCoverUrl(photoUrl);
+      localStorage.removeItem('profile_cover');
+    }
+    setMsg(slot === 'avatar' ? 'Profile picture saved.' : 'Cover photo saved.');
     void getProfilePhotos(profileOwnerId).then(({ photos }) => {
       if (photos) setProfilePhotos(photos);
     }).catch(() => {});
@@ -824,7 +814,6 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setCropZoom(1);
     setCropX(50);
     setCropY(50);
-    setImageEditorOpen(false);
     setMsg('');
   }
 
@@ -852,7 +841,6 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       await saveProfilePhoto(cropped, slot);
       URL.revokeObjectURL(cropDraft.url);
       setCropDraft(null);
-      setImageEditorOpen(true);
     } catch (error: any) {
       setMsg(error.message || 'Could not save this photo.');
     } finally {
@@ -1153,7 +1141,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   return (
     <div className="profile-page-root" style={s.page}>
       <div className="profile-wrap" style={s.wrap}>
-        <div className="cover-wrap" style={{ ...s.coverWrap, cursor: 'pointer' }} onClick={() => setImageEditorOpen(true)} role="button" aria-label="Edit profile photos">
+        <div className="cover-wrap" style={{ ...s.coverWrap, cursor: 'pointer' }} onClick={() => coverInputRef.current?.click()} role="button" aria-label="Change cover photo">
           {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
         </div>
         <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverUpload} style={s.hiddenInput} />
@@ -1193,32 +1181,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </section>
           </div>
         )}
-        {imageEditorOpen && (
-          <div className="profile-image-editor-overlay" role="presentation" onClick={() => setImageEditorOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
-            <section className="profile-image-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-image-editor-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, boxShadow: '0 18px 60px rgba(0,0,0,.5)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-                <h2 id="profile-image-editor-title" style={{ color: '#fff', fontSize: 18, margin: 0 }}>Edit profile photos</h2>
-                <button type="button" onClick={() => setImageEditorOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 0, color: '#aaa', fontSize: 24, cursor: 'pointer' }}>×</button>
-              </div>
-              <p style={{ color: '#999', fontSize: 13, margin: '0 0 18px' }}>Choose which photo you want to update.</p>
-              {msg && <p role="status" style={{ color: msg === 'Photo saved.' ? '#78c98a' : '#f0a0a0', fontSize: 12, margin: '0 0 12px' }}>{msg}</p>}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.08)' }}>
-                {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: 58, height: 58, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={{ width: 58, height: 58, borderRadius: '50%', background: '#333', display: 'grid', placeItems: 'center', color: '#fff', fontSize: 22 }}>{initial}</div>}
-                <div style={{ flex: 1, minWidth: 0 }}><strong style={{ color: '#eee', fontSize: 14 }}>Profile picture</strong><p style={{ color: '#888', fontSize: 11, margin: '3px 0 0' }}>Shown beside your name and posts</p></div>
-                <button type="button" disabled={uploadingAvatar} onClick={() => avatarInputRef.current?.click()} style={{ background: '#39348a', color: '#fff', border: 0, borderRadius: 8, padding: '9px 12px', fontSize: 12, cursor: 'pointer' }}>{uploadingAvatar ? 'Saving…' : 'Change'}</button>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderTop: '1px solid rgba(255,255,255,.08)' }}>
-                <div style={{ width: 92, height: 58, borderRadius: 8, overflow: 'hidden', background: 'linear-gradient(135deg,#6c63ff,#00a8cc)', flexShrink: 0 }}>{coverUrl && <img src={coverUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}</div>
-                <div style={{ flex: 1, minWidth: 0 }}><strong style={{ color: '#eee', fontSize: 14 }}>Cover photo</strong><p style={{ color: '#888', fontSize: 11, margin: '3px 0 0' }}>The wide image at the top of your profile</p></div>
-                <button type="button" disabled={uploadingCover} onClick={() => coverInputRef.current?.click()} style={{ background: '#39348a', color: '#fff', border: 0, borderRadius: 8, padding: '9px 12px', fontSize: 12, cursor: 'pointer' }}>{uploadingCover ? 'Saving…' : 'Change'}</button>
-              </div>
-              <p style={{ color: '#777', fontSize: 11, margin: '12px 0 0' }}>JPEG, PNG, or WebP images are compressed to WebP. Maximum 200 KB each, 5 photos and 1 MB total per account. Changes save automatically.</p>
-            </section>
-          </div>
-        )}
-
         <div className="profile-avatar-wrap" style={s.avatarWrap}>
-          <div className="avatar-circle profile-avatar" style={s.avatar} onClick={() => setImageEditorOpen(true)} role="button" aria-label="Edit profile photos" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setImageEditorOpen(true); }}>
+          <div className="avatar-circle profile-avatar" style={s.avatar} onClick={() => avatarInputRef.current?.click()} role="button" aria-label="Change profile picture" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') avatarInputRef.current?.click(); }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
           </div>
         </div>

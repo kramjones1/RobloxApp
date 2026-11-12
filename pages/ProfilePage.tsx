@@ -809,10 +809,13 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     }
     if (slot === 'avatar') {
       setAvatarUrl(photoUrl);
-      localStorage.removeItem('profile_avatar');
+      // Cache cleanup is optional. A restricted mobile browser may throw
+      // from localStorage; that must never turn a successful server save into
+      // an apparent failed upload or leave the crop dialog stuck open.
+      try { window.localStorage.removeItem('profile_avatar'); } catch {}
     } else {
       setCoverUrl(photoUrl);
-      localStorage.removeItem('profile_cover');
+      try { window.localStorage.removeItem('profile_cover'); } catch {}
     }
     setMsg(slot === 'avatar' ? 'Profile picture saved.' : 'Cover photo saved.');
     onStage?.('Photo saved.');

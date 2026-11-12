@@ -730,21 +730,30 @@ export async function updateChatProfilePhoto(slot: 'avatar' | 'cover', url: stri
   const user = parseJwt(token);
   if (!user?.id) return { error: 'Invalid token' };
   const column = slot === 'avatar' ? 'avatar_url' : 'cover_url';
+  const payload = { [column]: url, updated_at: new Date().toISOString() };
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 12000);
   try {
-    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${encodeURIComponent(user.id)}`, {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=user_id`, {
       method: 'PATCH',
+      signal: controller.signal,
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        Prefer: 'return=minimal',
+        Prefer: 'return=representation',
       },
-      body: JSON.stringify({ [column]: url, updated_at: new Date().toISOString() }),
+      body: JSON.stringify(payload),
     });
     if (result?.error) return { error: result.error };
+    if (!Array.isArray(result) || result.length !== 1 || result[0]?.user_id !== user.id) {
+      return { error: 'The photo uploaded, but your profile record was not updated. Please refresh and try again.' };
+    }
     return {};
   } catch (error: any) {
-    return { error: error?.message || 'Could not save the photo to your profile.' };
+    return { error: error?.name === 'AbortError' ? 'Profile save timed out after 12 seconds. Your photo upload did not finish saving to the profile.' : (error?.message || 'Could not save the photo to your profile.') };
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 

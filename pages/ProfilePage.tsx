@@ -343,6 +343,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [activeTab, setActiveTab] = useState<'Posts' | 'Photos' | 'Timeline' | 'About'>('Posts');
   const [profilePhotos, setProfilePhotos] = useState<ProfilePhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; alt: string } | null>(null);
+  const [openPhotoMenu, setOpenPhotoMenu] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<ChatPost | null>(null);
   const [photosLoading, setPhotosLoading] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
@@ -1035,15 +1036,17 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                   {profilePhotos.map(photo => (
-                    <div key={photo.name} style={{ position: 'relative', background: '#292929', borderRadius: 9, overflow: 'hidden' }}>
-                      <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
-                      {canEdit && <>
-                        <button type="button" onClick={() => handleDeletePhoto(photo)} aria-label="Delete photo" style={{ position: 'absolute', top: 6, right: 6, border: 0, borderRadius: 20, background: 'rgba(0,0,0,.72)', color: '#fff', width: 26, height: 26, cursor: 'pointer' }}>×</button>
-                        <div style={{ display: 'flex', gap: 4, padding: 5 }}>
-                          <button type="button" onClick={() => useGalleryPhoto(photo, 'avatar')} style={{ flex: 1, minWidth: 0, border: 0, borderRadius: 6, padding: '6px 3px', background: 'rgba(108,99,255,.2)', color: '#c9c4ff', fontSize: 10, cursor: 'pointer' }}>Set profile</button>
-                          <button type="button" onClick={() => useGalleryPhoto(photo, 'cover')} style={{ flex: 1, minWidth: 0, border: 0, borderRadius: 6, padding: '6px 3px', background: 'rgba(108,99,255,.2)', color: '#c9c4ff', fontSize: 10, cursor: 'pointer' }}>Set cover</button>
-                        </div>
-                      </>}
+                    <div key={photo.name} style={{ position: 'relative', background: '#292929', borderRadius: 9 }}>
+                      <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 9, overflow: 'hidden', background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
+                      {canEdit && <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 4 }}>
+                        <button type="button" aria-label="Photo options" aria-haspopup="menu" aria-expanded={openPhotoMenu === photo.name} onClick={() => setOpenPhotoMenu(current => current === photo.name ? null : photo.name)} style={{ width: 32, height: 32, border: '1px solid rgba(255,255,255,.18)', borderRadius: '50%', background: 'rgba(0,0,0,.76)', color: '#fff', fontSize: 22, lineHeight: 1, cursor: 'pointer', display: 'grid', placeItems: 'center' }}>⋯</button>
+                        {openPhotoMenu === photo.name && <div role="menu" aria-label="Photo options" style={{ position: 'absolute', top: 38, right: 0, width: 190, padding: 5, borderRadius: 9, background: '#252525', border: '1px solid rgba(255,255,255,.14)', boxShadow: '0 8px 28px rgba(0,0,0,.5)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); useGalleryPhoto(photo, 'avatar'); }} style={{ border: 0, borderRadius: 6, padding: '10px 9px', textAlign: 'left', background: 'transparent', color: '#eee', fontSize: 12, cursor: 'pointer' }}>Set as profile picture</button>
+                          <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); useGalleryPhoto(photo, 'cover'); }} style={{ border: 0, borderRadius: 6, padding: '10px 9px', textAlign: 'left', background: 'transparent', color: '#eee', fontSize: 12, cursor: 'pointer' }}>Set as cover photo</button>
+                          <div style={{ height: 1, background: 'rgba(255,255,255,.1)', margin: '2px 4px' }} />
+                          <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); handleDeletePhoto(photo); }} style={{ border: 0, borderRadius: 6, padding: '10px 9px', textAlign: 'left', background: 'transparent', color: '#ff8b8b', fontSize: 12, cursor: 'pointer' }}>Delete photo</button>
+                        </div>}
+                      </div>}
                     </div>
                   ))}
                 </div>

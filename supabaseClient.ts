@@ -107,6 +107,54 @@ function parseJwt(token: string): SupabaseUser | null {
   } catch { return null; }
 }
 
+let claimedBrowserUserId: string | null = null;
+let browserClaimPromise: Promise<{ error?: string }> | null = null;
+
+async function claimBrowserAccount(token: string): Promise<{ error?: string }> {
+  const user = parseJwt(token);
+  if (!user?.id) return { error: 'INVALID_SESSION' };
+  if (claimedBrowserUserId === user.id) return {};
+  if (browserClaimPromise) {
+    const pending = await browserClaimPromise;
+    if (pending.error) return pending;
+    if (claimedBrowserUserId === user.id) return {};
+  }
+  browserClaimPromise = (async () => {
+    try {
+      let browserId = localStorage.getItem('liveme_browser_id');
+      if (!browserId) {
+        browserId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
+              const r = Math.random() * 16 | 0;
+              return (ch === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        localStorage.setItem('liveme_browser_id', browserId);
+      }
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/bind_browser_account`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ p_browser_id: browserId }),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        if (body.includes('BROWSER_ACCOUNT_MISMATCH')) return { error: 'BROWSER_ACCOUNT_MISMATCH' };
+        return { error: 'BROWSER_BINDING_UNAVAILABLE' };
+      }
+      claimedBrowserUserId = user.id;
+      return {};
+    } catch {
+      return { error: 'BROWSER_BINDING_UNAVAILABLE' };
+    }
+  })();
+  try { return await browserClaimPromise; }
+  finally { browserClaimPromise = null; }
+}
+
 export function getAccessToken(): string | null { return getStoredSession(); }
 
 // Force a server-issued access-token refresh before starting Random Chat.
@@ -128,27 +176,47 @@ export async function getValidAccessToken(): Promise<string | null> {
     return null;
   }
   // Refresh shortly before expiry so WebSocket and REST requests start with a valid JWT.
+  let validToken = tokens.access_token;
   if ((user.exp || 0) * 1000 <= Date.now() + 60_000) {
     const refreshed = await doRefresh();
-    if (refreshed) return refreshed;
-    const latest = getStoredTokens();
-    const latestUser = latest?.access_token ? parseJwt(latest.access_token) : null;
-    if (!latestUser || (latestUser.exp || 0) * 1000 <= Date.now()) {
+    if (refreshed) validToken = refreshed;
+    else {
+      const latest = getStoredTokens();
+      const latestUser = latest?.access_token ? parseJwt(latest.access_token) : null;
+      if (!latestUser || (latestUser.exp || 0) * 1000 <= Date.now()) {
+        setStoredTokens(null);
+        notify(null);
+        return null;
+      }
+      validToken = latest!.access_token;
+    }
+  }
+  const binding = await claimBrowserAccount(validToken);
+  if (binding.error) {
+    if (binding.error === 'BROWSER_ACCOUNT_MISMATCH') {
       setStoredTokens(null);
       notify(null);
-      return null;
     }
-    return latest!.access_token;
+    return null;
   }
-  return tokens.access_token;
+  return validToken;
 }
 
-export function setSessionToken(token: string | null, refreshToken?: string | null) {
+export async function setSessionToken(token: string | null, refreshToken?: string | null): Promise<{ error?: string }> {
   const existing = getStoredTokens();
-  if (token) setStoredTokens({ access_token: token, refresh_token: refreshToken || existing?.refresh_token || '' });
-  else setStoredTokens(null);
-  if (token) { const p = parseJwt(token); if (p) notify(p); }
-  else notify(null);
+  if (token) {
+    const binding = await claimBrowserAccount(token);
+    if (binding.error) return { error: binding.error === 'BROWSER_ACCOUNT_MISMATCH'
+      ? 'This browser is already linked to another LiveMe account. Sign in with the account originally used on this browser.'
+      : 'We could not verify this browser. Please try again.' };
+    setStoredTokens({ access_token: token, refresh_token: refreshToken || existing?.refresh_token || '' });
+    const p = parseJwt(token);
+    if (p) notify(p);
+  } else {
+    setStoredTokens(null);
+    notify(null);
+  }
+  return {};
 }
 
 export async function signUp(email: string, password: string): Promise<{ error?: string }> {
@@ -181,6 +249,10 @@ export async function verifySignupOtp(email: string, token: string): Promise<{ e
     });
     if (data.error) return { error: data.error };
     if (!data.access_token || !data.refresh_token) return { error: 'The code could not be verified. Please request a new code.' };
+    const binding = await claimBrowserAccount(data.access_token);
+    if (binding.error) return { error: binding.error === 'BROWSER_ACCOUNT_MISMATCH'
+      ? 'This browser is already linked to another LiveMe account. Sign in with the account originally used on this browser.'
+      : 'We could not verify this browser. Please try again.' };
     setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token });
     notify(parseJwt(data.access_token));
     return {};
@@ -212,6 +284,10 @@ export async function signIn(email: string, password: string): Promise<{ error?:
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
+      const binding = await claimBrowserAccount(data.access_token);
+      if (binding.error) return { error: binding.error === 'BROWSER_ACCOUNT_MISMATCH'
+        ? 'This browser is already linked to another LiveMe account. Sign in with the account originally used on this browser.'
+        : 'We could not verify this browser. Please try again.' };
       setStoredTokens({ access_token: data.access_token, refresh_token: data.refresh_token || '' });
       notify(parseJwt(data.access_token));
     }

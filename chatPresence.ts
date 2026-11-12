@@ -12,136 +12,201 @@ const realtimeClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 /**
- * Publishes this authenticated user's presence on their own user-scoped topic.
- * The database policy only permits auth.uid() to publish to that user's topic.
- * Each tab gets its own server-generated Presence key, so one tab leaving cannot
- * mark the account offline while another tab remains connected.
+ * Central Presence Directory.
+ *
+ * Components subscribe to user IDs through this shared manager. Each user still
+ * owns a private, user-scoped topic (enforced by realtime.messages RLS), while
+ * the manager deduplicates channels and fans updates out to every mounted UI.
  */
+type PresenceDirectoryEntry = {
+  channel: RealtimeChannel | null;
+  online: boolean;
+  starting: boolean;
+  listeners: Set<() => void>;
+};
+
+const presenceDirectory = new Map<string, PresenceDirectoryEntry>();
+const ownPresenceChannels = new Map<string, { channel: RealtimeChannel; refs: number }>();
+let realtimeAuthSyncStarted = false;
+
+function ensureRealtimeAuthSync() {
+  if (realtimeAuthSyncStarted) return;
+  realtimeAuthSyncStarted = true;
+  onAuthChange((nextUser) => {
+    if (!nextUser?.id) return;
+    void getValidAccessToken()
+      .then((token) => token ? realtimeClient.realtime.setAuth(token) : undefined)
+      .catch(() => {});
+  });
+}
+
+function notifyPresenceEntry(entry: PresenceDirectoryEntry) {
+  entry.listeners.forEach((listener) => listener());
+}
+
+function updatePresenceEntry(entry: PresenceDirectoryEntry, channel: RealtimeChannel) {
+  const state = channel.presenceState() as Record<string, unknown[]>;
+  entry.online = Object.values(state).some(
+    (presences) => Array.isArray(presences) && presences.length > 0,
+  );
+  notifyPresenceEntry(entry);
+}
+
+function startPresenceSubscription(userId: string, entry: PresenceDirectoryEntry) {
+  if (entry.starting || entry.channel || entry.listeners.size === 0) return;
+  entry.starting = true;
+
+  void (async () => {
+    try {
+      const token = await getValidAccessToken();
+      if (!token || entry.listeners.size === 0 || presenceDirectory.get(userId) !== entry) return;
+      await realtimeClient.realtime.setAuth(token);
+      if (entry.listeners.size === 0 || presenceDirectory.get(userId) !== entry) return;
+
+      const channel = realtimeClient.channel(`user-presence:${userId}`, {
+        config: { private: true },
+      });
+      entry.channel = channel;
+
+      channel
+        .on('presence', { event: 'sync' }, () => updatePresenceEntry(entry, channel))
+        .on('presence', { event: 'join' }, () => updatePresenceEntry(entry, channel))
+        .on('presence', { event: 'leave' }, () => updatePresenceEntry(entry, channel))
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            updatePresenceEntry(entry, channel);
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            entry.online = false;
+            notifyPresenceEntry(entry);
+          }
+        });
+    } catch {
+      entry.online = false;
+      notifyPresenceEntry(entry);
+    } finally {
+      entry.starting = false;
+      if (entry.listeners.size > 0 && !entry.channel && presenceDirectory.get(userId) === entry) {
+        // A transient auth/network failure can be retried by the next subscriber.
+        entry.online = false;
+        notifyPresenceEntry(entry);
+      }
+    }
+  })();
+}
+
+/** Publish the signed-in user's presence. Multiple tabs get distinct server keys. */
 export function startUserPresence(userId: string): () => void {
+  if (!userId) return () => {};
+  ensureRealtimeAuthSync();
+
+  const existing = ownPresenceChannels.get(userId);
+  if (existing) {
+    existing.refs += 1;
+    return () => {
+      existing.refs -= 1;
+      if (existing.refs <= 0) {
+        ownPresenceChannels.delete(userId);
+        void realtimeClient.removeChannel(existing.channel);
+      }
+    };
+  }
+
   let stopped = false;
   let channel: RealtimeChannel | null = null;
-  const stopAuthListener = onAuthChange((nextUser) => {
-    if (nextUser?.id !== userId) return;
-    void getValidAccessToken().then((token) => {
-      if (token && !stopped) return realtimeClient.realtime.setAuth(token);
-    }).catch(() => {});
-  });
 
-  const start = async () => {
-    const token = await getValidAccessToken();
-    if (!token || stopped) return;
+  void (async () => {
+    try {
+      const token = await getValidAccessToken();
+      if (!token || stopped) return;
+      await realtimeClient.realtime.setAuth(token);
+      if (stopped) return;
 
-    await realtimeClient.realtime.setAuth(token);
-    if (stopped) return;
+      const nextChannel = realtimeClient.channel(`user-presence:${userId}`, {
+        config: { private: true },
+      });
+      channel = nextChannel;
 
-    channel = realtimeClient.channel(`user-presence:${userId}`, {
-      config: { private: true },
-    });
+      nextChannel.subscribe(async (status) => {
+        if (stopped || status !== 'SUBSCRIBED') return;
+        try {
+          await nextChannel.track({ user_id: userId, online_at: new Date().toISOString() });
+        } catch {
+          if (ownPresenceChannels.get(userId)?.channel === nextChannel) {
+            ownPresenceChannels.delete(userId);
+          }
+          void realtimeClient.removeChannel(nextChannel);
+        }
+      });
 
-    channel.subscribe(async (status) => {
-      if (stopped || status !== 'SUBSCRIBED') return;
-      try {
-        await channel?.track({ user_id: userId, online_at: new Date().toISOString() });
-      } catch {
-        if (channel) void realtimeClient.removeChannel(channel);
-        channel = null;
-      }
-    });
-  };
-
-  void start().catch(() => {});
+      if (!stopped) ownPresenceChannels.set(userId, { channel: nextChannel, refs: 1 });
+      else void realtimeClient.removeChannel(nextChannel);
+    } catch {
+      // Presence is best-effort; app authentication and navigation must continue.
+    }
+  })();
 
   return () => {
     stopped = true;
-    stopAuthListener();
-    if (channel) void realtimeClient.removeChannel(channel);
-    channel = null;
+    if (!channel) return;
+    const registered = ownPresenceChannels.get(userId);
+    if (registered?.channel === channel) {
+      registered.refs -= 1;
+      if (registered.refs > 0) return;
+      ownPresenceChannels.delete(userId);
+    }
+    void realtimeClient.removeChannel(channel);
   };
 }
 
+/** Return the latest status known by the shared directory (false if not observed). */
+export function getOnlineStatus(userId: string): boolean {
+  return presenceDirectory.get(userId)?.online === true;
+}
+
 /**
- * Watches any set of user IDs through the same user-scoped presence topics.
- * This is not conversation- or friendship-scoped: any authenticated user can
- * read a user's online state, while only that user can publish to their topic.
+ * Subscribe to any user IDs, regardless of conversation or friendship.
+ * Repeated requests share one underlying Realtime channel per user ID.
  */
 export function watchUserPresence(
   viewerId: string,
   userIds: string[],
   onChange: (onlineIds: Set<string>) => void,
 ): () => void {
+  ensureRealtimeAuthSync();
   let stopped = false;
-  const channels: RealtimeChannel[] = [];
-  const statusByUser = new Map<string, boolean>();
-  const stopAuthListener = onAuthChange((nextUser) => {
-    if (nextUser?.id !== viewerId) return;
-    void getValidAccessToken().then((token) => {
-      if (token && !stopped) return realtimeClient.realtime.setAuth(token);
-    }).catch(() => {});
-  });
-
-  const publish = () => {
+  const uniqueIds = Array.from(new Set(userIds)).filter((id) => Boolean(id) && id !== viewerId);
+  const refresh = () => {
     if (stopped) return;
-    onChange(new Set(
-      Array.from(statusByUser.entries())
-        .filter(([, isOnline]) => isOnline)
-        .map(([id]) => id),
-    ));
+    onChange(new Set(uniqueIds.filter((id) => presenceDirectory.get(id)?.online === true)));
   };
 
-  const refreshUserStatus = (targetUserId: string, channel: RealtimeChannel) => {
-    const state = channel.presenceState() as Record<string, unknown[]>;
-    const isOnline = Object.values(state).some(
-      (entries) => Array.isArray(entries) && entries.length > 0,
-    );
-    statusByUser.set(targetUserId, isOnline);
-    publish();
-  };
-
-  const start = async () => {
-    const token = await getValidAccessToken();
-    if (!token || stopped) {
-      publish();
-      return;
+  for (const userId of uniqueIds) {
+    let entry = presenceDirectory.get(userId);
+    if (!entry) {
+      entry = { channel: null, online: false, starting: false, listeners: new Set() };
+      presenceDirectory.set(userId, entry);
     }
+    entry.listeners.add(refresh);
+    startPresenceSubscription(userId, entry);
+  }
 
-    await realtimeClient.realtime.setAuth(token);
-    const uniqueUsers = Array.from(new Set(userIds)).filter(Boolean);
-
-    for (const targetUserId of uniqueUsers) {
-      if (stopped) break;
-      statusByUser.set(targetUserId, false);
-
-      const channel = realtimeClient.channel(`user-presence:${targetUserId}`, {
-        config: { private: true },
-      });
-
-      channel
-        .on('presence', { event: 'sync' }, () => refreshUserStatus(targetUserId, channel))
-        .on('presence', { event: 'join' }, () => refreshUserStatus(targetUserId, channel))
-        .on('presence', { event: 'leave' }, () => refreshUserStatus(targetUserId, channel))
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            refreshUserStatus(targetUserId, channel);
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            statusByUser.set(targetUserId, false);
-            publish();
-          }
-        });
-
-      channels.push(channel);
-    }
-
-    publish();
-  };
-
-  void start().catch(() => publish());
+  refresh();
 
   return () => {
     stopped = true;
-    stopAuthListener();
-    channels.forEach((channel) => { void realtimeClient.removeChannel(channel); });
+    for (const userId of uniqueIds) {
+      const entry = presenceDirectory.get(userId);
+      if (!entry) continue;
+      entry.listeners.delete(refresh);
+      if (entry.listeners.size > 0) continue;
+      if (entry.channel) void realtimeClient.removeChannel(entry.channel);
+      presenceDirectory.delete(userId);
+    }
   };
 }
+
+/** Alias for screens that treat presence as a directory rather than chat state. */
+export const subscribePresenceDirectory = watchUserPresence;
 
 /**
  * Subscribe to the signed-in user's Recent Live history.

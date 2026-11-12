@@ -843,7 +843,16 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         setCoverUrl(photoUrl);
         try { window.localStorage.removeItem('profile_cover'); } catch {}
       }
-      setPosts(current => [createdPost!, ...current.filter(item => item.id !== createdPost!.id)]);
+      // Re-read the persisted post through the same loader used by the
+      // Posts tab so it is immediately represented in both Posts and Photos
+      // with the same reactions/comments shape as every other post.
+      const refreshed = await getProfilePosts(profileOwnerId, undefined, 20);
+      const authoritativePost = refreshed.posts?.find(item => item.id === createdPost!.id) || createdPost!;
+      setPosts(current => {
+        const merged = new Map<string, ChatPost>();
+        for (const item of [authoritativePost, ...current]) merged.set(item.id, item);
+        return Array.from(merged.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
       setMsg(slot === 'avatar' ? 'Profile picture saved and posted.' : 'Cover photo saved and posted.');
       onStage?.('Photo post saved.');
       void getProfilePhotos(profileOwnerId).then(({ photos }) => {

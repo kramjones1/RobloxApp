@@ -291,6 +291,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [avatarUrl, setAvatarUrl] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [avatarSaveStage, setAvatarSaveStage] = useState('');
   const [uploadingCover, setUploadingCover] = useState(false);
   const [avatarEditDraft, setAvatarEditDraft] = useState<{ file: File; url: string } | null>(null);
   const [avatarCropZoom, setAvatarCropZoom] = useState(1);
@@ -801,13 +802,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         if (photos) setProfilePhotos(photos);
       }).catch(() => {});
     } catch (error) {
-      // Rollback is best-effort. Never keep the crop dialog locked while
-      // cleanup network requests are pending.
-      if (createdPost) {
-        void deleteProfilePost(createdPost.id).catch(() => {});
-      } else {
-        void deleteProfilePhoto(photo.name).catch(() => {});
-      }
+      // Once the image post exists, keep it. A later avatar/cover profile-row
+      // failure must not erase the successfully uploaded photo from Photos.
+      // Only remove the orphaned Storage object when post creation failed.
+      if (!createdPost) void deleteProfilePhoto(photo.name).catch(() => {});
       throw error;
     }
   }
@@ -827,12 +825,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   async function saveAvatarCrop() {
     if (!avatarEditDraft || uploadingAvatar) return;
     setUploadingAvatar(true);
+    setAvatarSaveStage('Preparing image…');
     setMsg('');
     try {
       const cropped = await createSquareAvatarCrop(avatarEditDraft.file, avatarCropZoom);
-      await saveProfilePhoto(cropped, 'avatar');
+      await saveProfilePhoto(cropped, 'avatar', setAvatarSaveStage);
       closeAvatarEditor();
     } catch (error: any) {
+      setAvatarSaveStage('Save stopped');
       setMsg(error.message || 'Could not save this profile picture.');
     } finally {
       setUploadingAvatar(false);
@@ -1269,7 +1269,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             {msg && <p role="alert" style={{ color: '#ff8b8b', fontSize: 12, margin: '12px 0 0' }}>{msg}</p>}
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
               <button type="button" onClick={closeAvatarEditor} disabled={uploadingAvatar} style={{ flex: 1, border: '1px solid rgba(255,255,255,.14)', borderRadius: 9, padding: 12, background: '#303030', color: '#ddd', cursor: uploadingAvatar ? 'not-allowed' : 'pointer' }}>Cancel</button>
-              <button type="button" onClick={saveAvatarCrop} disabled={uploadingAvatar} style={{ ...s.saveBtn, flex: 1, marginTop: 0, opacity: uploadingAvatar ? .6 : 1 }}>{uploadingAvatar ? 'Saving…' : 'Save picture'}</button>
+              <button type="button" onClick={saveAvatarCrop} disabled={uploadingAvatar} style={{ ...s.saveBtn, flex: 1, marginTop: 0, opacity: uploadingAvatar ? .6 : 1 }}>{uploadingAvatar ? (avatarSaveStage || 'Saving…') : 'Save picture'}</button>
             </div>
           </section>
         </div>}

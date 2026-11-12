@@ -77,6 +77,16 @@ themeStyle.textContent = `
   html[data-theme="light"] .profile-image-editor-dialog p { color: #626875 !important; }
   html[data-theme="light"] .profile-image-editor-dialog button[aria-label="Close"] { color: #626875 !important; }
   html[data-theme="light"] .profile-image-editor-dialog [style*="borderTop"] { border-color: #e2e5ec !important; }
+  html[data-theme="light"] .profile-crop-overlay { background: rgba(25,35,55,.52) !important; }
+  html[data-theme="light"] .profile-crop-dialog { background: #fff !important; color: #20232a !important; border: 1px solid #dfe3eb !important; box-shadow: 0 18px 60px rgba(25,35,55,.22) !important; }
+  html[data-theme="light"] .profile-crop-dialog h2 { color: #20232a !important; }
+  html[data-theme="light"] .profile-crop-dialog p,
+  html[data-theme="light"] .profile-crop-dialog label { color: #424b5a !important; }
+  html[data-theme="light"] .profile-crop-dialog label span { color: #687080 !important; }
+  html[data-theme="light"] .profile-crop-dialog button[aria-label="Close crop editor"] { color: #626875 !important; }
+  html[data-theme="light"] .profile-crop-dialog input[type="range"] { accent-color: #6258e8 !important; }
+  html[data-theme="light"] .profile-crop-dialog button { border-color: #d7dce5 !important; }
+  html[data-theme="light"] .profile-crop-dialog button:not([style*="#39348a"]) { color: #424b5a !important; }
   html[data-theme="light"] .admin-page-root { background: #f4f6fb !important; color: #20232a !important; }
   html[data-theme="light"] .admin-page-root [style*="#1f1f1f"],
   html[data-theme="light"] .admin-page-root [style*="#151515"],

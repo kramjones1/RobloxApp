@@ -98,6 +98,12 @@ export default function WebApp() {
   useEffect(() => {
     let oauthLogin = false;
     let oauthSignup = false;
+    try {
+      oauthLogin = sessionStorage.getItem('liveme-oauth-login') === '1';
+      oauthSignup = sessionStorage.getItem('liveme-oauth-signup') === '1';
+      sessionStorage.removeItem('liveme-oauth-login');
+      sessionStorage.removeItem('liveme-oauth-signup');
+    } catch {}
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
@@ -109,20 +115,52 @@ export default function WebApp() {
           window.close();
           return;
         }
-        setSessionToken(token, params.get('refresh_token'));
         history.replaceState(null, '', window.location.pathname + window.location.search);
-        if (type === 'recovery') setRecoveryMode(true);
-        else {
-          oauthLogin = true;
-          if (type === 'signup') oauthSignup = true;
-        }
+        setAuthLoading(true);
+        void setSessionToken(token, params.get('refresh_token')).then(result => {
+          if (result.error) {
+            setAuthMsg(result.error);
+            setAuthLoading(false);
+            return;
+          }
+          if (type === 'recovery') {
+            setRecoveryMode(true);
+            setAuthLoading(false);
+          } else {
+            try {
+              sessionStorage.setItem('liveme-oauth-login', '1');
+              if (type === 'signup') sessionStorage.setItem('liveme-oauth-signup', '1');
+            } catch {}
+            window.location.reload();
+          }
+        });
+        return;
       }
     }
     const u = getSession();
-    setUser(u);
-    setAuthLoading(false);
     let onboardingSet = false;
-    if (u?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) { setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob'); } else if (!onboardingSet) setOnboardingStep('welcome'); }); }
+    if (u?.id) {
+      void getValidAccessToken().then(validToken => {
+        if (!validToken) {
+          setUser(null);
+          setAuthLoading(false);
+          setAuthMsg('This browser is already linked to another LiveMe account, or its account binding could not be verified.');
+          return;
+        }
+        setUser(u);
+        setAuthLoading(false);
+        isAdmin().then(setAdmin);
+        getChatProfile().then(({ profile }) => {
+          if (profile) {
+            setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob');
+          } else if (!onboardingSet) setOnboardingStep('welcome');
+        });
+      });
+    } else {
+      setUser(null);
+      setAuthLoading(false);
+    }
     if (u && oauthLogin) {
       if (oauthSignup) { setOnboardingStep('welcome'); onboardingSet = true; }
       else {
@@ -133,10 +171,11 @@ export default function WebApp() {
       }
     }
     // Listen for OAuth tokens from popup windows
-    function handleOAuthMessage(e: MessageEvent) {
+    async function handleOAuthMessage(e: MessageEvent) {
       if (e.origin !== window.location.origin || e.data?.type !== 'oauth_token') return;
-      setSessionToken(e.data.access_token, e.data.refresh_token);
+      const binding = await setSessionToken(e.data.access_token, e.data.refresh_token);
       history.replaceState(null, '', window.location.pathname + window.location.search);
+      if (binding.error) { setAuthMsg(binding.error); return; }
       const oauthType = e.data.oauthType;
       if (oauthType === 'recovery') setRecoveryMode(true);
       else {

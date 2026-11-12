@@ -162,6 +162,25 @@ async function compressProfileImage(file: File): Promise<File> {
 }
 
 
+async function createSquareAvatarCrop(file: File, zoom: number): Promise<File> {
+  const decoded = await decodeProfileImage(file);
+  try {
+    const side = Math.min(decoded.width, decoded.height) / Math.max(1, zoom);
+    const sx = (decoded.width - side) / 2;
+    const sy = (decoded.height - side) / 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 640;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Image editing is not supported in this browser.');
+    context.drawImage(decoded.source, sx, sy, side, side, 0, 0, 640, 640);
+    const blob = await canvasToWebPBlob(canvas, 0.84);
+    return new File([blob], 'profile-picture-crop.webp', { type: 'image/webp', lastModified: Date.now() });
+  } finally {
+    decoded.cleanup();
+  }
+}
+
 const s = {
   page: { background: '#161616', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
   wrap: { width: '100%', maxWidth: 960, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
@@ -273,6 +292,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [coverUrl, setCoverUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [avatarEditDraft, setAvatarEditDraft] = useState<{ file: File; url: string } | null>(null);
+  const [avatarCropZoom, setAvatarCropZoom] = useState(1);
   const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string; work: string; education: string; shareDetails: boolean } | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [admin, setAdmin] = useState(false);
@@ -791,21 +812,39 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     }
   }
 
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
+  function openAvatarEditor(file: File) {
+    if (avatarEditDraft?.url) URL.revokeObjectURL(avatarEditDraft.url);
+    setAvatarCropZoom(1);
+    setAvatarEditDraft({ file, url: URL.createObjectURL(file) });
+  }
+
+  function closeAvatarEditor() {
+    if (avatarEditDraft?.url) URL.revokeObjectURL(avatarEditDraft.url);
+    setAvatarEditDraft(null);
+    setAvatarCropZoom(1);
+  }
+
+  async function saveAvatarCrop() {
+    if (!avatarEditDraft || uploadingAvatar) return;
     setUploadingAvatar(true);
     setMsg('');
     try {
-      // Upload the selected image directly. Compression only resizes/encodes;
-      // it does not crop or change the image's aspect ratio.
-      await saveProfilePhoto(file, 'avatar');
+      const cropped = await createSquareAvatarCrop(avatarEditDraft.file, avatarCropZoom);
+      await saveProfilePhoto(cropped, 'avatar');
+      closeAvatarEditor();
     } catch (error: any) {
       setMsg(error.message || 'Could not save this profile picture.');
     } finally {
       setUploadingAvatar(false);
     }
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setMsg('');
+    openAvatarEditor(file);
   }
 
   async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -856,7 +895,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       if (!response.ok) throw new Error('Could not open this gallery photo.');
       const blob = await response.blob();
       const file = new File([blob], photo.name.split('/').pop() || 'gallery-photo.webp', { type: blob.type || 'image/webp' });
-      beginPhotoCrop(file, slot);
+      if (slot === 'avatar') openAvatarEditor(file);
+      else await saveProfilePhoto(file, 'cover');
     } catch (error: any) {
       setMsg(error.message || 'Could not use this photo.');
     }
@@ -1212,6 +1252,28 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         </section>
 
         {renderProfileTabs(true, displayName, avatarUrl)}
+
+        {avatarEditDraft && <div role="presentation" onClick={() => { if (!uploadingAvatar) closeAvatarEditor(); }} style={{ position: 'fixed', inset: 0, zIndex: 6000, background: 'rgba(0,0,0,.86)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="avatar-editor-title" onClick={event => event.stopPropagation()} style={{ width: '100%', maxWidth: 440, boxSizing: 'border-box', padding: 20, borderRadius: 16, background: '#202020', border: '1px solid rgba(255,255,255,.12)', boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+              <h2 id="avatar-editor-title" style={{ color: '#fff', fontSize: 18, margin: 0 }}>Edit profile picture</h2>
+              <button type="button" onClick={closeAvatarEditor} disabled={uploadingAvatar} aria-label="Close editor" style={{ border: 0, background: 'transparent', color: '#aaa', fontSize: 26, cursor: uploadingAvatar ? 'not-allowed' : 'pointer' }}>×</button>
+            </div>
+            <p style={{ color: '#aaa', fontSize: 13, margin: '0 0 14px' }}>Move the zoom slider to frame your photo inside the square.</p>
+            <div style={{ width: 'min(100%, 320px)', aspectRatio: '1', margin: '0 auto 18px', position: 'relative', overflow: 'hidden', background: '#111', borderRadius: 4 }}>
+              <img src={avatarEditDraft.url} alt="Profile picture crop preview" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${avatarCropZoom})`, transformOrigin: 'center center' }} />
+              <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(to right, transparent 33.1%, rgba(255,255,255,.8) 33.3%, transparent 33.6%, transparent 66.4%, rgba(255,255,255,.8) 66.7%, transparent 67%), linear-gradient(to bottom, transparent 33.1%, rgba(255,255,255,.8) 33.3%, transparent 33.6%, transparent 66.4%, rgba(255,255,255,.8) 66.7%, transparent 67%)', border: '1px solid rgba(255,255,255,.8)', boxSizing: 'border-box' }} />
+            </div>
+            <label htmlFor="avatar-crop-zoom" style={{ display: 'flex', justifyContent: 'space-between', color: '#ccc', fontSize: 13, marginBottom: 8 }}><span>Zoom</span><span>{avatarCropZoom.toFixed(1)}×</span></label>
+            <input id="avatar-crop-zoom" type="range" min="1" max="3" step="0.05" value={avatarCropZoom} onChange={event => setAvatarCropZoom(Number(event.target.value))} disabled={uploadingAvatar} style={{ width: '100%', accentColor: '#7770ff' }} />
+            {msg && <p role="alert" style={{ color: '#ff8b8b', fontSize: 12, margin: '12px 0 0' }}>{msg}</p>}
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button type="button" onClick={closeAvatarEditor} disabled={uploadingAvatar} style={{ flex: 1, border: '1px solid rgba(255,255,255,.14)', borderRadius: 9, padding: 12, background: '#303030', color: '#ddd', cursor: uploadingAvatar ? 'not-allowed' : 'pointer' }}>Cancel</button>
+              <button type="button" onClick={saveAvatarCrop} disabled={uploadingAvatar} style={{ ...s.saveBtn, flex: 1, marginTop: 0, opacity: uploadingAvatar ? .6 : 1 }}>{uploadingAvatar ? 'Saving…' : 'Save picture'}</button>
+            </div>
+          </section>
+        </div>}
+
 
       </div>
     </div>

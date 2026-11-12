@@ -1051,6 +1051,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             <div className="profile-main-content">
               {activeTab === 'Posts' && renderPosts(canEdit, authorName, authorAvatar)}
           {activeTab === 'Photos' && (
+            <>
             <section className="profile-section" style={s.card}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
                 <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
@@ -1082,6 +1083,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               }
             </section>
             {renderPosts(canEdit, authorName, authorAvatar, true)}
+            </>
           )}
           {activeTab === 'Timeline' && (
             <>

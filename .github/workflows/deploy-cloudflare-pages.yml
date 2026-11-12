@@ -87,3 +87,4 @@ jobs:
 # Trigger production rebuild for direct avatar and cover crop encoding fix.
 # Deploy isolated avatar and cover photo upload and profile-column updates.
 # Deploy non-blocking photo-post publish flow and concurrent image uploads.
+# Deploy verified avatar and cover profile-save timeout handling.

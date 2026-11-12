@@ -163,7 +163,18 @@ export async function refreshAccessToken(): Promise<string | null> {
   const tokens = getStoredTokens();
   if (!tokens?.access_token) return null;
   if (!tokens.refresh_token) return getValidAccessToken();
-  return await doRefresh();
+  const refreshed = await doRefresh();
+  const validToken = refreshed || await getValidAccessToken();
+  if (!validToken) return null;
+  const binding = await claimBrowserAccount(validToken);
+  if (binding.error) {
+    if (binding.error === 'BROWSER_ACCOUNT_MISMATCH') {
+      setStoredTokens(null);
+      notify(null);
+    }
+    return null;
+  }
+  return validToken;
 }
 
 export async function getValidAccessToken(): Promise<string | null> {

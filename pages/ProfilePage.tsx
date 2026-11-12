@@ -177,12 +177,11 @@ async function cropProfileImage(file: File, slot: 'avatar' | 'cover', zoom: numb
     // This avoids creating a large 90%-quality WebP and decoding/re-encoding
     // it again in compressProfileImage (a costly double pass on mobile).
     const targetWidth = slot === 'avatar' ? 800 : 1200;
+    // Keep the crop-save path short on mobile: two bounded encodes are
+    // enough, rather than repeatedly re-encoding the same crop five times.
     const attempts = [
-      { width: targetWidth, quality: 0.76 },
       { width: targetWidth, quality: 0.62 },
-      { width: targetWidth, quality: 0.48 },
-      { width: Math.round(targetWidth * 0.78), quality: 0.58 },
-      { width: Math.round(targetWidth * 0.65), quality: 0.46 },
+      { width: Math.round(targetWidth * 0.72), quality: 0.42 },
     ];
     for (const attempt of attempts) {
       const canvas = document.createElement('canvas');
@@ -453,7 +452,13 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     getProfilePosts(profileOwnerId, undefined, 20).then(({ posts: rows, error }) => {
       if (!active) return;
       const batch = rows || [];
-      setPosts(batch);
+      // Keep any post created locally while this initial request was in
+      // flight; a stale response must not erase the just-published post.
+      setPosts(current => {
+        const merged = new Map<string, ChatPost>();
+        for (const item of [...batch, ...current]) merged.set(item.id, item);
+        return Array.from(merged.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
       setHasMorePosts(batch.length === 20);
       setPostMsg(error || '');
       setPostsLoading(false);

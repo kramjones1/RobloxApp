@@ -194,8 +194,8 @@ export default function AdminPage() {
   return (
     <div className="admin-page-root" style={s.page}>
       <div style={{ maxWidth: 1000, margin: '0 auto', minHeight: '100%' }}>
-        <h1 style={s.title}>Command Center</h1>
-        <p style={s.sub}>Platform administration and moderation</p>
+        <h1 style={s.title}>Operator Console</h1>
+        <p style={s.sub}>Platform operations, analytics, and moderation</p>
         {renderTabs()}
         {error && <div role="alert" style={{ background: 'rgba(244,67,54,0.14)', border: '1px solid rgba(244,67,54,0.4)', color: '#ff8a80', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{error}</div>}
         {notice && <div role="status" style={{ background: 'rgba(76,175,80,0.12)', border: '1px solid rgba(76,175,80,0.3)', color: '#81c784', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 12 }}>{notice}</div>}
@@ -207,11 +207,45 @@ export default function AdminPage() {
               <div style={s.statBox}><div style={s.statNum}>{stats?.total_users ?? '-'}</div><div style={s.statLabel}>Auth Accounts</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.profiles_missing ?? '-'}</div><div style={s.statLabel}>Missing Profiles</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.total_messages ?? '-'}</div><div style={s.statLabel}>Total Messages</div></div>
-              <div style={s.statBox}><div style={s.statNum}>{stats?.messages_today ?? '-'}</div><div style={s.statLabel}>Messages Today</div></div>
+              <div style={s.statBox}><div style={s.statNum}>{stats?.messages_today ?? '-'}</div><div style={s.statLabel}>Messages · 24h</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.flagged_users ?? '-'}</div><div style={s.statLabel}>Flagged</div></div>
               <div style={s.statBox}><div style={{ ...s.statNum, color: stats?.pending_reports > 0 ? '#f44336' : '#fff' }}>{stats?.pending_reports ?? '-'}</div><div style={s.statLabel}>Pending Reports</div></div>
               <div style={s.statBox}><div style={s.statNum}>{stats?.banned_users ?? '-'}</div><div style={s.statLabel}>Banned</div></div>
             </div>
+            {stats && (
+              <div style={{ ...s.card, marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 18 }}>
+                  <div>
+                    <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Platform overview</h2>
+                    <p style={{ color: '#888', fontSize: 12, marginTop: 4 }}>Current totals from the production database · refresh to update</p>
+                  </div>
+                  <span style={s.chip}>Live snapshot</span>
+                </div>
+                {(() => {
+                  const metrics = [
+                    { label: 'Auth accounts', value: Number(stats.total_users) || 0, color: '#6c63ff' },
+                    { label: 'Profiles created', value: Number(stats.chat_profiles ?? (Number(stats.total_users || 0) - Number(stats.profiles_missing || 0))) || 0, color: '#26a69a' },
+                    { label: 'Messages · all time', value: Number(stats.total_messages) || 0, color: '#42a5f5' },
+                    { label: 'Messages · last 24h', value: Number(stats.messages_today) || 0, color: '#ab7df6' },
+                    { label: 'Flagged users', value: Number(stats.flagged_users) || 0, color: '#ffb74d' },
+                    { label: 'Banned users', value: Number(stats.banned_users) || 0, color: '#ef5350' },
+                    { label: 'Pending reports', value: Number(stats.pending_reports) || 0, color: '#ec6c9b' },
+                  ];
+                  const max = Math.max(1, ...metrics.map(m => m.value));
+                  return <div role="img" aria-label="Horizontal bar chart of current platform totals">
+                    {metrics.map(m => (
+                      <div key={m.label} style={{ display: 'grid', gridTemplateColumns: 'minmax(112px, 180px) minmax(60px, 1fr) 48px', alignItems: 'center', gap: 10, marginBottom: 13 }}>
+                        <span style={{ color: '#bbb', fontSize: 12 }}>{m.label}</span>
+                        <div style={{ height: 12, background: '#303039', borderRadius: 8, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${(m.value / max) * 100}%`, minWidth: m.value > 0 ? 3 : 0, background: m.color, borderRadius: 8, transition: 'width 0.3s ease' }} />
+                        </div>
+                        <strong style={{ color: '#eee', fontSize: 12, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{m.value.toLocaleString()}</strong>
+                      </div>
+                    ))}
+                  </div>;
+                })()}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={s.btn} onClick={loadStats} disabled={loading}>Refresh</button>
               <button style={s.btn} disabled={loading} onClick={async () => {

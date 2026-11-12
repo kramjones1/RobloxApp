@@ -25,22 +25,70 @@ function formatCommentTimestamp(value: string): string {
   return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+type DecodedProfileImage = {
+  source: CanvasImageSource;
+  width: number;
+  height: number;
+  cleanup: () => void;
+};
+
+async function decodeProfileImage(file: File): Promise<DecodedProfileImage> {
+  // Prefer ImageBitmap where supported, but fall back to an HTMLImageElement.
+  // Some mobile browsers reject createImageBitmap for otherwise displayable
+  // JPEG/PNG/WebP uploads.
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file);
+      return { source: bitmap, width: bitmap.width, height: bitmap.height, cleanup: () => bitmap.close() };
+    } catch {
+      // Continue with the browser's image decoder below.
+    }
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = objectUrl;
+    if (typeof image.decode === 'function') {
+      await image.decode();
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error('The selected image format is not supported by this browser.'));
+      });
+    }
+    if (!image.naturalWidth || !image.naturalHeight) {
+      throw new Error('The selected image has no readable image dimensions.');
+    }
+    return {
+      source: image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      cleanup: () => URL.revokeObjectURL(objectUrl),
+    };
+  } catch {
+    URL.revokeObjectURL(objectUrl);
+    throw new Error('This image format could not be decoded. Please choose a JPEG, PNG, or WebP image.');
+  }
+}
+
 async function compressProfileImage(file: File): Promise<File> {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
     throw new Error('Please choose a JPEG, PNG, or WebP image.');
   }
-  const bitmap = await createImageBitmap(file);
+  const decoded = await decodeProfileImage(file);
   try {
     // Profile and cover assets share a strict 200 KB storage limit. Keep
     // reducing dimensions and quality until the upload-safe WebP is produced.
     for (const maxSide of [1280, 1024, 900, 768, 640, 512, 448, 384, 320, 256]) {
-      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const scale = Math.min(1, maxSide / Math.max(decoded.width, decoded.height));
       const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.width = Math.max(1, Math.round(decoded.width * scale));
+      canvas.height = Math.max(1, Math.round(decoded.height * scale));
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Image compression is not supported in this browser.');
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
       for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42, 0.34, 0.28]) {
         const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
         if (blob && blob.size <= 200 * 1024) {
@@ -49,33 +97,32 @@ async function compressProfileImage(file: File): Promise<File> {
       }
     }
   } finally {
-    bitmap.close();
+    decoded.cleanup();
   }
   throw new Error('This image cannot be compressed below 200 KB. Please choose a smaller image.');
 }
 
-
 async function cropProfileImage(file: File, slot: 'avatar' | 'cover', zoom: number, x: number, y: number): Promise<File> {
-  const bitmap = await createImageBitmap(file);
+  const decoded = await decodeProfileImage(file);
   try {
     const aspect = slot === 'avatar' ? 1 : 820 / 280;
-    const baseWidth = Math.min(bitmap.width, bitmap.height * aspect);
+    const baseWidth = Math.min(decoded.width, decoded.height * aspect);
     const baseHeight = baseWidth / aspect;
     const sourceWidth = baseWidth / zoom;
     const sourceHeight = baseHeight / zoom;
-    const sx = (bitmap.width - sourceWidth) * (x / 100);
-    const sy = (bitmap.height - sourceHeight) * (y / 100);
+    const sx = (decoded.width - sourceWidth) * (x / 100);
+    const sy = (decoded.height - sourceHeight) * (y / 100);
     const canvas = document.createElement('canvas');
     canvas.width = slot === 'avatar' ? 800 : 1640;
     canvas.height = Math.round(canvas.width / aspect);
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Image editing is not supported in this browser.');
-    context.drawImage(bitmap, sx, sy, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+    context.drawImage(decoded.source, sx, sy, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.9));
     if (!blob) throw new Error('Could not prepare the cropped photo.');
     return new File([blob], slot === 'avatar' ? 'profile-picture.webp' : 'cover-photo.webp', { type: 'image/webp', lastModified: Date.now() });
   } finally {
-    bitmap.close();
+    decoded.cleanup();
   }
 }
 
@@ -85,7 +132,7 @@ const s = {
   coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/280' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block', position: 'absolute' as const, inset: 0 },
   avatarWrap: { display: 'flex', justifyContent: 'flex-start', marginTop: -64, paddingLeft: 24 },
-  avatar: { width: 132, height: 132, borderRadius: '50%', border: '5px solid #1a1a1a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
+  avatar: { width: 132, height: 132, borderRadius: 0, border: '5px solid #1a1a1a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   nameSection: { padding: '8px 24px 16px', textAlign: 'left' as const, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,.07)' },
   name: { color: '#fff', fontSize: 25, fontWeight: 750, letterSpacing: '-.5px', margin: 0 },
@@ -1002,7 +1049,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             {viewedUser.cover ? <img src={viewedUser.cover} alt="" style={s.coverImg} /> : null}
           </div>
           <div className="profile-avatar-wrap" style={s.avatarWrap}>
-            <div className="avatar-circle profile-avatar" style={{ ...s.avatar, cursor: 'default' }}>
+            <div className="profile-avatar" style={{ ...s.avatar, cursor: 'default' }}>
               {viewedUser.avatar ? <img src={viewedUser.avatar} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
               <OnlineDot online={onlineUserIds.has(profileOwnerId)} size={18} borderColor="#1a1a1a" style={{ right: 7, bottom: 7 }} />
             </div>
@@ -1046,7 +1093,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 onPointerCancel={cropPointerUp}
                 onLostPointerCapture={cropPointerUp}
                 onWheel={handleCropWheel}
-                style={{ width: '100%', aspectRatio: cropDraft.slot === 'avatar' ? '1' : '820 / 280', maxHeight: cropDraft.slot === 'avatar' ? 340 : 220, margin: '0 auto 18px', overflow: 'hidden', borderRadius: cropDraft.slot === 'avatar' ? '50%' : 10, background: '#111', position: 'relative', touchAction: 'none', cursor: savingCrop ? 'wait' : 'grab', userSelect: 'none' }}>
+                style={{ width: '100%', aspectRatio: cropDraft.slot === 'avatar' ? '1' : '820 / 280', maxHeight: cropDraft.slot === 'avatar' ? 340 : 220, margin: '0 auto 18px', overflow: 'hidden', borderRadius: cropDraft.slot === 'avatar' ? 0 : 10, background: '#111', position: 'relative', touchAction: 'none', cursor: savingCrop ? 'wait' : 'grab', userSelect: 'none' }}>
                 <img ref={cropPreviewImageRef} src={cropDraft.url} draggable={false} alt="Crop preview" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})`, transformOrigin: 'center center', pointerEvents: 'none', userSelect: 'none' }} />
                 <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' }}>
                   {Array.from({ length: 9 }, (_, index) => <div key={index} style={{ borderRight: index % 3 !== 2 ? '1px solid rgba(255,255,255,.72)' : 0, borderBottom: index < 6 ? '1px solid rgba(255,255,255,.72)' : 0, boxSizing: 'border-box' }} />)}

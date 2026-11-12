@@ -1353,13 +1353,13 @@ export async function getProfilePhotos(userId: string): Promise<{ photos?: Profi
       if (!response.ok) throw new Error((await response.text()) || 'Could not load photos.');
       return await response.json();
     };
-    const [rootRows, postRows] = await Promise.all([listPrefix(userId), listPrefix(`${userId}/posts`)]);
-    const rows = [
-      ...(Array.isArray(rootRows) ? rootRows.filter((row: any) =>
-        row.name?.toLowerCase().endsWith('.webp')
-      ).map((row: any) => ({ ...row, relativeName: row.name })) : []),
-      ...(Array.isArray(postRows) ? postRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: `posts/${row.name}` })) : []),
-    ];
+    // Post images are rendered from chat_posts so Photos shows the full
+    // original post, not a detached Storage thumbnail. This list is only for
+    // standalone gallery uploads and legacy profile/cover files.
+    const rootRows = await listPrefix(userId);
+    const rows = Array.isArray(rootRows) ? rootRows.filter((row: any) =>
+      row.name?.toLowerCase().endsWith('.webp')
+    ).map((row: any) => ({ ...row, relativeName: row.name })) : [];
     return { photos: rows.map((row: any) => {
       const path = `${userId}/${row.relativeName}`;
       const version = row.updated_at || row.created_at || row.metadata?.lastModified;

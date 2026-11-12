@@ -78,7 +78,7 @@ async function decodeProfileImage(file: File, onStage?: (stage: string) => void)
       // providers revoke their temporary file handle before arrayBuffer().
       const declaredType = (file.type || '').toLowerCase();
       const declaredName = file.name || '';
-      let isHeic = /\\.(heic|heif)$/i.test(declaredName)
+      let isHeic = /\.(heic|heif)$/i.test(declaredName)
         || declaredType === 'image/heic'
         || declaredType === 'image/heif'
         || declaredType === 'image/heic-sequence'

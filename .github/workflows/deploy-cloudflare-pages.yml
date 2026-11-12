@@ -130,3 +130,5 @@ jobs:
 # Remove the temporary mobile profile performance test panel from production 2026-11-12
 
 # Deploy Operator dashboard analytics and navigation refactor 2026-11-12
+
+# Deploy Operator storage monitoring and load overview 2026-11-12

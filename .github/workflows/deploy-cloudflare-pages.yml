@@ -79,3 +79,5 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
 # Image decoder and square profile crop production refresh 2026-11-12
+
+# HEIC/HEIF mobile photo conversion support 2026-11-12

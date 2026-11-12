@@ -828,10 +828,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         if (photos) setProfilePhotos(photos);
       }).catch(() => {});
     } catch (error) {
+      // Rollback is best-effort. Never keep the crop dialog locked while
+      // cleanup network requests are pending.
       if (createdPost) {
-        await deleteProfilePost(createdPost.id).catch(() => {});
+        void deleteProfilePost(createdPost.id).catch(() => {});
       } else {
-        await deleteProfilePhoto(photo.name).catch(() => {});
+        void deleteProfilePhoto(photo.name).catch(() => {});
       }
       throw error;
     }

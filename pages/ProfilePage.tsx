@@ -211,45 +211,6 @@ async function compressProfileImage(file: File): Promise<File> {
 }
 
 
-async function createCroppedProfileImage(url: string, slot: 'avatar' | 'cover', zoom: number): Promise<File> {
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error('Could not load the uploaded original photo for editing.');
-  const blob = await response.blob();
-  const mime = blob.type || 'image/jpeg';
-  const extension = mime.includes('png') ? 'png' : mime.includes('heic') ? 'heic' : mime.includes('heif') ? 'heif' : mime.includes('webp') ? 'webp' : 'jpg';
-  const sourceFile = new File([blob], `uploaded-original.${extension}`, { type: mime });
-  const decoded = await decodeProfileImage(sourceFile);
-  try {
-    const ratio = slot === 'avatar' ? 1 : 820 / 280;
-    const targetWidth = slot === 'avatar' ? 640 : 1200;
-    const targetHeight = Math.round(targetWidth / ratio);
-    let cropWidth = decoded.width;
-    let cropHeight = decoded.height;
-    if (cropWidth / cropHeight > ratio) cropWidth = cropHeight * ratio;
-    else cropHeight = cropWidth / ratio;
-    cropWidth /= Math.max(1, zoom);
-    cropHeight /= Math.max(1, zoom);
-    const sx = (decoded.width - cropWidth) / 2;
-    const sy = (decoded.height - cropHeight) / 2;
-    const canvas = document.createElement('canvas');
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Photo editing is not supported in this browser.');
-    context.drawImage(decoded.source, sx, sy, cropWidth, cropHeight, 0, 0, targetWidth, targetHeight);
-    for (const quality of [0.84, 0.76, 0.68, 0.60, 0.52, 0.44, 0.36, 0.30]) {
-      const output = await canvasToWebPBlob(canvas, quality);
-      if (output.size <= 200 * 1024) {
-        return new File([output], slot === 'avatar' ? 'avatar-crop.webp' : 'cover-crop.webp', { type: 'image/webp', lastModified: Date.now() });
-      }
-    }
-    throw new Error('The cropped image is still larger than 200 KB. Zoom in or choose a smaller crop.');
-  } finally {
-    decoded.cleanup();
-  }
-}
-
-
 const s = {
   page: { background: '#161616', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
   wrap: { width: '100%', maxWidth: 960, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
@@ -361,9 +322,6 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [coverUrl, setCoverUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarSaveStage, setAvatarSaveStage] = useState('');
-  const [photoEditDraft, setPhotoEditDraft] = useState<{ slot: 'avatar' | 'cover'; url: string; name: string } | null>(null);
-  const [photoEditZoom, setPhotoEditZoom] = useState(1);
-  const [photoEditSaving, setPhotoEditSaving] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string; work: string; education: string; shareDetails: boolean } | null>(null);
   const [loadingViewed, setLoadingViewed] = useState(false);
@@ -822,45 +780,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     });
   }, [viewUserId, user?.id]);
 
-  function openPhotoEditor(slot: 'avatar' | 'cover', url: string, name: string) {
-    setPhotoEditZoom(1);
-    setPhotoEditDraft({ slot, url, name });
-  }
-
-  async function saveEditedProfilePhoto() {
-    if (!photoEditDraft || photoEditSaving) return;
-    setPhotoEditSaving(true);
-    setAvatarSaveStage('Preparing crop…');
-    try {
-      const cropped = await createCroppedProfileImage(photoEditDraft.url, photoEditDraft.slot, photoEditZoom);
-      setAvatarSaveStage('Saving cropped profile image…');
-      const { photo, error } = await uploadProfilePhoto(cropped, photoEditDraft.slot);
-      if (error || !photo) throw new Error(error || 'Could not save the cropped image.');
-      const photoUrl = `${photo.url}?v=${Date.now()}`;
-      const { error: profileError } = await updateChatProfilePhoto(photoEditDraft.slot, photoUrl);
-      if (profileError) throw new Error(profileError);
-      if (photoEditDraft.slot === 'avatar') {
-        setAvatarUrl(photoUrl);
-        try { window.localStorage.removeItem('profile_avatar'); } catch {}
-      } else {
-        setCoverUrl(photoUrl);
-        try { window.localStorage.removeItem('profile_cover'); } catch {}
-      }
-      setMsg(photoEditDraft.slot === 'avatar' ? 'Profile picture updated. Original photo remains in Photos.' : 'Cover photo updated. Original photo remains in Photos.');
-      setPhotoEditDraft(null);
-    } catch (error: any) {
-      setMsg(error.message || 'Could not save the cropped photo.');
-    } finally {
-      setPhotoEditSaving(false);
-    }
-  }
-
   async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover', onStage?: (stage: string) => void) {
-    // Upload the untouched original first. Cropping is performed later from
-    // the stable Storage URL, so temporary Android picker files are not used
-    // during image decoding and the original post remains unchanged.
-    onStage?.('Uploading original photo…');
-    const { photo, error } = await uploadProfilePhoto(file, 'post');
+    // Profile and cover changes are ordinary photo posts. The post's image
+    // path is the canonical file used by both the profile header and Photos tab.
+    const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 200 * 1024
+      ? file
+      : await compressProfileImage(file);
+    onStage?.('Uploading photo…');
+    const { photo, error } = await uploadProfilePhoto(uploadFile, 'post');
     if (error || !photo) throw new Error(error || 'Photo upload failed.');
     const imagePath = `${user.id}/${photo.name}`;
     let createdPost: ChatPost | undefined;
@@ -870,20 +797,42 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       const { post, error: postError } = await createProfilePost(caption, [imagePath]);
       if (postError || !post) throw new Error(postError || 'Photo post was not saved.');
       createdPost = post;
+      const photoUrl = `${photo.url}?v=${Date.now()}`;
+      onStage?.('Updating profile…');
+      const { error: profileError } = await updateChatProfilePhoto(slot, photoUrl);
+      if (profileError) throw new Error(profileError);
+      if (slot === 'avatar') {
+        setAvatarUrl(photoUrl);
+        try { window.localStorage.removeItem('profile_avatar'); } catch {}
+      } else {
+        setCoverUrl(photoUrl);
+        try { window.localStorage.removeItem('profile_cover'); } catch {}
+      }
+      // Publish locally as soon as the profile update succeeds. Do not make
+      // closing the crop dialog depend on a second Posts-tab network request.
       setPosts(current => [createdPost!, ...current.filter(item => item.id !== createdPost!.id)]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
-      setMsg('Original photo uploaded and posted. Adjust its crop below.');
-      onStage?.('Opening crop editor…');
-      openPhotoEditor(slot, `${photo.url}?v=${Date.now()}`, photo.name);
+      setMsg(slot === 'avatar' ? 'Profile picture saved and posted.' : 'Cover photo saved and posted.');
+      onStage?.('Photo post saved.');
+
+      // Hydrate reactions/comments in the background. A slow feed refresh must
+      // never keep the avatar/cover uploader in its saving state.
       void getProfilePosts(profileOwnerId, undefined, 20).then(refreshed => {
         const authoritativePost = refreshed.posts?.find(item => item.id === createdPost!.id);
-        if (authoritativePost) setPosts(current => {
+        if (!authoritativePost) return;
+        setPosts(current => {
           const merged = new Map<string, ChatPost>();
           for (const item of [authoritativePost, ...current]) merged.set(item.id, item);
           return Array.from(merged.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         });
       }).catch(() => {});
+      void getProfilePhotos(profileOwnerId).then(({ photos }) => {
+        if (photos) setProfilePhotos(photos);
+      }).catch(() => {});
     } catch (error) {
+      // Once the image post exists, keep it. A later avatar/cover profile-row
+      // failure must not erase the successfully uploaded photo from Photos.
+      // Only remove the orphaned Storage object when post creation failed.
       if (!createdPost) void deleteProfilePhoto(photo.name).catch(() => {});
       throw error;
     }
@@ -894,13 +843,13 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     e.target.value = '';
     if (!file) return;
     setUploadingAvatar(true);
-    setAvatarSaveStage('Uploading original photo…');
+    setAvatarSaveStage('Preparing image…');
     setMsg('');
     try {
       await saveProfilePhoto(file, 'avatar', setAvatarSaveStage);
     } catch (error: any) {
-      setAvatarSaveStage('Upload stopped');
-      setMsg(error.message || 'Could not upload this profile picture.');
+      setAvatarSaveStage('Save stopped');
+      setMsg(error.message || 'Could not save this profile picture.');
     } finally {
       setUploadingAvatar(false);
     }
@@ -954,7 +903,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       if (!response.ok) throw new Error('Could not open this gallery photo.');
       const blob = await response.blob();
       const file = new File([blob], photo.name.split('/').pop() || 'gallery-photo.webp', { type: blob.type || 'image/webp' });
-      openPhotoEditor(slot, photo.url, photo.name);
+      if (slot === 'avatar') openAvatarEditor(file);
+      else await saveProfilePhoto(file, 'cover');
     } catch (error: any) {
       setMsg(error.message || 'Could not use this photo.');
     }
@@ -1206,26 +1156,6 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           </div>,
           document.body
         )}
-
-        {photoEditDraft && <div role="presentation" onClick={() => { if (!photoEditSaving) setPhotoEditDraft(null); }} style={{ position: 'fixed', inset: 0, zIndex: 2100, background: 'rgba(0,0,0,.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <section role="dialog" aria-modal="true" aria-label={photoEditDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'} onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, background: '#202020', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, padding: 18, boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
-            <h2 style={{ color: '#fff', fontSize: 18, margin: '0 0 8px' }}>{photoEditDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'}</h2>
-            <p style={{ color: '#aaa', fontSize: 12, margin: '0 0 14px' }}>Your original uploaded photo stays unchanged in Posts and Photos.</p>
-            <div style={{ width: '100%', aspectRatio: photoEditDraft.slot === 'avatar' ? '1 / 1' : '820 / 280', maxHeight: photoEditDraft.slot === 'avatar' ? 360 : 220, margin: '0 auto', position: 'relative', overflow: 'hidden', background: '#111', borderRadius: 8 }}>
-              <img src={photoEditDraft.url} alt="Crop preview" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${photoEditZoom})`, transformOrigin: 'center', display: 'block' }} />
-              <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: 'linear-gradient(to right, transparent 33.15%, rgba(255,255,255,.65) 33.33%, transparent 33.5%, transparent 66.48%, rgba(255,255,255,.65) 66.66%, transparent 66.84%), linear-gradient(to bottom, transparent 33.15%, rgba(255,255,255,.65) 33.33%, transparent 33.5%, transparent 66.48%, rgba(255,255,255,.65) 66.66%, transparent 66.84%)', border: '1px solid rgba(255,255,255,.5)' }} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
-              <span style={{ color: '#aaa', fontSize: 12 }}>Zoom</span>
-              <input type="range" min="1" max="3" step="0.05" value={photoEditZoom} onChange={e => setPhotoEditZoom(Number(e.target.value))} style={{ flex: 1, accentColor: '#6c63ff' }} />
-              <span style={{ color: '#ddd', fontSize: 12, minWidth: 34 }}>{photoEditZoom.toFixed(1)}×</span>
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" disabled={photoEditSaving} onClick={() => setPhotoEditDraft(null)} style={{ flex: 1, border: '1px solid rgba(255,255,255,.12)', borderRadius: 9, padding: 12, background: '#303030', color: '#ddd' }}>Cancel</button>
-              <button type="button" disabled={photoEditSaving} onClick={saveEditedProfilePhoto} style={{ ...s.saveBtn, flex: 1, marginTop: 0, opacity: photoEditSaving ? .6 : 1 }}>{photoEditSaving ? 'Saving crop…' : 'Save crop'}</button>
-            </div>
-          </section>
-        </div>}
         {selectedPhoto && <div role="presentation" onClick={() => setSelectedPhoto(null)} style={{ position: 'fixed', inset: 0, zIndex: 1600, background: 'rgba(0,0,0,.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <section role="dialog" aria-modal="true" aria-label="Photo viewer" onClick={e => e.stopPropagation()} style={{ position: 'relative', width: '100%', maxWidth: 1100, maxHeight: '94vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Close photo" style={{ position: 'absolute', zIndex: 2, top: -12, right: -8, width: 40, height: 40, border: 0, borderRadius: '50%', background: 'rgba(35,35,35,.9)', color: '#fff', fontSize: 28, cursor: 'pointer' }}>×</button>

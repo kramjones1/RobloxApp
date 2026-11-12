@@ -156,6 +156,7 @@ const s = {
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
   .profile-content-area { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 24px; align-items: start; }
+  .profile-avatar, .profile-avatar > img { border-radius: 0 !important; }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .profile-main-content { min-width: 0; }

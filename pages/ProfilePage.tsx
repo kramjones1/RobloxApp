@@ -806,18 +806,24 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         setCoverUrl(photoUrl);
         try { window.localStorage.removeItem('profile_cover'); } catch {}
       }
-      // Re-read the persisted post through the same loader used by the
-      // Posts tab so it is immediately represented in both Posts and Photos
-      // with the same reactions/comments shape as every other post.
-      const refreshed = await getProfilePosts(profileOwnerId, undefined, 20);
-      const authoritativePost = refreshed.posts?.find(item => item.id === createdPost!.id) || createdPost!;
-      setPosts(current => {
-        const merged = new Map<string, ChatPost>();
-        for (const item of [authoritativePost, ...current]) merged.set(item.id, item);
-        return Array.from(merged.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      });
+      // Publish locally as soon as the profile update succeeds. Do not make
+      // closing the crop dialog depend on a second Posts-tab network request.
+      setPosts(current => [createdPost!, ...current.filter(item => item.id !== createdPost!.id)]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
       setMsg(slot === 'avatar' ? 'Profile picture saved and posted.' : 'Cover photo saved and posted.');
       onStage?.('Photo post saved.');
+
+      // Hydrate reactions/comments in the background. A slow feed refresh must
+      // never keep the avatar/cover uploader in its saving state.
+      void getProfilePosts(profileOwnerId, undefined, 20).then(refreshed => {
+        const authoritativePost = refreshed.posts?.find(item => item.id === createdPost!.id);
+        if (!authoritativePost) return;
+        setPosts(current => {
+          const merged = new Map<string, ChatPost>();
+          for (const item of [authoritativePost, ...current]) merged.set(item.id, item);
+          return Array.from(merged.values()).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        });
+      }).catch(() => {});
       void getProfilePhotos(profileOwnerId).then(({ photos }) => {
         if (photos) setProfilePhotos(photos);
       }).catch(() => {});
@@ -876,8 +882,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       setCropSaveStage('');
     } finally {
       setSavingCrop(false);
-      setUploadingAvatar(false);
-      setUploadingCover(false);
+      // Only release the slot that initiated this crop/upload. Keep the two
+      // independent loading states from interfering with one another.
+      if (slot === 'avatar') setUploadingAvatar(false);
+      else setUploadingCover(false);
     }
   }
 

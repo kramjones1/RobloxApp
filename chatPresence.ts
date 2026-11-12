@@ -11,8 +11,6 @@ const realtimeClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   accessToken: async () => (await getValidAccessToken()) || SUPABASE_ANON_KEY,
 });
 
-type PresencePayload = { user_id?: string; online_at?: string };
-
 /**
  * Publishes this authenticated user's presence on their own user-scoped topic.
  * The database policy only permits auth.uid() to publish to that user's topic.
@@ -128,17 +126,6 @@ export function watchUserPresence(
     stopped = true;
     channels.forEach((channel) => { void realtimeClient.removeChannel(channel); });
   };
-}
-
-/**
- * Backwards-compatible alias. Presence is now user-scoped, not pair/conversation-scoped.
- */
-export function watchConversationPresence(
-  userId: string,
-  partnerIds: string[],
-  onChange: (onlineIds: Set<string>) => void,
-): () => void {
-  return watchUserPresence(partnerIds.filter((id) => id && id !== userId), onChange);
 }
 
 /**

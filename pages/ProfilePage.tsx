@@ -855,7 +855,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   // Viewing another user's profile (read-only)
   if (isViewingOther && viewedUser) {
     return (
-      <div style={s.page}>
+      <div className="profile-page-root" style={s.page}>
         <div style={s.wrap}>
           
           <div className="cover-wrap" style={s.coverWrap}>
@@ -891,8 +891,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverUpload} style={s.hiddenInput} />
 
         {imageEditorOpen && (
-          <div role="presentation" onClick={() => setImageEditorOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
-            <section role="dialog" aria-modal="true" aria-labelledby="profile-image-editor-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, boxShadow: '0 18px 60px rgba(0,0,0,.5)' }}>
+          <div className="profile-image-editor-overlay" role="presentation" onClick={() => setImageEditorOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+            <section className="profile-image-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-image-editor-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, boxShadow: '0 18px 60px rgba(0,0,0,.5)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
                 <h2 id="profile-image-editor-title" style={{ color: '#fff', fontSize: 18, margin: 0 }}>Edit profile photos</h2>
                 <button type="button" onClick={() => setImageEditorOpen(false)} aria-label="Close" style={{ background: 'transparent', border: 0, color: '#aaa', fontSize: 24, cursor: 'pointer' }}>×</button>

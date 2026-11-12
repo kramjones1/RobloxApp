@@ -7,6 +7,7 @@ name: Deploy production Cloudflare Pages
 # Unify crop-editor appearance with saved app theme and exclude reserved avatar/cover assets from gallery.
 # Restore Facebook-style drag, pinch-to-zoom, wheel-zoom, and reset controls in profile photo cropping.
 # Add rule-of-thirds crop grid, remove position sliders, surface save errors, and harden WebP compression.
+# Fix mobile image decoding fallback and change profile picture crop/display to a square.
 
 on:
   workflow_dispatch:

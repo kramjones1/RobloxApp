@@ -1117,7 +1117,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                   ))}
                 </div>
               }
-              {canEdit && <button type="button" disabled={uploadingGallery || galleryPhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 7, padding: '9px 10px', background: 'rgba(108,99,255,.16)', color: '#c2bdff', fontSize: 12, fontWeight: 650, cursor: 'pointer', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : '＋ Add photo'}</button>}
+              {canEdit && <button type="button" disabled={uploadingGallery || galleryPhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 7, padding: '9px 10px', background: 'rgba(108,99,255,.16)', color: '#c2bdff', fontSize: 12, fontWeight: 650, cursor: 'pointer', opacity: uploadingGallery || galleryPhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : '＋ Add photo'}</button>}
             </section>
           </aside>
           <main className="profile-main">
@@ -1213,7 +1213,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           <div role="presentation" onClick={() => { setOpenPhotoMenu(null); setPhotoMenuPosition(null); }} style={{ position: 'fixed', inset: 0, zIndex: 5000 }}>
             <div role="menu" aria-label="Photo options" onClick={event => event.stopPropagation()} style={{ position: 'fixed', top: photoMenuPosition.top, left: photoMenuPosition.left, width: 'min(208px, calc(100vw - 24px))', boxSizing: 'border-box', padding: 6, borderRadius: 10, background: '#252525', border: '1px solid rgba(255,255,255,.16)', boxShadow: '0 12px 34px rgba(0,0,0,.62)', display: 'flex', flexDirection: 'column', gap: 2 }}>
               {(() => {
-                const photo = profilePhotos.find(item => item.name === openPhotoMenu);
+                const photo = galleryPhotos.find(item => item.name === openPhotoMenu);
                 if (!photo) return null;
                 return <>
                   <button type="button" role="menuitem" onClick={() => { setOpenPhotoMenu(null); setPhotoMenuPosition(null); useGalleryPhoto(photo, 'avatar'); }} style={{ border: 0, borderRadius: 7, padding: '11px 10px', textAlign: 'left', background: 'transparent', color: '#eee', fontSize: 13, cursor: 'pointer', width: '100%' }}>Set as profile picture</button>

@@ -27,6 +27,111 @@ type PresenceDirectoryEntry = {
 
 const presenceDirectory = new Map<string, PresenceDirectoryEntry>();
 const ownPresenceChannels = new Map<string, { channel: RealtimeChannel; refs: number }>();
+const operatorSessionChannels = new Map<string, { channel: RealtimeChannel; refs: number }>();
+
+/**
+ * Publish an anonymous app-session presence key to one shared private topic.
+ * The payload contains no user ID or profile data. The shared channel uses the
+ * same WebSocket already opened by this app's Realtime client.
+ */
+export function startOperatorSessionPresence(userId: string): () => void {
+  if (!userId) return () => {};
+  ensureRealtimeAuthSync();
+  const existing = operatorSessionChannels.get(userId);
+  if (existing) {
+    existing.refs += 1;
+    return () => {
+      existing.refs -= 1;
+      if (existing.refs <= 0) {
+        operatorSessionChannels.delete(userId);
+        void realtimeClient.removeChannel(existing.channel);
+      }
+    };
+  }
+
+  let stopped = false;
+  let channel: RealtimeChannel | null = null;
+  void (async () => {
+    try {
+      const token = await getValidAccessToken();
+      if (!token || stopped) return;
+      await realtimeClient.realtime.setAuth(token);
+      if (stopped) return;
+      const nextChannel = realtimeClient.channel('operator-session-monitor', {
+        config: { private: true },
+      });
+      channel = nextChannel;
+      nextChannel.subscribe(async (status) => {
+        if (stopped || status !== 'SUBSCRIBED') return;
+        try {
+          await nextChannel.track({ active: true });
+          if (!stopped) operatorSessionChannels.set(userId, { channel: nextChannel, refs: 1 });
+          else void realtimeClient.removeChannel(nextChannel);
+        } catch {
+          void realtimeClient.removeChannel(nextChannel);
+        }
+      });
+    } catch {
+      // Monitoring is best-effort and must never block normal app usage.
+    }
+  })();
+
+  return () => {
+    stopped = true;
+    if (!channel) return;
+    const registered = operatorSessionChannels.get(userId);
+    if (registered?.channel === channel) {
+      registered.refs -= 1;
+      if (registered.refs > 0) return;
+      operatorSessionChannels.delete(userId);
+    }
+    void realtimeClient.removeChannel(channel);
+  };
+}
+
+/** Observe anonymous active app-session keys; null means monitor unavailable. */
+export function watchOperatorSessionCount(onChange: (count: number | null) => void): () => void {
+  let stopped = false;
+  let channel: RealtimeChannel | null = null;
+  const publishCount = () => {
+    if (stopped || !channel) return;
+    const state = channel.presenceState() as Record<string, unknown[]>;
+    const count = Object.values(state).reduce(
+      (total, entries) => total + (Array.isArray(entries) ? entries.length : 0),
+      0,
+    );
+    onChange(count);
+  };
+
+  void (async () => {
+    try {
+      const token = await getValidAccessToken();
+      if (!token || stopped) { if (!stopped) onChange(null); return; }
+      await realtimeClient.realtime.setAuth(token);
+      if (stopped) return;
+      const nextChannel = realtimeClient.channel('operator-session-monitor', {
+        config: { private: true },
+      });
+      channel = nextChannel;
+      nextChannel
+        .on('presence', { event: 'sync' }, publishCount)
+        .on('presence', { event: 'join' }, publishCount)
+        .on('presence', { event: 'leave' }, publishCount)
+        .subscribe((status) => {
+          if (stopped) return;
+          if (status === 'SUBSCRIBED') publishCount();
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') onChange(null);
+        });
+    } catch {
+      if (!stopped) onChange(null);
+    }
+  })();
+
+  return () => {
+    stopped = true;
+    if (channel) void realtimeClient.removeChannel(channel);
+  };
+}
 let realtimeAuthSyncStarted = false;
 
 function ensureRealtimeAuthSync() {

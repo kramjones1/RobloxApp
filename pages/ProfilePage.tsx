@@ -986,9 +986,25 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     if (!file) return;
     setUploadingGallery(true);
     setMsg('');
-    try { await saveProfilePhoto(file, 'gallery'); }
-    catch (error: any) { setMsg(error.message || 'Failed to upload photo.'); }
-    finally { setUploadingGallery(false); }
+    let uploadedName = '';
+    try {
+      // Adding a photo to the gallery creates a normal image-only post.
+      // Photos is a projection of post images, never a second storage record.
+      const prepared = await compressProfileImage(file);
+      const { photo, error: uploadError } = await uploadProfilePhoto(prepared, 'post');
+      if (uploadError || !photo) throw new Error(uploadError || 'Photo upload failed.');
+      uploadedName = photo.name;
+      const imagePath = `${user.id}/${photo.name}`;
+      const { post, error: postError } = await createProfilePost('', [imagePath]);
+      if (postError || !post) throw new Error(postError || 'Photo post was not saved.');
+      setPosts(current => [post, ...current.filter(item => item.id !== post.id)].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      setMsg('Photo added to your posts and gallery.');
+    } catch (error: any) {
+      if (uploadedName) await deleteProfilePhoto(uploadedName).catch(() => {});
+      setMsg(error.message || 'Failed to upload photo.');
+    } finally {
+      setUploadingGallery(false);
+    }
   }
 
   async function useGalleryPhoto(photo: ProfilePhoto, slot: 'avatar' | 'cover') {
@@ -1037,6 +1053,16 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   function renderProfileTabs(canEdit: boolean, authorName: string, authorAvatar: string) {
     const tabs: ('Posts' | 'Photos' | 'Timeline' | 'About')[] = ['Posts', 'Photos', 'Timeline', 'About'];
     const sidebarBio = canEdit ? bio : (viewedUser?.bio || '');
+    const postGalleryPhotos = posts.flatMap(post => (post.image_paths || []).map(path => ({
+      name: path.startsWith(`${profileOwnerId}/`) ? path.slice(profileOwnerId.length + 1) : path,
+      url: `https://btkcubibosbtpxcronnd.supabase.co/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
+      size: 0,
+      post,
+    })));
+    const galleryPhotos = [
+      ...postGalleryPhotos,
+      ...profilePhotos.map(photo => ({ ...photo, post: null as ChatPost | null })),
+    ];
     return (
       <>
         <div className="profile-content-area" style={s.contentArea}>
@@ -1091,10 +1117,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>
               {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{profilePhotos.length}/25 photos · max 200 KB each · 5 MB total · WebP only</p>}
               {canEdit && msg && <p style={{ color: msg.includes('saved') || msg.includes('deleted') ? '#4caf50' : '#f44336', fontSize: 12 }}>{msg}</p>}
-              {photosLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading photos…</p> :
-                profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :
+              {photosLoading || postsLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading photos…</p> :
+                galleryPhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
-                  {profilePhotos.map(photo => (
+                  {galleryPhotos.map((photo, index) => (
                     <div key={photo.name} style={{ position: 'relative', background: '#292929', borderRadius: 9 }}>
                       <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 9, overflow: 'hidden', background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
                       {canEdit && <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 4 }}>
@@ -1114,7 +1140,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 </div>
               }
             </section>
-            {renderPosts(canEdit, authorName, authorAvatar, true)}
+
             </>
           )}
           {activeTab === 'Timeline' && (

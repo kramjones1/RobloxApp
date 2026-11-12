@@ -41,9 +41,17 @@ function headers(token = TOKEN) {
 }
 
 export function setup() {
-  if (!TOKEN || !KEY) {
-    throw new Error('Set SUPABASE_ACCESS_TOKEN and SUPABASE_ANON_KEY locally; never commit or share them.');
+  if (!KEY) throw new Error('Set SUPABASE_ANON_KEY locally.');
+  if (!TOKEN && __ENV.SUPABASE_TEST_EMAIL && __ENV.SUPABASE_TEST_PASSWORD) {
+    const login = http.post(
+      BASE + '/auth/v1/token?grant_type=password',
+      JSON.stringify({ email: __ENV.SUPABASE_TEST_EMAIL, password: __ENV.SUPABASE_TEST_PASSWORD }),
+      { headers: { apikey: KEY, 'Content-Type': 'application/json' }, tags: { name: 'test_login' } }
+    );
+    if (login.status !== 200) throw new Error('Local test-account sign-in failed (HTTP ' + login.status + '). Check credentials or account status.');
+    TOKEN = login.json('access_token') || '';
   }
+  if (!TOKEN) throw new Error('Set SUPABASE_ACCESS_TOKEN or SUPABASE_TEST_EMAIL and SUPABASE_TEST_PASSWORD locally.');
   const r = http.get(BASE + '/auth/v1/user', { headers: headers(), tags: { name: 'auth_validate' } });
   if (r.status !== 200) {
     throw new Error('Access token validation failed (HTTP ' + r.status + '). Refresh the token and retry.');

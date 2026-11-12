@@ -111,6 +111,8 @@ let claimedBrowserUserId: string | null = null;
 let browserClaimPromise: Promise<{ error?: string }> | null = null;
 
 async function claimBrowserAccount(token: string): Promise<{ error?: string }> {
+  // This restriction is for the browser app; native clients do not have browser storage.
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
   const user = parseJwt(token);
   if (!user?.id) return { error: 'INVALID_SESSION' };
   if (claimedBrowserUserId === user.id) return {};
@@ -153,6 +155,25 @@ async function claimBrowserAccount(token: string): Promise<{ error?: string }> {
   })();
   try { return await browserClaimPromise; }
   finally { browserClaimPromise = null; }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key !== 'supa_tokens') return;
+    const token = getStoredSession();
+    if (!token) {
+      notify(null);
+      return;
+    }
+    void claimBrowserAccount(token).then(binding => {
+      if (binding.error) {
+        if (binding.error === 'BROWSER_ACCOUNT_MISMATCH') setStoredTokens(null);
+        notify(null);
+      } else {
+        notify(parseJwt(token));
+      }
+    });
+  });
 }
 
 export function getAccessToken(): string | null { return getStoredSession(); }

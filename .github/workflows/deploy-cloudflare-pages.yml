@@ -1,5 +1,6 @@
 name: Deploy production Cloudflare Pages
 # Deploy Inbox-wide user discovery with conversation-independent live presence.
+# Rebuild app-wide light/dark theme coverage for profile editor, profile panels, and admin panels.
 # Keep Inbox labels and surfaces synchronized with the saved light/dark appearance setting.
 
 on:

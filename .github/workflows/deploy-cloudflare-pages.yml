@@ -1,5 +1,5 @@
 name: Deploy production Cloudflare Pages
-# Rebuild production with the shared, deduplicated Presence Directory across inbox and profiles.
+# Deploy Inbox-wide user discovery with conversation-independent live presence.
 
 on:
   workflow_dispatch:

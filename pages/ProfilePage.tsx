@@ -721,12 +721,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }, [viewUserId, user?.id]);
 
   async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover' | 'gallery') {
-    const compressed = await compressProfileImage(file);
-    const { photo, error } = await uploadProfilePhoto(compressed, slot);
+    // Cropping already produces a normalized WebP. Do not decode and compress
+    // that same output a second time before uploading it.
+    const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 200 * 1024
+      ? file
+      : await compressProfileImage(file);
+    const { photo, error } = await uploadProfilePhoto(uploadFile, slot);
     if (error || !photo) throw new Error(error || 'Photo upload failed.');
     if (slot === 'avatar' || slot === 'cover') {
-      // avatar.webp/cover.webp use stable storage paths with long cache headers;
-      // a version query ensures browsers fetch the newly uploaded image.
       const photoUrl = `${photo.url}?v=${Date.now()}`;
       const nextAvatar = slot === 'avatar' ? photoUrl : avatarUrl;
       const nextCover = slot === 'cover' ? photoUrl : coverUrl;
@@ -746,9 +748,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         localStorage.removeItem('profile_cover');
       }
     }
-    const { photos } = await getProfilePhotos(profileOwnerId);
-    setProfilePhotos(photos || []);
+    // A slow listing refresh must never keep the crop dialog stuck in
+    // "Uploading photo" after the actual upload/profile save has succeeded.
     setMsg('Photo saved.');
+    void getProfilePhotos(profileOwnerId).then(({ photos }) => {
+      if (photos) setProfilePhotos(photos);
+    }).catch(() => {});
   }
 
   function beginPhotoCrop(file: File, slot: 'avatar' | 'cover') {

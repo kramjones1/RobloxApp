@@ -2,7 +2,7 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
-// Read-only profile API load test. No sign-in, writes, uploads, or DB mutations.
+// Read-only profile API load test. One login during setup; no app-data writes or uploads.
 // Required: SUPABASE_ACCESS_TOKEN OR SUPABASE_TEST_EMAIL + SUPABASE_TEST_PASSWORD (local only).
 // Optional: SUPABASE_URL, SUPABASE_ANON_KEY, TARGET_USER_ID, IMAGE_PATH,
 //           TEST_DURATION (default 30s per stage).

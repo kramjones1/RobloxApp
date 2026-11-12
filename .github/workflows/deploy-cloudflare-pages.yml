@@ -1,5 +1,5 @@
 name: Deploy production Cloudflare Pages
-# Rebuild production with token-refresh-safe unified user-scoped Realtime presence.
+# Rebuild production with the shared, deduplicated Presence Directory across inbox and profiles.
 
 on:
   workflow_dispatch:

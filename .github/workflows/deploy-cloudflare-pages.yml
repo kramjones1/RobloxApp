@@ -84,3 +84,4 @@ jobs:
 # HEIC/HEIF mobile photo conversion support 2026-11-12
 
 # Rebuild production from the corrected WebP crop encoder 2026-11-12
+# Trigger production rebuild for direct avatar and cover crop encoding fix.

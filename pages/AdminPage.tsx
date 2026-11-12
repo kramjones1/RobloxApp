@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { watchOperatorSessionCount } from '../chatPresence';
 import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload } from '../supabaseClient';
 
 const s = {
@@ -27,6 +28,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [stats, setStats] = useState<any>(null);
   const [statsUpdatedAt, setStatsUpdatedAt] = useState<Date | null>(null);
+  const [realtimeSessions, setRealtimeSessions] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [userTotal, setUserTotal] = useState(0);
@@ -48,7 +50,8 @@ export default function AdminPage() {
     if (tab === 'dashboard') {
       loadStats();
       const refreshTimer = window.setInterval(() => loadStats(), 30000);
-      return () => window.clearInterval(refreshTimer);
+      const stopRealtimeMonitor = watchOperatorSessionCount(setRealtimeSessions);
+      return () => { window.clearInterval(refreshTimer); stopRealtimeMonitor(); };
     }
     if (tab === 'users') loadUsers(userPage);
     if (tab === 'bans') loadBans();
@@ -318,13 +321,15 @@ export default function AdminPage() {
                     <span style={s.chip}>30-second refresh</span>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: 10 }}>
+                    <div style={s.statBox}><div style={{ ...s.statNum, color: realtimeSessions === null ? '#888' : realtimeSessions >= 180 ? '#f44336' : realtimeSessions >= 150 ? '#ffb74d' : '#26a69a' }}>{realtimeSessions === null ? '—' : realtimeSessions.toLocaleString()}</div><div style={s.statLabel}>Live app sessions</div></div>
+                    <div style={s.statBox}><div style={s.statNum}>200</div><div style={s.statLabel}>Free Realtime connection allowance</div></div>
                     <div style={s.statBox}><div style={s.statNum}>{Number(stats.db_active_sessions || 0)}</div><div style={s.statLabel}>Active DB sessions</div></div>
                     <div style={s.statBox}><div style={s.statNum}>{Number(stats.db_sessions || 0)}</div><div style={s.statLabel}>Total DB sessions</div></div>
                     <div style={s.statBox}><div style={s.statNum}>{Number(stats.active_chat_users_last_15m || 0)}</div><div style={s.statLabel}>Chat participants · 15m</div></div>
                     <div style={s.statBox}><div style={s.statNum}>{Number(stats.messages_last_15m || 0)}</div><div style={s.statLabel}>Messages · 15m</div></div>
                     <div style={s.statBox}><div style={s.statNum}>{Number(stats.posts_last_15m || 0)}</div><div style={s.statLabel}>Posts · 15m</div></div>
                   </div>
-                  <p style={{ color: '#777', fontSize: 11, marginTop: 12 }}>These are database connections and recent app activity, not CPU, bandwidth, WebRTC viewers, or live Supabase Realtime socket counts.</p>
+                  <p style={{ color: '#777', fontSize: 11, marginTop: 12 }}>Live app sessions are anonymous browser/app presence keys on a shared Realtime channel, not a billing-grade peak-connection counter. The 200 figure is the current Free-plan project limit; official peak usage remains in Supabase Usage.</p>
                 </div>
               </>
             )}

@@ -519,8 +519,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setPostMsg('');
     const uploadedPaths: string[] = [];
     try {
-      for (const file of postImages) {
-        const { photo, error } = await uploadProfilePhoto(file, 'post');
+      // Upload all selected post photos concurrently so publishing does not
+      // wait through a separate 30-second upload window for each image.
+      const uploads = await Promise.all(postImages.map(file => uploadProfilePhoto(file, 'post')));
+      for (const { photo, error } of uploads) {
         if (error || !photo) throw new Error(error || 'A photo could not be uploaded.');
         uploadedPaths.push(`${user.id}/${photo.name}`);
       }
@@ -532,10 +534,13 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       setPostImages([]);
       postImagePreviews.forEach(url => URL.revokeObjectURL(url));
       setPostImagePreviews([]);
+      // Return to the profile as soon as the post row is saved. Gallery refresh
+      // is optional and must never keep the publish overlay/spinner alive.
       setPostPreviewOpen(false);
-      const { photos } = await getProfilePhotos(profileOwnerId);
-      setProfilePhotos(photos || []);
       setPostMsg('Post published.');
+      void getProfilePhotos(profileOwnerId).then(({ photos }) => {
+        if (photos) setProfilePhotos(photos);
+      }).catch(() => {});
     } catch (error: any) {
       await Promise.all(uploadedPaths.map(path => deleteProfilePhoto(path.replace(`${user.id}/`, ''))));
       setPostMsg(error.message || 'Could not publish post.');

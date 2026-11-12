@@ -724,6 +724,30 @@ export async function upsertChatProfile(profile: ChatProfile): Promise<{ error?:
   }
 }
 
+export async function updateChatProfilePhoto(slot: 'avatar' | 'cover', url: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user?.id) return { error: 'Invalid token' };
+  const column = slot === 'avatar' ? 'avatar_url' : 'cover_url';
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${encodeURIComponent(user.id)}`, {
+      method: 'PATCH',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ [column]: url, updated_at: new Date().toISOString() }),
+    });
+    if (result?.error) return { error: result.error };
+    return {};
+  } catch (error: any) {
+    return { error: error?.message || 'Could not save the photo to your profile.' };
+  }
+}
+
 export async function saveRecentLive(partnerId: string, name: string, bio: string, avatar: string): Promise<{ error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };

@@ -93,3 +93,5 @@ jobs:
 # Version profile gallery URLs after avatar and cover overwrites to avoid stale browser cache.
 # Trigger production deploy for Photos tab overflow menu refactor.
 # Trigger production deploy for profile photo save-state and portal menu fixes.
+
+# Rebuild production with post-driven profile and cover photo uploads 2026-11-12

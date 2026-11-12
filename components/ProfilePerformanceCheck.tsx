@@ -70,7 +70,7 @@ export default function ProfilePerformanceCheck({ userId }: Props) {
   };
 
   return (
-    <div style={{ margin: '12px 16px', padding: 14, border: '1px solid rgba(108,99,255,.35)', borderRadius: 12, background: 'rgba(108,99,255,.06)' }}>
+    <div style={{ position: 'fixed', zIndex: 9998, right: 12, bottom: 72, width: 'min(380px, calc(100vw - 24px))', padding: 14, border: '1px solid rgba(108,99,255,.35)', borderRadius: 12, background: 'rgba(108,99,255,.06)' }}>
       <button type="button" onClick={() => setExpanded(value => !value)} style={{ width: '100%', padding: '10px 12px', border: '1px solid #6c63ff', borderRadius: 8, background: 'transparent', color: 'inherit', fontWeight: 700 }}>
         {expanded ? 'Hide' : 'Open'} Profile Performance Test
       </button>

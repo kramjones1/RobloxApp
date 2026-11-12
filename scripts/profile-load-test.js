@@ -32,10 +32,10 @@ export const options = {
   discardResponseBodies: false,
 };
 
-function headers() {
+function headers(token = TOKEN) {
   return {
     apikey: KEY,
-    Authorization: 'Bearer ' + TOKEN,
+    Authorization: 'Bearer ' + token,
     Accept: 'application/json',
   };
 }
@@ -50,11 +50,11 @@ export function setup() {
   }
   const user = r.json();
   const targetId = TARGET || user.id;
-  return { userId: user.id, targetId };
+  return { userId: user.id, targetId, accessToken: TOKEN };
 }
 
 export default function (data) {
-  const h = headers();
+  const h = headers(data.accessToken);
   let ok = true;
 
   // Mirrors the current self-profile read path used by the app.

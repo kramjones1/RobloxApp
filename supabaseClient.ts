@@ -730,20 +730,21 @@ export async function updateChatProfilePhoto(slot: 'avatar' | 'cover', url: stri
   const user = parseJwt(token);
   if (!user?.id) return { error: 'Invalid token' };
   const column = slot === 'avatar' ? 'avatar_url' : 'cover_url';
-  const payload = { [column]: url, updated_at: new Date().toISOString() };
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 12000);
   try {
-    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?user_id=eq.${encodeURIComponent(user.id)}&select=user_id`, {
-      method: 'PATCH',
+    // Upsert only the selected photo column. This also handles accounts that
+    // do not yet have a chat_profiles row without overwriting the other slot.
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?on_conflict=user_id&select=user_id`, {
+      method: 'POST',
       signal: controller.signal,
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-        Prefer: 'return=representation',
+        Prefer: 'resolution=merge-duplicates,return=representation',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ user_id: user.id, [column]: url, updated_at: new Date().toISOString() }),
     });
     if (result?.error) return { error: result.error };
     if (!Array.isArray(result) || result.length !== 1 || result[0]?.user_id !== user.id) {
@@ -756,7 +757,6 @@ export async function updateChatProfilePhoto(slot: 'avatar' | 'cover', url: stri
     window.clearTimeout(timeoutId);
   }
 }
-
 export async function saveRecentLive(partnerId: string, name: string, bio: string, avatar: string): Promise<{ error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
@@ -1091,7 +1091,7 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
   if (!user) return { error: 'Invalid token' };
   const clean = content.trim();
   if (!clean && imagePaths.length === 0) return { error: 'Write a caption or add at least one photo.' };
-  if (imagePaths.length > 5) return { error: 'You can add up to 5 photos per post.' };
+  if (imagePaths.length > 3) return { error: 'You can add up to 3 photos per post.' };
   if (imagePaths.some(path => !path.startsWith(`${user.id}/posts/`) || !path.endsWith('.webp'))) return { error: 'Invalid post photo path.' };
   if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
   try {
@@ -1140,7 +1140,7 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
         }
       } catch { /* Cleanup can retry after the next successful post. */ }
     })();
-    return { post: rows[0] as ChatPost };
+    return { post: { ...rows[0], is_private: rows[0].is_private ?? false, reactions: [], comments: [] } as ChatPost };
   } catch (e: any) {
     return { error: e.message || 'Could not publish post' };
   }

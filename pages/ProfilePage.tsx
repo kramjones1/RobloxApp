@@ -33,31 +33,30 @@ type DecodedProfileImage = {
 };
 
 async function decodeProfileImage(file: File): Promise<DecodedProfileImage> {
-  // Prefer ImageBitmap where supported, but fall back to an HTMLImageElement.
-  // Some mobile browsers reject createImageBitmap for otherwise displayable
-  // JPEG/PNG/WebP uploads.
-  if (typeof createImageBitmap === 'function') {
-    try {
-      const bitmap = await createImageBitmap(file);
-      return { source: bitmap, width: bitmap.width, height: bitmap.height, cleanup: () => bitmap.close() };
-    } catch {
-      // Continue with the browser's image decoder below.
-    }
-  }
+  if (!file || !file.size) throw new Error('The selected file is empty. Please choose another image.');
 
+  // Trust the actual browser load event, not createImageBitmap() or
+  // HTMLImageElement.decode() alone: both can reject on valid Android uploads.
   const objectUrl = URL.createObjectURL(file);
+  const image = new Image();
   try {
-    const image = new Image();
-    image.decoding = 'async';
-    image.src = objectUrl;
-    if (typeof image.decode === 'function') {
-      await image.decode();
-    } else {
-      await new Promise<void>((resolve, reject) => {
-        image.onload = () => resolve();
-        image.onerror = () => reject(new Error('The selected image format is not supported by this browser.'));
-      });
-    }
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        image.onload = null;
+        image.onerror = null;
+        error ? reject(error) : resolve();
+      };
+      const timeout = window.setTimeout(() => finish(new Error('Image loading timed out. Please try selecting the photo again.')), 20000);
+      image.onload = () => finish();
+      image.onerror = () => finish(new Error('The browser could not read the selected image data.'));
+      image.src = objectUrl;
+      if (image.complete && image.naturalWidth > 0) finish();
+    });
+
     if (!image.naturalWidth || !image.naturalHeight) {
       throw new Error('The selected image has no readable image dimensions.');
     }
@@ -67,16 +66,16 @@ async function decodeProfileImage(file: File): Promise<DecodedProfileImage> {
       height: image.naturalHeight,
       cleanup: () => URL.revokeObjectURL(objectUrl),
     };
-  } catch {
+  } catch (error: any) {
     URL.revokeObjectURL(objectUrl);
-    throw new Error('This image format could not be decoded. Please choose a JPEG, PNG, or WebP image.');
+    throw new Error(error?.message || 'The browser could not decode this image. Please try another copy of the photo.');
   }
 }
 
 async function compressProfileImage(file: File): Promise<File> {
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-    throw new Error('Please choose a JPEG, PNG, or WebP image.');
-  }
+  // Some Android/gallery providers return a valid image with an empty or
+  // generic MIME type. Decode the bytes first; the crop output is normalized
+  // to WebP before it reaches storage.
   const decoded = await decodeProfileImage(file);
   try {
     // Profile and cover assets share a strict 200 KB storage limit. Keep
@@ -734,8 +733,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }
 
   function beginPhotoCrop(file: File, slot: 'avatar' | 'cover') {
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setMsg('Please choose a JPEG, PNG, or WebP image.');
+    if (!file || !file.size) {
+      setMsg('The selected photo is empty. Please choose the image again.');
       return;
     }
     if (cropDraft?.url) URL.revokeObjectURL(cropDraft.url);

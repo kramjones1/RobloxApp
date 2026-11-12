@@ -95,3 +95,5 @@ jobs:
 # Trigger production deploy for profile photo save-state and portal menu fixes.
 
 # Rebuild production with post-driven profile and cover photo uploads 2026-11-12
+
+# Retry production build after Photos tab JSX correction 2026-11-12

@@ -1,3 +1,4 @@
+import heic2any from 'heic2any';
 import React, { useEffect, useRef, useState } from 'react';
 import { watchRecentLive, watchUserPresence } from '../chatPresence';
 import OnlineDot from '../components/OnlineDot';
@@ -35,40 +36,57 @@ type DecodedProfileImage = {
 async function decodeProfileImage(file: File): Promise<DecodedProfileImage> {
   if (!file || !file.size) throw new Error('The selected file is empty. Please choose another image.');
 
-  // Trust the actual browser load event, not createImageBitmap() or
-  // HTMLImageElement.decode() alone: both can reject on valid Android uploads.
-  const objectUrl = URL.createObjectURL(file);
-  const image = new Image();
-  try {
-    await new Promise<void>((resolve, reject) => {
-      let settled = false;
-      const finish = (error?: Error) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        image.onload = null;
-        image.onerror = null;
-        error ? reject(error) : resolve();
-      };
-      const timeout = window.setTimeout(() => finish(new Error('Image loading timed out. Please try selecting the photo again.')), 20000);
-      image.onload = () => finish();
-      image.onerror = () => finish(new Error('The browser could not read the selected image data.'));
-      image.src = objectUrl;
-      if (image.complete && image.naturalWidth > 0) finish();
-    });
+  const loadImage = async (sourceFile: Blob): Promise<{ image: HTMLImageElement; url: string }> => {
+    const url = URL.createObjectURL(sourceFile);
+    const image = new Image();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const finish = (error?: Error) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(timeout);
+          image.onload = null;
+          image.onerror = null;
+          error ? reject(error) : resolve();
+        };
+        const timeout = window.setTimeout(() => finish(new Error('Image loading timed out.')), 20000);
+        image.onload = () => finish();
+        image.onerror = () => finish(new Error('Browser image decoder rejected the file.'));
+        image.src = url;
+        if (image.complete && image.naturalWidth > 0) finish();
+      });
+      if (!image.naturalWidth || !image.naturalHeight) throw new Error('The selected image has no readable dimensions.');
+      return { image, url };
+    } catch (error) {
+      URL.revokeObjectURL(url);
+      throw error;
+    }
+  };
 
-    if (!image.naturalWidth || !image.naturalHeight) {
-      throw new Error('The selected image has no readable image dimensions.');
+  let loaded: { image: HTMLImageElement; url: string } | null = null;
+  try {
+    try {
+      loaded = await loadImage(file);
+    } catch (nativeError) {
+      // Android/iOS photo pickers can return HEIC/HEIF files even when the
+      // filename or MIME metadata looks generic. Convert those bytes to JPEG.
+      try {
+        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+        const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
+        loaded = await loadImage(jpegBlob);
+      } catch {
+        throw new Error('This photo format is not supported by the browser. Choose a JPEG/PNG/WebP photo, or export this HEIC/HEIF image as JPEG first.');
+      }
     }
     return {
-      source: image,
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-      cleanup: () => URL.revokeObjectURL(objectUrl),
+      source: loaded.image,
+      width: loaded.image.naturalWidth,
+      height: loaded.image.naturalHeight,
+      cleanup: () => URL.revokeObjectURL(loaded!.url),
     };
   } catch (error: any) {
-    URL.revokeObjectURL(objectUrl);
-    throw new Error(error?.message || 'The browser could not decode this image. Please try another copy of the photo.');
+    throw new Error(error?.message || 'The browser could not read the selected image.');
   }
 }
 
@@ -576,7 +594,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 </div>
                 <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500</span>
               </div>
-              <input ref={postImagesInputRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handlePostImageSelection} style={s.hiddenInput} />
+              <input ref={postImagesInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple onChange={handlePostImageSelection} style={s.hiddenInput} />
               <button type="button" onClick={() => setPostPreviewOpen(true)} disabled={!canPreview || posting} style={{ ...s.saveBtn, marginTop: 12, opacity: !canPreview || posting ? .45 : 1 }}>Preview post</button>
             </div>
           )}

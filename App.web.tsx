@@ -75,6 +75,7 @@ themeStyle.textContent = `
   html[data-theme="light"] .profile-image-editor-dialog h2,
   html[data-theme="light"] .profile-image-editor-dialog strong { color: #20232a !important; }
   html[data-theme="light"] .profile-image-editor-dialog p { color: #626875 !important; }
+  html[data-theme="light"] .profile-image-editor-dialog button[aria-label="Close"] { color: #626875 !important; }
   html[data-theme="light"] .profile-image-editor-dialog [style*="borderTop"] { border-color: #e2e5ec !important; }
   html[data-theme="light"] .admin-page-root { background: #f4f6fb !important; color: #20232a !important; }
   html[data-theme="light"] .admin-page-root [style*="#1f1f1f"],
@@ -84,14 +85,16 @@ themeStyle.textContent = `
   html[data-theme="light"] .admin-page-root h2,
   html[data-theme="light"] .admin-page-root h3,
   html[data-theme="light"] .admin-page-root p,
-  html[data-theme="light"] .admin-page-root div,
+  html[data-theme="light"] .admin-page-root div:not([role="alert"]):not([role="status"]),
   html[data-theme="light"] .admin-page-root td,
   html[data-theme="light"] .admin-page-root th,
-  html[data-theme="light"] .admin-page-root label { color: #303744; }
+  html[data-theme="light"] .admin-page-root label { color: #303744 !important; }
+  html[data-theme="light"] .admin-page-root [role="alert"] { color: #b42318 !important; }
+  html[data-theme="light"] .admin-page-root [role="status"] { color: #167044 !important; }
   html[data-theme="light"] .admin-page-root input,
   html[data-theme="light"] .admin-page-root textarea,
   html[data-theme="light"] .admin-page-root select { background: #fff !important; color: #20232a !important; border-color: #d7dce5 !important; }
-  html[data-theme="light"] .admin-page-root button:not([style*="#6c63ff"]):not([style*="#f44336"]):not([style*="#ff9800"]) { color: #424b5a; }
+  html[data-theme="light"] .admin-page-root button:not([style*="#6c63ff"]):not([style*="#f44336"]):not([style*="#ff9800"]) { color: #424b5a !important; }
   html[data-theme="light"] .admin-page-root table,
   html[data-theme="light"] .admin-page-root tr,
   html[data-theme="light"] .admin-page-root td,

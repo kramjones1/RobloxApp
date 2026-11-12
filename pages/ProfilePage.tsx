@@ -217,7 +217,7 @@ const s = {
   coverWrap: { position: 'relative' as const, width: '100%', aspectRatio: '820/280' as any, overflow: 'hidden', background: 'linear-gradient(135deg, #6c63ff 0%, #2a6eff 50%, #00d4ff 100%)', flexShrink: 0 },
   coverImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block', position: 'absolute' as const, inset: 0 },
   avatarWrap: { display: 'flex', justifyContent: 'flex-start', marginTop: -64, paddingLeft: 24 },
-  avatar: { width: 132, height: 132, borderRadius: 0, border: '5px solid #1a1a1a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
+  avatar: { width: 132, height: 132, borderRadius: '50%', border: '5px solid #1a1a1a', background: '#222', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, color: '#fff', fontWeight: 700, overflow: 'hidden', position: 'relative' as const, flexShrink: 0, cursor: 'pointer' },
   avatarImg: { width: '100%', height: '100%', objectFit: 'cover' as const, display: 'block' },
   nameSection: { padding: '8px 24px 16px', textAlign: 'left' as const, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,.07)' },
   name: { color: '#fff', fontSize: 25, fontWeight: 750, letterSpacing: '-.5px', margin: 0 },
@@ -242,7 +242,7 @@ const s = {
 const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
   .profile-content-area { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 24px; align-items: start; }
-  .profile-avatar, .profile-avatar > img { border-radius: 0 !important; }
+  .profile-avatar, .profile-avatar > img { border-radius: 50% !important; }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .profile-main-content { min-width: 0; }

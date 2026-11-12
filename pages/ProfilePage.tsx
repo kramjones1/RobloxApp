@@ -73,12 +73,27 @@ async function decodeProfileImage(file: File, onStage?: (stage: string) => void)
       // Do not send every unreadable JPEG/PNG/WebP through the heavyweight
       // HEIC decoder. Some Android gallery providers use generic MIME types,
       // so inspect the ISO-BMFF brand in the file header as the reliable test.
-      const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-      const brand = header.length >= 12
-        ? String.fromCharCode(...header.slice(8, 12)).toLowerCase()
-        : '';
-      const isHeic = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand)
-        || /\\.(heic|heif)$/i.test(file.name || '');
+      // Trust explicit browser MIME/filename metadata first. Only inspect
+      // the header for generic Android picker files; some cloud-backed content
+      // providers revoke their temporary file handle before arrayBuffer().
+      const declaredType = (file.type || '').toLowerCase();
+      const declaredName = file.name || '';
+      let isHeic = /\\.(heic|heif)$/i.test(declaredName)
+        || declaredType === 'image/heic'
+        || declaredType === 'image/heif'
+        || declaredType === 'image/heic-sequence'
+        || declaredType === 'image/heif-sequence';
+      if (!isHeic && !declaredType.startsWith('image/') && !/\\.(jpe?g|png|webp|gif|bmp)$/i.test(declaredName)) {
+        try {
+          const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+          const brand = header.length >= 12
+            ? String.fromCharCode(...header.slice(8, 12)).toLowerCase()
+            : '';
+          isHeic = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+        } catch {
+          throw new Error('Your phone could not read this selected file. If it is in Google Photos, iCloud, or another cloud gallery, download/save a copy to your device first, then select it from Downloads or Gallery.');
+        }
+      }
       if (!isHeic) {
         const detail = nativeError instanceof Error ? nativeError.message : 'The browser could not decode this image.';
         throw new Error(`This photo could not be read (${detail}). Please choose a JPEG, PNG, or WebP image.`);

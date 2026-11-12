@@ -1264,9 +1264,12 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
   }
   const name = slot === 'avatar' ? 'avatar.webp' : slot === 'cover' ? 'cover.webp' : slot === 'post' ? `posts/post-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.webp` : `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
   const path = `${user.id}/${name}`;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
   try {
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
@@ -1294,7 +1297,9 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
       },
     };
   } catch (e: any) {
-    return { error: e.message || 'Photo upload failed.' };
+    return { error: e?.name === 'AbortError' ? 'Photo upload timed out after 30 seconds. Please try again.' : (e.message || 'Photo upload failed.') };
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 

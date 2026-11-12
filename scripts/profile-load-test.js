@@ -3,12 +3,12 @@ import { check, sleep } from 'k6';
 import { Trend, Rate } from 'k6/metrics';
 
 // Read-only profile API load test. No sign-in, writes, uploads, or DB mutations.
-// Required: SUPABASE_ACCESS_TOKEN (a short-lived access token copied locally).
+// Required: SUPABASE_ACCESS_TOKEN OR SUPABASE_TEST_EMAIL + SUPABASE_TEST_PASSWORD (local only).
 // Optional: SUPABASE_URL, SUPABASE_ANON_KEY, TARGET_USER_ID, IMAGE_PATH,
 //           TEST_DURATION (default 30s per stage).
 const BASE = (__ENV.SUPABASE_URL || 'https://btkcubibosbtpxcronnd.supabase.co').replace(/\/$/, '');
 const KEY = __ENV.SUPABASE_ANON_KEY;
-const TOKEN = __ENV.SUPABASE_ACCESS_TOKEN;
+let TOKEN = __ENV.SUPABASE_ACCESS_TOKEN || '';
 const TARGET = __ENV.TARGET_USER_ID;
 const DURATION = __ENV.TEST_DURATION || '30s';
 

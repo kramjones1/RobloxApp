@@ -90,6 +90,39 @@ async function decodeProfileImage(file: File): Promise<DecodedProfileImage> {
   }
 }
 
+async function canvasToWebPBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  // Some mobile browsers silently return PNG when WebP encoding is unavailable.
+  // Never label those PNG bytes as image/webp: Storage validates the MIME type
+  // and the resulting public image may fail to render.
+  const blob = await new Promise<Blob | null>((resolve, reject) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('Photo processing timed out in this browser. Please try a smaller image or another browser.'));
+    }, 15000);
+    try {
+      canvas.toBlob(result => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        resolve(result);
+      }, 'image/webp', quality);
+    } catch (error) {
+      if (!settled) {
+        settled = true;
+        window.clearTimeout(timeout);
+        reject(error);
+      }
+    }
+  });
+  if (!blob) throw new Error('Your browser could not prepare this photo. Please try another image.');
+  if (blob.type.toLowerCase() !== 'image/webp') {
+    throw new Error('This browser cannot encode WebP photos. Update Chrome or try another browser, then save again.');
+  }
+  return blob;
+}
+
 async function compressProfileImage(file: File): Promise<File> {
   // Some Android/gallery providers return a valid image with an empty or
   // generic MIME type. Decode the bytes first; the crop output is normalized
@@ -107,8 +140,8 @@ async function compressProfileImage(file: File): Promise<File> {
       if (!context) throw new Error('Image compression is not supported in this browser.');
       context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
       for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42, 0.34, 0.28]) {
-        const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
-        if (blob && blob.size <= 200 * 1024) {
+        const blob = await canvasToWebPBlob(canvas, quality);
+        if (blob.size <= 200 * 1024) {
           return new File([blob], 'profile-photo.webp', { type: 'image/webp', lastModified: Date.now() });
         }
       }
@@ -125,24 +158,25 @@ async function cropProfileImage(file: File, slot: 'avatar' | 'cover', zoom: numb
     const aspect = slot === 'avatar' ? 1 : 820 / 280;
     const baseWidth = Math.min(decoded.width, decoded.height * aspect);
     const baseHeight = baseWidth / aspect;
-    const sourceWidth = baseWidth / zoom;
-    const sourceHeight = baseHeight / zoom;
-    const sx = (decoded.width - sourceWidth) * (x / 100);
-    const sy = (decoded.height - sourceHeight) * (y / 100);
+    const safeZoom = Math.min(3, Math.max(1, Number.isFinite(zoom) ? zoom : 1));
+    const sourceWidth = baseWidth / safeZoom;
+    const sourceHeight = baseHeight / safeZoom;
+    const safeX = Math.min(100, Math.max(0, Number.isFinite(x) ? x : 50));
+    const safeY = Math.min(100, Math.max(0, Number.isFinite(y) ? y : 50));
+    const sx = Math.min(decoded.width - sourceWidth, Math.max(0, (decoded.width - sourceWidth) * (safeX / 100)));
+    const sy = Math.min(decoded.height - sourceHeight, Math.max(0, (decoded.height - sourceHeight) * (safeY / 100)));
     const canvas = document.createElement('canvas');
     canvas.width = slot === 'avatar' ? 800 : 1640;
     canvas.height = Math.round(canvas.width / aspect);
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Image editing is not supported in this browser.');
     context.drawImage(decoded.source, sx, sy, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.9));
-    if (!blob) throw new Error('Could not prepare the cropped photo.');
+    const blob = await canvasToWebPBlob(canvas, 0.9);
     return new File([blob], slot === 'avatar' ? 'profile-picture.webp' : 'cover-photo.webp', { type: 'image/webp', lastModified: Date.now() });
   } finally {
     decoded.cleanup();
   }
 }
-
 const s = {
   page: { background: '#161616', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
   wrap: { width: '100%', maxWidth: 960, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },

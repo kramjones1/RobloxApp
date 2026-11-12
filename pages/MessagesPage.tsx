@@ -29,6 +29,29 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const [presencePartnerIds, setPresencePartnerIds] = useState<string[]>([]);
   const [directoryUsers, setDirectoryUsers] = useState<{ user_id: string; display_name: string; avatar_url: string }[]>([]);
   const [directoryLoading, setDirectoryLoading] = useState(true);
+  const [directoryError, setDirectoryError] = useState(false);
+  const [lightMode, setLightMode] = useState(() => typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light');
+  useEffect(() => {
+    const syncTheme = () => setLightMode(document.documentElement.dataset.theme === 'light');
+    window.addEventListener('liveme-theme-change', syncTheme);
+    window.addEventListener('storage', syncTheme);
+    syncTheme();
+    return () => {
+      window.removeEventListener('liveme-theme-change', syncTheme);
+      window.removeEventListener('storage', syncTheme);
+    };
+  }, []);
+  const palette = lightMode ? {
+    page: '#f4f6fb', surface: '#ffffff', raised: '#f8f9fc', text: '#20232a',
+    secondary: '#626875', muted: '#737987', border: '#e2e5ec',
+    input: '#ffffff', inputText: '#20232a', online: '#16834a', dotBorder: '#ffffff',
+    message: '#eef1f7', timestamp: '#737987',
+  } : {
+    page: '#161616', surface: '#1a1a1a', raised: '#20202a', text: '#ffffff',
+    secondary: '#aaaaaa', muted: '#777777', border: 'rgba(255,255,255,0.07)',
+    input: '#2a2a2a', inputText: '#ffffff', online: '#31d17c', dotBorder: '#161616',
+    message: '#1f1f1f', timestamp: '#777777',
+  };
   const conversationPartnerKey = presencePartnerIds.slice().sort().join('|');
   const presencePartnerKey = Array.from(new Set([...presencePartnerIds, ...directoryUsers.map(person => person.user_id)])).sort().join('|');
   const [onlinePartners, setOnlinePartners] = useState<Set<string>>(new Set());
@@ -425,9 +448,10 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   function loadInboxDirectory() {
-    getInboxUserDirectory().then(({ users }) => {
+    getInboxUserDirectory().then(({ users, error: directoryLoadError }) => {
       if (users) {
         setDirectoryUsers(users);
+        setDirectoryError(false);
         setPartnerInfo(current => {
           const next = { ...current };
           users.forEach(person => {
@@ -435,6 +459,8 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           });
           return next;
         });
+      } else {
+        setDirectoryError(true);
       }
       setDirectoryLoading(false);
     });
@@ -626,7 +652,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     };
   }, []);
 
-  if (loading) return <div style={{ background: '#161616', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontFamily: 'system-ui, sans-serif' }}>Loading...</div>;
+  if (loading) return <div style={{ background: palette.page, flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: palette.secondary, fontFamily: 'system-ui, sans-serif' }}>Loading inbox…</div>;
 
   function parseCallLog(content: string) {
     const match = content.match(/^\[livme-call\]\|(audio|video)\|(\d+)\|completed$/);
@@ -677,7 +703,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               {showAvatar ? (
                 <span style={{ position: 'relative', display: 'inline-flex' }}>
                   <Avatar uid={m.sender_id} size={28} />
-                  <OnlineDot online={onlinePartners.has(m.sender_id)} size={9} borderColor="#161616" style={{ right: -1, bottom: -1 }} />
+                  <OnlineDot online={onlinePartners.has(m.sender_id)} size={9} borderColor={palette.page} style={{ right: -1, bottom: -1 }} />
                 </span>
               ) : <div style={{ width: 28 }} />}
             </div>
@@ -703,16 +729,16 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   if (selectedId && isMobile) {
     return (
-      <div style={{ background: '#161616', position: 'fixed', zIndex: 50, insetInline: 0, top: `${keyboardViewport.top}px`, width: '100%', height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', overflow: 'hidden', overscrollBehavior: 'none', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
+      <div style={{ background: palette.page, color: palette.text, position: 'fixed', zIndex: 50, insetInline: 0, top: `${keyboardViewport.top}px`, width: '100%', height: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', maxHeight: keyboardViewport.height ? `${keyboardViewport.height}px` : '100dvh', overflow: 'hidden', overscrollBehavior: 'none', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: `1px solid ${palette.border}`, background: palette.surface }}>
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
           <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
             <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
-            <OnlineDot online={onlinePartners.has(selectedId)} size={10} borderColor="#1a1a1a" />
+            <OnlineDot online={onlinePartners.has(selectedId)} size={10} borderColor={palette.surface} />
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
-            <span style={{ color: onlinePartners.has(selectedId) ? '#31d17c' : '#777', fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
+            <span style={{ color: palette.text, fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
+            <span style={{ color: onlinePartners.has(selectedId) ? palette.online : palette.muted, fontSize: 11 }}>{onlinePartners.has(selectedId) ? 'Online' : 'Offline'}</span>
           </div>
         </div>
         {callError && <div role="status" style={{ color: '#ff9b9b', background: '#251919', fontSize: 12, padding: '7px 14px' }}>{callError}</div>}
@@ -724,7 +750,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         {error && <p role="status" style={{ color: '#f44336', fontSize: 12, textAlign: 'left', padding: '4px 14px 0', margin: 0, background: '#1a1a1a' }}>{error}</p>}
         {renderCallActions()}
         <form onSubmit={handleSend} style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', boxSizing: 'border-box', flexShrink: 0, padding: '8px 12px', paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))', background: '#1a1a1a' }}>
-          <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: '#2a2a2a', border: '1px solid rgba(255,255,255,0.08)' }} value={text} onKeyDown={e => {
+          <textarea ref={composerRef} aria-label="Message" rows={1} style={{ ...inp, color: palette.inputText, flex: '1 1 0%', minWidth: 0, width: 'auto', height: 42, minHeight: 42, maxHeight: 120, resize: 'none', overflowY: 'auto', borderRadius: 22, padding: '10px 16px', fontSize: 16, lineHeight: '20px', background: palette.input, border: `1px solid ${palette.border}` }} value={text} onKeyDown={e => {
             if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
               e.preventDefault();
               const target = e.currentTarget;
@@ -746,30 +772,32 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   return (
-    <div style={{ background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: palette.page, color: palette.text, flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column' }}>
       <div style={{ maxWidth: 900, margin: '0 auto', width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: isMobile ? 'column' : 'row' }}>
         {/* Conversation list */}
-        <div style={{ flex: isMobile ? 1 : undefined, width: isMobile ? '100%' : 320, borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
+        <div style={{ flex: isMobile ? 1 : undefined, width: isMobile ? '100%' : 320, borderRight: isMobile ? 'none' : `1px solid ${palette.border}`, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${palette.border}` }}>
+            <h2 style={{ color: palette.text, fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
           </div>
-          <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ color: '#888', fontSize: 11, fontWeight: 700, letterSpacing: 0.7, marginBottom: 9 }}>ONLINE USERS</div>
+          <div style={{ padding: '12px 16px 10px', borderBottom: `1px solid ${palette.border}` }}>
+            <div style={{ color: palette.secondary, fontSize: 11, fontWeight: 700, letterSpacing: 0.7, marginBottom: 9 }}>ONLINE USERS</div>
             {directoryLoading && directoryUsers.length === 0 ? (
-              <div style={{ color: '#666', fontSize: 12 }}>Checking who is online…</div>
+              <div role="status" style={{ color: palette.secondary, fontSize: 12 }}>Checking who is online…</div>
+            ) : directoryError && directoryUsers.length === 0 ? (
+              <div role="status" style={{ color: lightMode ? '#b42318' : '#ff9b9b', fontSize: 12 }}>Couldn't load users. <button type="button" onClick={() => { setDirectoryLoading(true); loadInboxDirectory(); }} style={{ border: 0, padding: 0, background: 'transparent', color: '#6c63ff', textDecoration: 'underline', cursor: 'pointer', font: 'inherit' }}>Retry</button></div>
             ) : directoryUsers.filter(person => onlinePartners.has(person.user_id)).length === 0 ? (
-              <div style={{ color: '#666', fontSize: 12 }}>No other users online right now</div>
+              <div style={{ color: palette.secondary, fontSize: 12 }}>{directoryError ? 'Online users may be out of date. Refresh to try again.' : 'No other users online right now'}</div>
             ) : (
               <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 3 }}>
                 {directoryUsers.filter(person => onlinePartners.has(person.user_id)).map(person => {
                   const partnerId = person.user_id;
                   return (
-                  <button key={partnerId} type="button" onClick={() => openChat(partnerId)} title={partnerInfo[partnerId]?.name || 'Open chat'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 54, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', color: '#ccc', fontFamily: 'inherit' }}>
+                  <button key={partnerId} type="button" onClick={() => openChat(partnerId)} title={partnerInfo[partnerId]?.name || 'Open chat'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 54, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', color: palette.text, fontFamily: 'inherit' }}>
                     <span style={{ position: 'relative', display: 'inline-flex' }}>
                       <Avatar uid={partnerId} size={48} />
-                      <OnlineDot online size={11} borderColor="#161616" style={{ right: 0, bottom: 1 }} />
+                      <OnlineDot online size={11} borderColor={palette.page} style={{ right: 0, bottom: 1 }} />
                     </span>
-                    <span style={{ maxWidth: 62, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{partnerInfo[partnerId]?.name || 'User'}</span>
+                    <span style={{ color: palette.text, maxWidth: 62, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{partnerInfo[partnerId]?.name || 'User'}</span>
                   </button>
                   );
                 })}
@@ -778,7 +806,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {conversations.length === 0 ? (
-              <div style={{ padding: '40px 20px', textAlign: 'center', color: '#666', fontSize: 13, lineHeight: 1.5 }}>
+              <div style={{ padding: '40px 20px', textAlign: 'center', color: palette.secondary, fontSize: 13, lineHeight: 1.5 }}>
                 No conversations yet.
                 <br />Chat with someone from Recent Live on your profile.
               </div>
@@ -786,7 +814,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               <button key={conv.partnerId} onClick={() => openChat(conv.partnerId)} style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
                 background: selectedId === conv.partnerId ? 'rgba(108,99,255,0.08)' : 'transparent',
-                border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                border: 'none', borderBottom: `1px solid ${palette.border}`,
                 cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%',
               }}>
                 <div style={{ position: 'relative' }}>
@@ -796,10 +824,10 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                    <span style={{ color: '#fff', fontSize: 14, fontWeight: conv.unread > 0 ? 700 : 500 }}>{partnerInfo[conv.partnerId]?.name || 'User'}</span>
-                    <span style={{ color: '#666', fontSize: 11 }}>{new Date(conv.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span style={{ color: palette.text, fontSize: 14, fontWeight: conv.unread > 0 ? 700 : 500 }}>{partnerInfo[conv.partnerId]?.name || 'User'}</span>
+                    <span style={{ color: palette.muted, fontSize: 11 }}>{new Date(conv.lastMessage.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
-                  <span style={{ color: conv.unread > 0 ? '#ccc' : '#888', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', fontWeight: conv.unread > 0 ? 600 : 400 }}>
+                  <span style={{ color: conv.unread > 0 ? palette.text : palette.secondary, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block', fontWeight: conv.unread > 0 ? 600 : 400 }}>
                     {conv.lastMessage.sender_id === myId ? 'You: ' : ''}{getMessagePreview(conv.lastMessage.content)}
                   </span>
                 </div>
@@ -899,7 +927,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         )}
 
         {!selectedId && !isMobile && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: 14 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: palette.secondary, fontSize: 14 }}>
             Select a conversation
           </div>
         )}

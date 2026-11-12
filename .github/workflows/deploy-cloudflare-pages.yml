@@ -5,6 +5,7 @@ name: Deploy production Cloudflare Pages
 # Keep Inbox labels and surfaces synchronized with the saved light/dark appearance setting.
 # Deploy social-style avatar and cover photo crop previews and gallery-to-profile photo actions.
 # Unify crop-editor appearance with saved app theme and exclude reserved avatar/cover assets from gallery.
+# Restore Facebook-style drag, pinch-to-zoom, wheel-zoom, and reset controls in profile photo cropping.
 
 on:
   workflow_dispatch:

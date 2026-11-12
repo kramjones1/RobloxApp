@@ -1094,9 +1094,12 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
   if (imagePaths.length > 5) return { error: 'You can add up to 5 photos per post.' };
   if (imagePaths.some(path => !path.startsWith(`${user.id}/posts/`) || !path.endsWith('.webp'))) return { error: 'Invalid post photo path.' };
   if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15000);
   try {
     const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,created_at`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
@@ -1142,7 +1145,9 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
     })();
     return { post: { ...rows[0], is_private: rows[0].is_private ?? false, reactions: [], comments: [] } as ChatPost };
   } catch (e: any) {
-    return { error: e.message || 'Could not publish post' };
+    return { error: e?.name === 'AbortError' ? 'Creating the photo post timed out after 15 seconds. Please try again.' : (e.message || 'Could not publish post') };
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 

@@ -83,20 +83,37 @@ async function decodeProfileImage(file: File, onStage?: (stage: string) => void)
         || declaredType === 'image/heif'
         || declaredType === 'image/heic-sequence'
         || declaredType === 'image/heif-sequence';
-      if (!isHeic && !declaredType.startsWith('image/') && !/\\.(jpe?g|png|webp|gif|bmp)$/i.test(declaredName)) {
-        try {
-          const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-          const brand = header.length >= 12
-            ? String.fromCharCode(...header.slice(8, 12)).toLowerCase()
-            : '';
-          isHeic = ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
-        } catch {
-          throw new Error('Your phone could not read this selected file. If it is in Google Photos, iCloud, or another cloud gallery, download/save a copy to your device first, then select it from Downloads or Gallery.');
-        }
+      // Inspect the actual container signature even when Android reports a
+      // misleading image/jpeg MIME type for a HEIC asset.
+      try {
+        const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+        const brand = header.length >= 12
+          ? String.fromCharCode(...header.slice(8, 12)).toLowerCase()
+          : '';
+        isHeic = isHeic || ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
+      } catch {
+        // Continue with the native bitmap decoder; it may still be able to
+        // decode the selected file even if the picker blocks header reads.
       }
       if (!isHeic) {
-        const detail = nativeError instanceof Error ? nativeError.message : 'The browser could not decode this image.';
-        throw new Error(`This photo could not be read (${detail}). Please choose a JPEG, PNG, or WebP image.`);
+        // Android's createImageBitmap often decodes gallery-provider images
+        // that fail through an HTMLImageElement/object URL.
+        try {
+          onStage?.('Trying alternate image decoder…');
+          const bitmap = await Promise.race([
+            createImageBitmap(file),
+            new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('Alternate image decoding timed out.')), 12000)),
+          ]);
+          return {
+            source: bitmap,
+            width: bitmap.width,
+            height: bitmap.height,
+            cleanup: () => bitmap.close(),
+          };
+        } catch {
+          const detail = nativeError instanceof Error ? nativeError.message : 'The browser could not decode this image.';
+          throw new Error(`This photo could not be decoded by the browser (${detail}). Try saving a local JPEG copy and selecting it again.`);
+        }
       }
 
       onStage?.('Converting HEIC photo…');

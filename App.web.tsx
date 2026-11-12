@@ -154,6 +154,10 @@ export default function WebApp() {
 
   useEffect(() => {
     let oauthLogin = false;
+    try {
+      oauthLogin = sessionStorage.getItem('liveme-oauth-login') === '1';
+      sessionStorage.removeItem('liveme-oauth-login');
+    } catch {}
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
@@ -177,6 +181,7 @@ export default function WebApp() {
             setRecoveryMode(true);
             setAuthLoading(false);
           } else {
+            try { sessionStorage.setItem('liveme-oauth-login', '1'); } catch {}
             window.location.reload();
           }
         });

@@ -742,44 +742,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         <div ref={postsSentinelRef} aria-hidden="true" style={{ height: 1 }} />
         {loadingOlderPosts && <p role="status" aria-live="polite" style={{ color: '#888', fontSize: 12, textAlign: 'center', padding: '14px 0' }}>Loading older posts…</p>}
         {!hasMorePosts && visiblePosts.length > 0 && <p style={{ color: '#666', fontSize: 11, textAlign: 'center', padding: '14px 0', margin: 0 }}>You’re all caught up.</p>}
-        {selectedPost && <div role="presentation" onClick={() => setSelectedPost(null)} style={{ position: 'fixed', inset: 0, zIndex: 1500, background: 'rgba(0,0,0,.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
-          <section role="dialog" aria-modal="true" aria-label="Expanded post" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: '92vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><strong style={{ color: '#fff' }}>Comments</strong><button type="button" onClick={() => setSelectedPost(null)} aria-label="Close expanded post" style={{ border: 0, borderRadius: 20, background: '#383838', color: '#fff', width: 34, height: 34, fontSize: 22, cursor: 'pointer' }}>×</button></div>
-            <div style={{ padding: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
-                <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{authorName || 'Anonymous'}</div><div style={{ color: '#888', fontSize: 11 }}>{new Date(selectedPost.created_at).toLocaleString()}</div></div>
-                {selectedPost.is_private && <span style={{ color: '#c9baff', fontSize: 10, fontWeight: 700 }}>🔒 PRIVATE</span>}
-              </div>
-              {selectedPost.content && <p style={{ color: '#eee', fontSize: 15, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 14px' }}>{selectedPost.content}</p>}
-              {(selectedPost.image_paths || []).map((path, index) => <img key={path} src={`https://btkcubibosbtpxcronnd.supabase.co/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} style={{ display: 'block', width: '100%', maxHeight: '70vh', objectFit: 'contain', margin: '0 auto 10px', borderRadius: 8 }} />)}
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#aaa', fontSize: 12, padding: '12px 0 9px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><span>{selectedPost.reactions.length} reactions</span><span>{selectedPost.comments.length} comments</span></div>
-              <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid rgba(255,255,255,.08)', padding: '8px 0' }}>
-                <button type="button" onClick={() => setOpenReactionPicker(current => current === selectedPost.id ? null : selectedPost.id)} style={{ flex: 1, border: 0, background: 'transparent', color: selectedPost.reactions.some(item => item.user_id === user?.id) ? '#76aaff' : '#bbb', fontWeight: 650, padding: 9, cursor: 'pointer' }}>{(() => { const mine = selectedPost.reactions.find(item => item.user_id === user?.id); const labels: Record<string,string> = { like: '👍 Like', love: '❤️ Love', haha: '😂 Haha', wow: '😮 Wow', sad: '😢 Sad', angry: '😡 Angry' }; return mine ? labels[mine.reaction] : '👍 Like'; })()}</button>
-                <button type="button" onClick={() => document.getElementById(`modal-comment-${selectedPost.id}`)?.focus()} style={{ flex: 1, border: 0, background: 'transparent', color: '#bbb', fontWeight: 650, padding: 9, cursor: 'pointer' }}>💬 Comment</button>
-              </div>
-              {openReactionPicker === selectedPost.id && <div style={{ display: 'flex', justifyContent: 'center', gap: 7, padding: '8px 0', background: '#292929', borderRadius: 10, marginTop: 8 }}>
-                {([{ value: 'like', emoji: '👍', label: 'Like' }, { value: 'love', emoji: '❤️', label: 'Love' }, { value: 'haha', emoji: '😂', label: 'Haha' }, { value: 'wow', emoji: '😮', label: 'Wow' }, { value: 'sad', emoji: '😢', label: 'Sad' }, { value: 'angry', emoji: '😡', label: 'Angry' }] as const).map(option => <button key={option.value} type="button" title={option.label} aria-label={option.label} onClick={() => { reactToPost(selectedPost, option.value); setOpenReactionPicker(null); }} style={{ border: 0, background: 'transparent', padding: 4, fontSize: 21, cursor: 'pointer' }}>{option.emoji}</button>)}
-              </div>}
-              <div style={{ paddingTop: 8 }}>{selectedPost.comments.map(comment => <div key={comment.id} style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
-                {comment.author_avatar ? <img src={comment.author_avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#383838', color: '#ddd', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700 }}>{(comment.author_name || 'M').trim()[0]?.toUpperCase() || 'M'}</div>}
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ background: '#292929', borderRadius: 12, padding: '8px 11px' }}><div style={{ color: '#ddd', fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{comment.author_name || 'Member'}</div><div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div></div>
-                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '4px 8px 0' }}>
-                    <span title={new Date(comment.created_at).toLocaleString()} style={{ color: '#888', fontSize: 10 }}>{formatCommentTimestamp(comment.created_at)}</span>
-                    {(['like','love','haha','wow','sad','angry'] as const).map((kind, index) => { const emoji = ['👍','❤️','😂','😮','😢','😡'][index]; const count = comment.reactions.filter(item => item.reaction === kind).length; const active = comment.reactions.some(item => item.user_id === user?.id && item.reaction === kind); return <button key={kind} type="button" title={kind} onClick={() => reactToComment(selectedPost.id, comment, kind)} style={{ border: 0, background: 'transparent', color: active ? '#8db8ff' : '#888', padding: '1px 2px', fontSize: 11, cursor: 'pointer', fontWeight: active ? 800 : 500 }}>{emoji}{count > 0 ? ` ${count}` : ''}</button>; })}
-                    <span style={{ color: '#888', fontSize: 10 }}>{comment.reactions.length} reactions</span>
-                  </div>
-                </div>
-              </div>)}</div>
-              <form onSubmit={e => { e.preventDefault(); submitPostComment(selectedPost.id); }} style={{ display: 'flex', gap: 8, marginTop: 14, position: 'sticky', bottom: -18, padding: '12px 0 0', background: '#202020' }}>
-                {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ ...s.friendAvatar, width: 34, height: 34, fontSize: 13 }}>{(displayName || 'A')[0].toUpperCase()}</div>}
-                <input id={`modal-comment-${selectedPost.id}`} value={commentDrafts[selectedPost.id] || ''} onChange={e => setCommentDrafts(current => ({ ...current, [selectedPost.id]: e.target.value.slice(0, 500) }))} placeholder="Write a comment..." maxLength={500} style={{ flex: 1, minWidth: 0, border: '1px solid rgba(255,255,255,.1)', borderRadius: 20, padding: '10px 14px', background: '#292929', color: '#eee', outline: 'none', fontSize: 13 }} />
-                <button type="submit" disabled={!(commentDrafts[selectedPost.id] || '').trim()} style={{ border: 0, borderRadius: 20, padding: '0 14px', background: '#3978d6', color: '#fff', fontWeight: 650, opacity: (commentDrafts[selectedPost.id] || '').trim() ? 1 : .45, cursor: 'pointer' }}>Send</button>
-              </form>
-            </div>
-          </section>
-        </div>}
+
         {postPreviewOpen && <div role="presentation" onClick={() => !posting && setPostPreviewOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <section role="dialog" aria-modal="true" aria-labelledby="post-preview-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 18, boxShadow: '0 20px 70px rgba(0,0,0,.55)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
@@ -1163,7 +1126,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 </div>
               }
             </section>
-
+            <div ref={postsSentinelRef} aria-hidden="true" style={{ height: 1 }} />
+            {loadingOlderPosts && <p role="status" aria-live="polite" style={{ color: '#888', fontSize: 12, textAlign: 'center', padding: '14px 0' }}>Loading older photos…</p>}
             </>
           )}
           {activeTab === 'Timeline' && (
@@ -1206,6 +1170,44 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>}
             </section>
           ))}
+{selectedPost && <div role="presentation" onClick={() => setSelectedPost(null)} style={{ position: 'fixed', inset: 0, zIndex: 1500, background: 'rgba(0,0,0,.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
+          <section role="dialog" aria-modal="true" aria-label="Expanded post" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 760, maxHeight: '92vh', overflowY: 'auto', background: '#202020', border: '1px solid rgba(255,255,255,.12)', borderRadius: 16, boxShadow: '0 18px 60px rgba(0,0,0,.6)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><strong style={{ color: '#fff' }}>Comments</strong><button type="button" onClick={() => setSelectedPost(null)} aria-label="Close expanded post" style={{ border: 0, borderRadius: 20, background: '#383838', color: '#fff', width: 34, height: 34, fontSize: 22, cursor: 'pointer' }}>×</button></div>
+            <div style={{ padding: 18 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 42, height: 42, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}
+                <div style={{ minWidth: 0, flex: 1 }}><div style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{authorName || 'Anonymous'}</div><div style={{ color: '#888', fontSize: 11 }}>{new Date(selectedPost.created_at).toLocaleString()}</div></div>
+                {selectedPost.is_private && <span style={{ color: '#c9baff', fontSize: 10, fontWeight: 700 }}>🔒 PRIVATE</span>}
+              </div>
+              {selectedPost.content && <p style={{ color: '#eee', fontSize: 15, lineHeight: 1.6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 14px' }}>{selectedPost.content}</p>}
+              {(selectedPost.image_paths || []).map((path, index) => <img key={path} src={`https://btkcubibosbtpxcronnd.supabase.co/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} style={{ display: 'block', width: '100%', maxHeight: '70vh', objectFit: 'contain', margin: '0 auto 10px', borderRadius: 8 }} />)}
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#aaa', fontSize: 12, padding: '12px 0 9px', borderBottom: '1px solid rgba(255,255,255,.08)' }}><span>{selectedPost.reactions.length} reactions</span><span>{selectedPost.comments.length} comments</span></div>
+              <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid rgba(255,255,255,.08)', padding: '8px 0' }}>
+                <button type="button" onClick={() => setOpenReactionPicker(current => current === selectedPost.id ? null : selectedPost.id)} style={{ flex: 1, border: 0, background: 'transparent', color: selectedPost.reactions.some(item => item.user_id === user?.id) ? '#76aaff' : '#bbb', fontWeight: 650, padding: 9, cursor: 'pointer' }}>{(() => { const mine = selectedPost.reactions.find(item => item.user_id === user?.id); const labels: Record<string,string> = { like: '👍 Like', love: '❤️ Love', haha: '😂 Haha', wow: '😮 Wow', sad: '😢 Sad', angry: '😡 Angry' }; return mine ? labels[mine.reaction] : '👍 Like'; })()}</button>
+                <button type="button" onClick={() => document.getElementById(`modal-comment-${selectedPost.id}`)?.focus()} style={{ flex: 1, border: 0, background: 'transparent', color: '#bbb', fontWeight: 650, padding: 9, cursor: 'pointer' }}>💬 Comment</button>
+              </div>
+              {openReactionPicker === selectedPost.id && <div style={{ display: 'flex', justifyContent: 'center', gap: 7, padding: '8px 0', background: '#292929', borderRadius: 10, marginTop: 8 }}>
+                {([{ value: 'like', emoji: '👍', label: 'Like' }, { value: 'love', emoji: '❤️', label: 'Love' }, { value: 'haha', emoji: '😂', label: 'Haha' }, { value: 'wow', emoji: '😮', label: 'Wow' }, { value: 'sad', emoji: '😢', label: 'Sad' }, { value: 'angry', emoji: '😡', label: 'Angry' }] as const).map(option => <button key={option.value} type="button" title={option.label} aria-label={option.label} onClick={() => { reactToPost(selectedPost, option.value); setOpenReactionPicker(null); }} style={{ border: 0, background: 'transparent', padding: 4, fontSize: 21, cursor: 'pointer' }}>{option.emoji}</button>)}
+              </div>}
+              <div style={{ paddingTop: 8 }}>{selectedPost.comments.map(comment => <div key={comment.id} style={{ display: 'flex', gap: 8, paddingTop: 10 }}>
+                {comment.author_avatar ? <img src={comment.author_avatar} alt="" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#383838', color: '#ddd', display: 'grid', placeItems: 'center', flexShrink: 0, fontSize: 12, fontWeight: 700 }}>{(comment.author_name || 'M').trim()[0]?.toUpperCase() || 'M'}</div>}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ background: '#292929', borderRadius: 12, padding: '8px 11px' }}><div style={{ color: '#ddd', fontSize: 12, fontWeight: 700, marginBottom: 3 }}>{comment.author_name || 'Member'}</div><div style={{ color: '#e5e5e5', fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{comment.content}</div></div>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, padding: '4px 8px 0' }}>
+                    <span title={new Date(comment.created_at).toLocaleString()} style={{ color: '#888', fontSize: 10 }}>{formatCommentTimestamp(comment.created_at)}</span>
+                    {(['like','love','haha','wow','sad','angry'] as const).map((kind, index) => { const emoji = ['👍','❤️','😂','😮','😢','😡'][index]; const count = comment.reactions.filter(item => item.reaction === kind).length; const active = comment.reactions.some(item => item.user_id === user?.id && item.reaction === kind); return <button key={kind} type="button" title={kind} onClick={() => reactToComment(selectedPost.id, comment, kind)} style={{ border: 0, background: 'transparent', color: active ? '#8db8ff' : '#888', padding: '1px 2px', fontSize: 11, cursor: 'pointer', fontWeight: active ? 800 : 500 }}>{emoji}{count > 0 ? ` ${count}` : ''}</button>; })}
+                    <span style={{ color: '#888', fontSize: 10 }}>{comment.reactions.length} reactions</span>
+                  </div>
+                </div>
+              </div>)}</div>
+              <form onSubmit={e => { e.preventDefault(); submitPostComment(selectedPost.id); }} style={{ display: 'flex', gap: 8, marginTop: 14, position: 'sticky', bottom: -18, padding: '12px 0 0', background: '#202020' }}>
+                {avatarUrl ? <img src={avatarUrl} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ ...s.friendAvatar, width: 34, height: 34, fontSize: 13 }}>{(displayName || 'A')[0].toUpperCase()}</div>}
+                <input id={`modal-comment-${selectedPost.id}`} value={commentDrafts[selectedPost.id] || ''} onChange={e => setCommentDrafts(current => ({ ...current, [selectedPost.id]: e.target.value.slice(0, 500) }))} placeholder="Write a comment..." maxLength={500} style={{ flex: 1, minWidth: 0, border: '1px solid rgba(255,255,255,.1)', borderRadius: 20, padding: '10px 14px', background: '#292929', color: '#eee', outline: 'none', fontSize: 13 }} />
+                <button type="submit" disabled={!(commentDrafts[selectedPost.id] || '').trim()} style={{ border: 0, borderRadius: 20, padding: '0 14px', background: '#3978d6', color: '#fff', fontWeight: 650, opacity: (commentDrafts[selectedPost.id] || '').trim() ? 1 : .45, cursor: 'pointer' }}>Send</button>
+              </form>
+            </div>
+          </section>
+        </div>}
             </div>
           </main>
         </div>

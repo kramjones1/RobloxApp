@@ -82,3 +82,5 @@ jobs:
 # Image decoder and square profile crop production refresh 2026-11-12
 
 # HEIC/HEIF mobile photo conversion support 2026-11-12
+
+# Rebuild production from the corrected WebP crop encoder 2026-11-12

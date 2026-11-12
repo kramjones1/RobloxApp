@@ -85,3 +85,4 @@ jobs:
 
 # Rebuild production from the corrected WebP crop encoder 2026-11-12
 # Trigger production rebuild for direct avatar and cover crop encoding fix.
+# Deploy isolated avatar and cover photo upload and profile-column updates.

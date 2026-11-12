@@ -192,7 +192,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={s.page}>
+    <div className="admin-page-root" style={s.page}>
       <div style={{ maxWidth: 1000, margin: '0 auto', minHeight: '100%' }}>
         <h1 style={s.title}>Command Center</h1>
         <p style={s.sub}>Platform administration and moderation</p>

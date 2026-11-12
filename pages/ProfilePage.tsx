@@ -52,6 +52,31 @@ async function compressProfileImage(file: File): Promise<File> {
   throw new Error('This image cannot be compressed below 200 KB. Please choose a smaller image.');
 }
 
+
+async function cropProfileImage(file: File, slot: 'avatar' | 'cover', zoom: number, x: number, y: number): Promise<File> {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const aspect = slot === 'avatar' ? 1 : 820 / 280;
+    const baseWidth = Math.min(bitmap.width, bitmap.height * aspect);
+    const baseHeight = baseWidth / aspect;
+    const sourceWidth = baseWidth / zoom;
+    const sourceHeight = baseHeight / zoom;
+    const sx = (bitmap.width - sourceWidth) * (x / 100);
+    const sy = (bitmap.height - sourceHeight) * (y / 100);
+    const canvas = document.createElement('canvas');
+    canvas.width = slot === 'avatar' ? 800 : 1640;
+    canvas.height = Math.round(canvas.width / aspect);
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Image editing is not supported in this browser.');
+    context.drawImage(bitmap, sx, sy, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.9));
+    if (!blob) throw new Error('Could not prepare the cropped photo.');
+    return new File([blob], slot === 'avatar' ? 'profile-picture.webp' : 'cover-photo.webp', { type: 'image/webp', lastModified: Date.now() });
+  } finally {
+    bitmap.close();
+  }
+}
+
 const s = {
   page: { background: '#161616', fontFamily: 'system-ui, sans-serif', minHeight: '100vh' },
   wrap: { width: '100%', maxWidth: 960, margin: '0 auto', padding: '0 0 40px', display: 'flex', flexDirection: 'column' as const },
@@ -184,6 +209,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [posting, setPosting] = useState(false);
   const [postMsg, setPostMsg] = useState('');
   const [imageEditorOpen, setImageEditorOpen] = useState(false);
+  const [cropDraft, setCropDraft] = useState<{ file: File; url: string; slot: 'avatar' | 'cover' } | null>(null);
+  const [cropZoom, setCropZoom] = useState(1);
+  const [cropX, setCropX] = useState(50);
+  const [cropY, setCropY] = useState(50);
+  const [savingCrop, setSavingCrop] = useState(false);
   const [activeTab, setActiveTab] = useState<'Posts' | 'Photos' | 'Timeline' | 'About'>('Posts');
   const [profilePhotos, setProfilePhotos] = useState<ProfilePhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; alt: string } | null>(null);
@@ -651,26 +681,57 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setMsg('Photo saved.');
   }
 
+  function beginPhotoCrop(file: File, slot: 'avatar' | 'cover') {
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setMsg('Please choose a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (cropDraft?.url) URL.revokeObjectURL(cropDraft.url);
+    setCropDraft({ file, url: URL.createObjectURL(file), slot });
+    setCropZoom(1);
+    setCropX(50);
+    setCropY(50);
+    setImageEditorOpen(false);
+    setMsg('');
+  }
+
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
-    setUploadingAvatar(true);
-    setMsg('');
-    try { await saveProfilePhoto(file, 'avatar'); }
-    catch (error: any) { setMsg(error.message || 'Failed to upload profile picture.'); }
-    finally { setUploadingAvatar(false); }
+    if (file) beginPhotoCrop(file, 'avatar');
   }
 
   async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file) return;
-    setUploadingCover(true);
+    if (file) beginPhotoCrop(file, 'cover');
+  }
+
+  async function applyPhotoCrop() {
+    if (!cropDraft) return;
+    const slot = cropDraft.slot;
+    setSavingCrop(true);
+    if (slot === 'avatar') setUploadingAvatar(true);
+    else setUploadingCover(true);
     setMsg('');
-    try { await saveProfilePhoto(file, 'cover'); }
-    catch (error: any) { setMsg(error.message || 'Failed to upload cover photo.'); }
-    finally { setUploadingCover(false); }
+    try {
+      const cropped = await cropProfileImage(cropDraft.file, slot, cropZoom, cropX, cropY);
+      await saveProfilePhoto(cropped, slot);
+      URL.revokeObjectURL(cropDraft.url);
+      setCropDraft(null);
+      setImageEditorOpen(true);
+    } catch (error: any) {
+      setMsg(error.message || 'Could not save this photo.');
+    } finally {
+      setSavingCrop(false);
+      setUploadingAvatar(false);
+      setUploadingCover(false);
+    }
+  }
+
+  function closePhotoCrop() {
+    if (cropDraft?.url) URL.revokeObjectURL(cropDraft.url);
+    setCropDraft(null);
   }
 
   async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -890,6 +951,31 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         </div>
         <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverUpload} style={s.hiddenInput} />
 
+
+        {cropDraft && (
+          <div role="presentation" onClick={closePhotoCrop} style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
+            <section role="dialog" aria-modal="true" aria-label={cropDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'} onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '94vh', overflowY: 'auto', background: '#202020', color: '#fff', borderRadius: 16, padding: 18, boxShadow: '0 18px 60px rgba(0,0,0,.55)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <h2 style={{ margin: 0, fontSize: 18 }}>{cropDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'}</h2>
+                <button type="button" onClick={closePhotoCrop} aria-label="Close crop editor" style={{ border: 0, background: 'transparent', color: '#aaa', fontSize: 25, cursor: 'pointer' }}>×</button>
+              </div>
+              <p style={{ color: '#aaa', fontSize: 13, margin: '0 0 12px' }}>Adjust the framing before saving. The preview shows how it will appear on your profile.</p>
+              <div style={{ width: '100%', aspectRatio: cropDraft.slot === 'avatar' ? '1' : '820 / 280', maxHeight: cropDraft.slot === 'avatar' ? 340 : 220, margin: '0 auto 18px', overflow: 'hidden', borderRadius: cropDraft.slot === 'avatar' ? '50%' : 10, background: '#111', position: 'relative' }}>
+                <img src={cropDraft.url} alt="Crop preview" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})`, transformOrigin: `${cropX}% ${cropY}%` }} />
+              </div>
+              <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Zoom <span style={{ color: '#999' }}>{cropZoom.toFixed(1)}×</span></label>
+              <input aria-label="Zoom crop" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={e => setCropZoom(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 12 }} />
+              <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Horizontal position</label>
+              <input aria-label="Horizontal crop position" type="range" min="0" max="100" value={cropX} onChange={e => setCropX(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 12 }} />
+              <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Vertical position</label>
+              <input aria-label="Vertical crop position" type="range" min="0" max="100" value={cropY} onChange={e => setCropY(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 18 }} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" onClick={closePhotoCrop} disabled={savingCrop} style={{ flex: 1, padding: 12, borderRadius: 9, border: '1px solid rgba(255,255,255,.16)', background: '#303030', color: '#ddd', cursor: 'pointer' }}>Cancel</button>
+                <button type="button" onClick={applyPhotoCrop} disabled={savingCrop} style={{ ...s.saveBtn, flex: 1, margin: 0, opacity: savingCrop ? .6 : 1 }}>{savingCrop ? 'Saving…' : 'Save photo'}</button>
+              </div>
+            </section>
+          </div>
+        )}
         {imageEditorOpen && (
           <div className="profile-image-editor-overlay" role="presentation" onClick={() => setImageEditorOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
             <section className="profile-image-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="profile-image-editor-title" onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 440, background: '#202020', border: '1px solid rgba(255,255,255,.1)', borderRadius: 16, padding: 20, boxShadow: '0 18px 60px rgba(0,0,0,.5)' }}>

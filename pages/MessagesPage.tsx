@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { getConversations, getMessages, sendMessage, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
+import { getConversations, getInboxUserDirectory, getMessages, sendMessage, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
 import { watchUserPresence, createChatCallSignaling, ChatCallSignal, ChatCallSignaling } from '../chatPresence';
 import OnlineDot from '../components/OnlineDot';
 
@@ -27,7 +27,10 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const myId = user?.id;
   const [presencePartnerIds, setPresencePartnerIds] = useState<string[]>([]);
-  const presencePartnerKey = presencePartnerIds.slice().sort().join('|');
+  const [directoryUsers, setDirectoryUsers] = useState<{ user_id: string; display_name: string; avatar_url: string }[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(true);
+  const conversationPartnerKey = presencePartnerIds.slice().sort().join('|');
+  const presencePartnerKey = Array.from(new Set([...presencePartnerIds, ...directoryUsers.map(person => person.user_id)])).sort().join('|');
   const [onlinePartners, setOnlinePartners] = useState<Set<string>>(new Set());
   type CallSession = { callId: string; partnerId: string; media: 'audio' | 'video'; direction: 'incoming' | 'outgoing'; status: 'incoming' | 'outgoing' | 'connecting' | 'active' };
   const [callSession, setCallSession] = useState<CallSession | null>(null);
@@ -421,11 +424,29 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     });
   }
 
+  function loadInboxDirectory() {
+    getInboxUserDirectory().then(({ users }) => {
+      if (users) {
+        setDirectoryUsers(users);
+        setPartnerInfo(current => {
+          const next = { ...current };
+          users.forEach(person => {
+            next[person.user_id] = { name: person.display_name || 'Anonymous', avatar: person.avatar_url || '' };
+          });
+          return next;
+        });
+      }
+      setDirectoryLoading(false);
+    });
+  }
+
   useEffect(() => {
     loadConvs();
+    loadInboxDirectory();
     if (messagePartner) fetchProfile(messagePartner);
     const iv = setInterval(loadConvs, 3000);
-    return () => clearInterval(iv);
+    const directoryIv = setInterval(loadInboxDirectory, 30000);
+    return () => { clearInterval(iv); clearInterval(directoryIv); };
   }, []);
 
   // Online status comes from each user's own presence topic, not from whether
@@ -447,7 +468,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     }
     const partnerIds = presencePartnerKey.split('|').filter(Boolean);
     return watchUserPresence(myId, partnerIds, setOnlinePartners);
-  }, [myId, presencePartnerKey]);
+  }, [myId, conversationPartnerKey]);
 
   useEffect(() => {
     if (!myId) return;
@@ -733,12 +754,16 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
             <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
           </div>
           <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            <div style={{ color: '#888', fontSize: 11, fontWeight: 700, letterSpacing: 0.7, marginBottom: 9 }}>ONLINE CHATS</div>
-            {onlinePartners.size === 0 ? (
-              <div style={{ color: '#666', fontSize: 12 }}>No one online right now</div>
+            <div style={{ color: '#888', fontSize: 11, fontWeight: 700, letterSpacing: 0.7, marginBottom: 9 }}>ONLINE USERS</div>
+            {directoryLoading && directoryUsers.length === 0 ? (
+              <div style={{ color: '#666', fontSize: 12 }}>Checking who is online…</div>
+            ) : directoryUsers.filter(person => onlinePartners.has(person.user_id)).length === 0 ? (
+              <div style={{ color: '#666', fontSize: 12 }}>No other users online right now</div>
             ) : (
               <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 3 }}>
-                {presencePartnerIds.filter(partnerId => onlinePartners.has(partnerId)).map(partnerId => (
+                {directoryUsers.filter(person => onlinePartners.has(person.user_id)).map(person => {
+                  const partnerId = person.user_id;
+                  return (
                   <button key={partnerId} type="button" onClick={() => openChat(partnerId)} title={partnerInfo[partnerId]?.name || 'Open chat'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 54, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', color: '#ccc', fontFamily: 'inherit' }}>
                     <span style={{ position: 'relative', display: 'inline-flex' }}>
                       <Avatar uid={partnerId} size={48} />
@@ -746,7 +771,8 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                     </span>
                     <span style={{ maxWidth: 62, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{partnerInfo[partnerId]?.name || 'User'}</span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

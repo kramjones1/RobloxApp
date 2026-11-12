@@ -1042,22 +1042,23 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 onPointerMove={cropPointerMove}
                 onPointerUp={cropPointerUp}
                 onPointerCancel={cropPointerUp}
+                onLostPointerCapture={cropPointerUp}
                 onWheel={handleCropWheel}
-                style={{ width: '100%', aspectRatio: cropDraft.slot === 'avatar' ? '1' : '820 / 280', maxHeight: cropDraft.slot === 'avatar' ? 340 : 220, margin: '0 auto 18px', overflow: 'hidden', borderRadius: cropDraft.slot === 'avatar' ? '50%' : 10, background: '#111', position: 'relative', touchAction: 'none', cursor: 'grab', userSelect: 'none' }}>
+                style={{ width: '100%', aspectRatio: cropDraft.slot === 'avatar' ? '1' : '820 / 280', maxHeight: cropDraft.slot === 'avatar' ? 340 : 220, margin: '0 auto 18px', overflow: 'hidden', borderRadius: cropDraft.slot === 'avatar' ? '50%' : 10, background: '#111', position: 'relative', touchAction: 'none', cursor: savingCrop ? 'wait' : 'grab', userSelect: 'none' }}>
                 <img ref={cropPreviewImageRef} src={cropDraft.url} draggable={false} alt="Crop preview" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})`, transformOrigin: 'center center', pointerEvents: 'none', userSelect: 'none' }} />
+                <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)' }}>
+                  {Array.from({ length: 9 }, (_, index) => <div key={index} style={{ borderRight: index % 3 !== 2 ? '1px solid rgba(255,255,255,.72)' : 0, borderBottom: index < 6 ? '1px solid rgba(255,255,255,.72)' : 0, boxSizing: 'border-box' }} />)}
+                </div>
               </div>
+              {msg && <p role="alert" style={{ color: '#ff9b9b', background: 'rgba(220,60,60,.12)', border: '1px solid rgba(255,120,120,.28)', borderRadius: 8, padding: '9px 11px', fontSize: 12, lineHeight: 1.45, margin: '0 0 12px' }}>{msg}</p>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                 <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Zoom <span style={{ color: '#999' }}>{cropZoom.toFixed(1)}×</span></label>
-                <button type="button" onClick={() => { setCropZoom(1); setCropX(50); setCropY(50); }} style={{ border: 0, background: 'transparent', color: '#9b96ff', fontSize: 12, cursor: 'pointer', padding: '4px 0 8px' }}>Reset crop</button>
+                <button type="button" disabled={savingCrop} onClick={() => { setCropZoom(1); setCropX(50); setCropY(50); }} style={{ border: 0, background: 'transparent', color: '#9b96ff', fontSize: 12, cursor: savingCrop ? 'not-allowed' : 'pointer', padding: '4px 0 8px' }}>Reset crop</button>
               </div>
-              <input aria-label="Zoom crop" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={e => setCropZoom(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 12 }} />
-              <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Horizontal position</label>
-              <input aria-label="Horizontal crop position" type="range" min="0" max="100" value={cropX} onChange={e => setCropX(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 12 }} />
-              <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Vertical position</label>
-              <input aria-label="Vertical crop position" type="range" min="0" max="100" value={cropY} onChange={e => setCropY(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 18 }} />
+              <input aria-label="Zoom crop" type="range" min="1" max="3" step="0.05" value={cropZoom} disabled={savingCrop} onChange={e => setCropZoom(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 18 }} />
               <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" onClick={closePhotoCrop} disabled={savingCrop} style={{ flex: 1, padding: 12, borderRadius: 9, border: '1px solid rgba(255,255,255,.16)', background: '#303030', color: '#ddd', cursor: 'pointer' }}>Cancel</button>
-                <button type="button" onClick={applyPhotoCrop} disabled={savingCrop} style={{ ...s.saveBtn, flex: 1, margin: 0, opacity: savingCrop ? .6 : 1 }}>{savingCrop ? 'Saving…' : 'Save photo'}</button>
+                <button type="button" onClick={closePhotoCrop} disabled={savingCrop} style={{ flex: 1, padding: 12, borderRadius: 9, border: '1px solid rgba(255,255,255,.16)', background: '#303030', color: '#ddd', cursor: savingCrop ? 'not-allowed' : 'pointer' }}>Cancel</button>
+                <button type="button" onClick={applyPhotoCrop} disabled={savingCrop} style={{ ...s.saveBtn, flex: 1, margin: 0, opacity: savingCrop ? .6 : 1 }}>{savingCrop ? 'Uploading photo…' : 'Save photo'}</button>
               </div>
             </section>
           </div>

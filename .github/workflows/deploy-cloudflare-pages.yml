@@ -110,3 +110,4 @@ jobs:
 
 # Production photo upload timeout deployment trigger
 # Deploy direct profile and cover photo uploads without the crop editor
+# Deploy profile-picture-only square crop editor; keep cover uploads direct.

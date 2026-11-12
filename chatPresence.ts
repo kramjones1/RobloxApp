@@ -207,6 +207,10 @@ export function watchUserPresence(
 
 /** Alias for screens that treat presence as a directory rather than chat state. */
 export const subscribePresenceDirectory = watchUserPresence;
+export const PresenceDirectory = {
+  getOnlineStatus,
+  subscribe: watchUserPresence,
+};
 
 /**
  * Subscribe to the signed-in user's Recent Live history.

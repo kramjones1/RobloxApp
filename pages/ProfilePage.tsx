@@ -496,12 +496,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     const selected = Array.from(e.target.files || []);
     e.target.value = '';
     if (!selected.length) return;
-    const remaining = Math.max(0, 5 - postImages.length);
-    if (!remaining) { setPostMsg('A post can contain up to 5 photos.'); return; }
+    const remaining = Math.max(0, 3 - postImages.length);
+    if (!remaining) { setPostMsg('A post can contain up to 3 photos.'); return; }
     try {
       const compressed = await Promise.all(selected.slice(0, remaining).map(compressProfileImage));
-      setPostImages(current => [...current, ...compressed].slice(0, 5));
-      setPostImagePreviews(current => [...current, ...compressed.map(file => URL.createObjectURL(file))].slice(0, 5));
+      setPostImages(current => [...current, ...compressed].slice(0, 3));
+      setPostImagePreviews(current => [...current, ...compressed.map(file => URL.createObjectURL(file))].slice(0, 3));
       setPostMsg('');
     } catch (error: any) {
       setPostMsg(error.message || 'Could not prepare these photos.');
@@ -528,7 +528,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       }
       const { post, error } = await createProfilePost(postText, uploadedPaths);
       if (error || !post) throw new Error(error || 'Post was not published.');
-      setPosts(current => [post, ...current]);
+      setPosts(current => [{ ...post, is_private: post.is_private ?? false, reactions: post.reactions || [], comments: post.comments || [] }, ...current]);
       setHasMorePosts(current => current);
       setPostText('');
       setPostImages([]);
@@ -651,8 +651,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,.07)', paddingTop: 10 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button type="button" onClick={() => postImagesInputRef.current?.click()} disabled={postImages.length >= 5 || posting} style={{ border: 0, borderRadius: 9, padding: '9px 11px', background: 'rgba(108,99,255,.16)', color: '#b7b2ff', cursor: 'pointer', fontSize: 12 }}>＋ Photo {postImages.length ? `(${postImages.length}/5)` : ''}</button>
-                  <span style={{ color: '#777', fontSize: 10 }}>Max 5 photos · 200 KB each</span>
+                  <button type="button" onClick={() => postImagesInputRef.current?.click()} disabled={postImages.length >= 3 || posting} style={{ border: 0, borderRadius: 9, padding: '9px 11px', background: 'rgba(108,99,255,.16)', color: '#b7b2ff', cursor: 'pointer', fontSize: 12 }}>＋ Photo {postImages.length ? `(${postImages.length}/3)` : ''}</button>
+                  <span style={{ color: '#777', fontSize: 10 }}>Max 3 photos · 200 KB each</span>
                 </div>
                 <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500</span>
               </div>

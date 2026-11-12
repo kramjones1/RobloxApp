@@ -622,6 +622,28 @@ export async function getConversations(): Promise<{ conversations?: { partnerId:
   }
 }
 
+
+export async function getInboxUserDirectory(): Promise<{ users?: { user_id: string; display_name: string; avatar_url: string }[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  try {
+    const result = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/rpc/get_inbox_user_directory`,
+      {
+        method: 'POST',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_limit: 100 }),
+      }
+    );
+    if (result?.error) return { error: result.error };
+    return { users: Array.isArray(result) ? result : [] };
+  } catch (e: any) {
+    return { error: e.message || 'Could not load users' };
+  }
+}
+
 export async function getMessages(partnerId: string): Promise<{ messages?: ChatMessage[]; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };

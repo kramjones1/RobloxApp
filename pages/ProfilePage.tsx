@@ -542,7 +542,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         if (photos) setProfilePhotos(photos);
       }).catch(() => {});
     } catch (error: any) {
-      await Promise.all(uploadedPaths.map(path => deleteProfilePhoto(path.replace(`${user.id}/`, ''))));
+      void Promise.all(uploadedPaths.map(path => deleteProfilePhoto(path.replace(`${user.id}/`, '')))).catch(() => {});
       setPostMsg(error.message || 'Could not publish post.');
     } finally {
       setPosting(false);
@@ -793,7 +793,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     const photoUrl = `${photo.url}?v=${Date.now()}`;
     const { error: profileError } = await updateChatProfilePhoto(slot, photoUrl);
     if (profileError) {
-      await deleteProfilePhoto(photo.name);
+      void deleteProfilePhoto(photo.name).catch(() => {});
       throw new Error(profileError);
     }
     if (slot === 'avatar') {

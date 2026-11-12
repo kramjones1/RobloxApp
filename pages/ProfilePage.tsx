@@ -648,8 +648,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </div>
               <textarea value={postText} onChange={e => setPostText(e.target.value.slice(0, 500))} maxLength={500}
                 placeholder="What's on your mind?" style={{ ...s.textarea, minHeight: 90, marginBottom: 10, background: '#1d1d1d', borderRadius: 11 }} />
-              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 7, marginBottom: 12 }}>
-                {postImages.map((file, index) => <div key={index} style={{ position: 'relative', aspectRatio: postImages.length === 1 ? '16/10' : '1', borderRadius: 9, overflow: 'hidden', background: '#111' }}>
+              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gridTemplateRows: postImages.length === 3 ? 'repeat(2,minmax(0,1fr))' : undefined, aspectRatio: postImages.length === 3 ? '2 / 1' : undefined, gap: 7, marginBottom: 12 }}>
+                {postImages.map((file, index) => <div key={index} style={{ position: 'relative', aspectRatio: postImages.length === 1 ? '16/10' : postImages.length === 3 && index > 0 ? '2/1' : '1', gridRow: postImages.length === 3 && index === 0 ? 'span 2' : undefined, borderRadius: 9, overflow: 'hidden', background: '#111' }}>
                   <img src={postImagePreviews[index]} alt={`Selected photo ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   <button type="button" onClick={() => removeDraftImage(index)} aria-label="Remove selected photo" style={{ position: 'absolute', top: 7, right: 7, width: 28, height: 28, border: 0, borderRadius: 20, color: '#fff', background: 'rgba(0,0,0,.75)', cursor: 'pointer' }}>×</button>
                 </div>)}
@@ -689,8 +689,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             </div>
             {postPrivacyMsg?.id === post.id && <p role="status" aria-live="polite" style={{ color: postPrivacyMsg.error ? '#ff9b9b' : '#80d99a', fontSize: 12, lineHeight: 1.4, margin: '0 0 10px' }}>{postPrivacyMsg.text}</p>}
             {post.content && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', margin: '0 0 12px' }}>{post.content}</p>}
-            {(post.image_paths || []).length > 0 && <div style={{ display: 'grid', gridTemplateColumns: post.image_paths.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 4, overflow: 'hidden', borderRadius: 10 }}>
-              {post.image_paths.map((path, index) => <img key={path} src={`${'https://btkcubibosbtpxcronnd.supabase.co'}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} loading="lazy" style={{ width: '100%', aspectRatio: post.image_paths.length === 1 ? '16/10' : '1', objectFit: 'cover', background: '#111', gridColumn: post.image_paths.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
+            {(post.image_paths || []).length > 0 && <div style={{ display: 'grid', gridTemplateColumns: post.image_paths.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gridTemplateRows: post.image_paths.length === 3 ? 'repeat(2,minmax(0,1fr))' : undefined, aspectRatio: post.image_paths.length === 1 ? '16/10' : post.image_paths.length === 3 ? '2 / 1' : undefined, gap: 4, overflow: 'hidden', borderRadius: 10 }}>
+              {post.image_paths.map((path, index) => <img key={path} src={`${'https://btkcubibosbtpxcronnd.supabase.co'}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`} alt={`Post photo ${index + 1}`} loading="lazy" style={{ width: '100%', height: '100%', minHeight: 0, aspectRatio: post.image_paths.length === 1 ? '16/10' : undefined, objectFit: 'cover', background: '#111', gridRow: post.image_paths.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
             </div>}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '12px 2px 8px', borderBottom: '1px solid rgba(255,255,255,.08)' }}>
               <div style={{ color: '#999', fontSize: 11 }}>
@@ -764,8 +764,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <strong style={{ color: '#eee', fontSize: 13 }}>{authorName || 'Anonymous'}</strong>
               </div>
               {postText.trim() && <p style={{ color: '#e5e5e5', fontSize: 14, lineHeight: 1.55, whiteSpace: 'pre-wrap', margin: '0 0 12px' }}>{postText.trim()}</p>}
-              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gap: 4, borderRadius: 9, overflow: 'hidden' }}>
-                {postImages.map((file, index) => <img key={index} src={postImagePreviews[index]} alt={`Preview photo ${index + 1}`} style={{ width: '100%', aspectRatio: postImages.length === 1 ? '16/10' : '1', objectFit: 'cover', gridColumn: postImages.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
+              {postImages.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: postImages.length === 1 ? '1fr' : 'repeat(2,minmax(0,1fr))', gridTemplateRows: postImages.length === 3 ? 'repeat(2,minmax(0,1fr))' : undefined, aspectRatio: postImages.length === 1 ? '16/10' : postImages.length === 3 ? '2 / 1' : undefined, gap: 4, borderRadius: 9, overflow: 'hidden' }}>
+                {postImages.map((file, index) => <img key={index} src={postImagePreviews[index]} alt={`Preview photo ${index + 1}`} style={{ width: '100%', height: '100%', minHeight: 0, aspectRatio: postImages.length === 1 ? '16/10' : undefined, objectFit: 'cover', gridRow: postImages.length === 3 && index === 0 ? 'span 2' : undefined }} />)}
               </div>}
             </article>
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>

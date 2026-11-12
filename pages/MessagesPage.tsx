@@ -448,7 +448,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   function loadInboxDirectory() {
-    getInboxUserDirectory().then(({ users, error: directoryLoadError }) => {
+    getInboxUserDirectory().then(({ users }) => {
       if (users) {
         setDirectoryUsers(users);
         setDirectoryError(false);

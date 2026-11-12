@@ -1300,20 +1300,10 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
-  let contentType = file.type.toLowerCase().split(';')[0];
-  let extension = 'webp';
-  if (slot === 'post') {
-    const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || '').toLowerCase();
-    const byExtension: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif' };
-    if (!['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(contentType)) contentType = byExtension[ext] || '';
-    if (!contentType || file.size < 1 || file.size > 4 * 1024 * 1024) {
-      return { error: 'Original photos must be JPEG, PNG, WebP, HEIC, or HEIF and no larger than 4 MB.' };
-    }
-    extension = contentType === 'image/jpeg' ? 'jpg' : contentType.split('/')[1];
-  } else if (contentType !== 'image/webp' || file.size < 1 || file.size > 200 * 1024) {
-    return { error: 'Cropped profile images must be WebP and no larger than 200 KB.' };
+  if (file.type !== 'image/webp' || file.size < 1 || file.size > 200 * 1024) {
+    return { error: 'Photos must be WebP and no larger than 200 KB.' };
   }
-  const name = slot === 'avatar' ? 'avatar.webp' : slot === 'cover' ? 'cover.webp' : slot === 'post' ? `posts/post-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${extension}` : `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+  const name = slot === 'avatar' ? 'avatar.webp' : slot === 'cover' ? 'cover.webp' : slot === 'post' ? `posts/post-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.webp` : `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
   const path = `${user.id}/${name}`;
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 30000);
@@ -1324,7 +1314,7 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
-        'Content-Type': contentType,
+        'Content-Type': 'image/webp',
         'Cache-Control': '31536000',
         'x-upsert': slot === 'gallery' || slot === 'post' ? 'false' : 'true',
       },
@@ -1397,7 +1387,7 @@ export async function deleteProfilePhoto(name: string): Promise<{ error?: string
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
-  if (!name || name.includes('..') || !/^(?:avatar|cover|gallery-[a-zA-Z0-9-]+)\.webp$|^posts\/post-[a-zA-Z0-9-]+\.(?:webp|jpe?g|png|heic|heif)$/i.test(name)) return { error: 'Invalid photo path.' };
+  if (!name || name.includes('..') || !/^(?:avatar|cover|gallery-[a-zA-Z0-9-]+|posts\/post-[a-zA-Z0-9-]+)\.webp$/.test(name)) return { error: 'Invalid photo path.' };
   try {
     const response = await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
       method: 'DELETE',

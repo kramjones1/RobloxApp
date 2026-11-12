@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getConversations, getMessages, sendMessage, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
 import { watchUserPresence, createChatCallSignaling, ChatCallSignal, ChatCallSignaling } from '../chatPresence';
+import OnlineDot from '../components/OnlineDot';
 
 const btn = {
   background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none',
@@ -655,7 +656,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               {showAvatar ? (
                 <span style={{ position: 'relative', display: 'inline-flex' }}>
                   <Avatar uid={m.sender_id} size={28} />
-                  {onlinePartners.has(m.sender_id) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: -1, bottom: -1, width: 9, height: 9, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />}
+                  <OnlineDot online={onlinePartners.has(m.sender_id)} size={9} borderColor="#161616" style={{ right: -1, bottom: -1 }} />
                 </span>
               ) : <div style={{ width: 28 }} />}
             </div>
@@ -686,7 +687,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           <button onClick={() => setSelectedId('')} style={{ background: 'none', border: 'none', color: '#6c63ff', fontSize: 16, cursor: 'pointer', fontFamily: 'inherit', padding: '4px 0' }}>←</button>
           <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
             <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
-            {onlinePartners.has(selectedId) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: 0, bottom: 0, width: 10, height: 10, borderRadius: '50%', background: '#31d17c', border: '2px solid #1a1a1a', pointerEvents: 'none' }} />}
+            <OnlineDot online={onlinePartners.has(selectedId)} size={10} borderColor="#1a1a1a" />
           </span>
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
@@ -741,7 +742,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                   <button key={partnerId} type="button" onClick={() => openChat(partnerId)} title={partnerInfo[partnerId]?.name || 'Open chat'} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 54, padding: 0, border: 0, background: 'transparent', cursor: 'pointer', color: '#ccc', fontFamily: 'inherit' }}>
                     <span style={{ position: 'relative', display: 'inline-flex' }}>
                       <Avatar uid={partnerId} size={48} />
-                      <span aria-label="Online" style={{ position: 'absolute', right: 0, bottom: 1, width: 11, height: 11, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />
+                      <OnlineDot online size={11} borderColor="#161616" style={{ right: 0, bottom: 1 }} />
                     </span>
                     <span style={{ maxWidth: 62, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{partnerInfo[partnerId]?.name || 'User'}</span>
                   </button>
@@ -764,7 +765,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               }}>
                 <div style={{ position: 'relative' }}>
                   <span onClick={(e) => { e.stopPropagation(); onViewProfile?.(conv.partnerId); }}><Avatar uid={conv.partnerId} size={44} /></span>
-                  {onlinePartners.has(conv.partnerId) && <span aria-label="Online" title="Online" style={{ position: 'absolute', bottom: -1, right: -1, width: 11, height: 11, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />}
+                  <OnlineDot online={onlinePartners.has(conv.partnerId)} size={11} borderColor="#161616" style={{ right: -1, bottom: -1 }} />
                   {conv.unread > 0 && <span style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: '#6c63ff', border: '2px solid #161616' }} />}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -796,7 +797,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#1a1a1a' }}>
               <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
                 <Avatar uid={selectedId} size={34} onClick={() => onViewProfile?.(selectedId)} />
-                {onlinePartners.has(selectedId) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: 0, bottom: 0, width: 10, height: 10, borderRadius: '50%', background: '#31d17c', border: '2px solid #1a1a1a', pointerEvents: 'none' }} />}
+                <OnlineDot online={onlinePartners.has(selectedId)} size={10} borderColor="#1a1a1a" />
               </span>
               <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span style={{ color: '#fff', fontSize: 15, fontWeight: 600 }}>{partnerInfo[selectedId]?.name || 'User'}</span>
@@ -822,7 +823,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
                         {showAvatar ? (
                 <span style={{ position: 'relative', display: 'inline-flex' }}>
                   <Avatar uid={m.sender_id} size={28} />
-                  {onlinePartners.has(m.sender_id) && <span aria-label="Online" title="Online" style={{ position: 'absolute', right: -1, bottom: -1, width: 9, height: 9, borderRadius: '50%', background: '#31d17c', border: '2px solid #161616' }} />}
+                  <OnlineDot online={onlinePartners.has(m.sender_id)} size={9} borderColor="#161616" style={{ right: -1, bottom: -1 }} />
                 </span>
               ) : <div style={{ width: 28 }} />}
                       </div>

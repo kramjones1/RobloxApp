@@ -13,11 +13,8 @@ on realtime.messages
 for select
 to authenticated
 using (
-  case
-    when realtime.topic() ~ '^user-presence:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    then extension = 'presence'
-    else false
-  end
+  extension = 'presence'
+  and realtime.topic() ~* '^user-presence:[0-9a-f-]{36}$'
 );
 
 drop policy if exists "users can publish own presence" on realtime.messages;
@@ -26,10 +23,7 @@ on realtime.messages
 for insert
 to authenticated
 with check (
-  case
-    when realtime.topic() ~ '^user-presence:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-    then extension = 'presence'
-      and auth.uid() = split_part(realtime.topic(), ':', 2)::uuid
-    else false
-  end
+  extension = 'presence'
+  and realtime.topic() ~* '^user-presence:[0-9a-f-]{36}$'
+  and auth.uid()::text = lower(split_part(realtime.topic(), ':', 2))
 );

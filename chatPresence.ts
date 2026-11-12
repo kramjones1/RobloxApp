@@ -13,30 +13,75 @@ const realtimeClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 type PresencePayload = { user_id?: string; online_at?: string };
 
-export function watchConversationPresence(
-  userId: string,
-  partnerIds: string[],
+/**
+ * Publishes this authenticated user's presence on their own user-scoped topic.
+ * The database policy only permits auth.uid() to publish to that user's topic.
+ * Each tab gets its own server-generated Presence key, so one tab leaving cannot
+ * mark the account offline while another tab remains connected.
+ */
+export function startUserPresence(userId: string): () => void {
+  let stopped = false;
+  let channel: RealtimeChannel | null = null;
+
+  const start = async () => {
+    const token = await getValidAccessToken();
+    if (!token || stopped) return;
+
+    await realtimeClient.realtime.setAuth(token);
+    if (stopped) return;
+
+    channel = realtimeClient.channel(`user-presence:${userId}`, {
+      config: { private: true },
+    });
+
+    channel.subscribe(async (status) => {
+      if (stopped || status !== 'SUBSCRIBED') return;
+      try {
+        await channel?.track({ user_id: userId, online_at: new Date().toISOString() });
+      } catch {
+        if (channel) void realtimeClient.removeChannel(channel);
+        channel = null;
+      }
+    });
+  };
+
+  void start().catch(() => {});
+
+  return () => {
+    stopped = true;
+    if (channel) void realtimeClient.removeChannel(channel);
+    channel = null;
+  };
+}
+
+/**
+ * Watches any set of user IDs through the same user-scoped presence topics.
+ * This is not conversation- or friendship-scoped: any authenticated user can
+ * read a user's online state, while only that user can publish to their topic.
+ */
+export function watchUserPresence(
+  userIds: string[],
   onChange: (onlineIds: Set<string>) => void,
 ): () => void {
   let stopped = false;
   const channels: RealtimeChannel[] = [];
-  const statusByPartner = new Map<string, boolean>();
+  const statusByUser = new Map<string, boolean>();
 
   const publish = () => {
     if (stopped) return;
     onChange(new Set(
-      Array.from(statusByPartner.entries())
+      Array.from(statusByUser.entries())
         .filter(([, isOnline]) => isOnline)
-        .map(([partnerId]) => partnerId),
+        .map(([id]) => id),
     ));
   };
 
-  const refreshPartnerStatus = (partnerId: string, channel: RealtimeChannel) => {
-    const state = channel.presenceState() as Record<string, PresencePayload[]>;
-    const isOnline = Object.values(state).some((entries) =>
-      entries.some((entry) => entry.user_id === partnerId),
+  const refreshUserStatus = (targetUserId: string, channel: RealtimeChannel) => {
+    const state = channel.presenceState() as Record<string, unknown[]>;
+    const isOnline = Object.values(state).some(
+      (entries) => Array.isArray(entries) && entries.length > 0,
     );
-    statusByPartner.set(partnerId, isOnline);
+    statusByUser.set(targetUserId, isOnline);
     publish();
   };
 
@@ -48,56 +93,53 @@ export function watchConversationPresence(
     }
 
     await realtimeClient.realtime.setAuth(token);
+    const uniqueUsers = Array.from(new Set(userIds)).filter(Boolean);
 
-    const uniquePartners = Array.from(new Set(partnerIds))
-      .filter((partnerId) => partnerId && partnerId !== userId);
-
-    for (const partnerId of uniquePartners) {
+    for (const targetUserId of uniqueUsers) {
       if (stopped) break;
-      const pair = [userId, partnerId].sort();
-      const topic = `chat-presence:${pair[0]}:${pair[1]}`;
-      statusByPartner.set(partnerId, false);
+      statusByUser.set(targetUserId, false);
 
-      const channel = realtimeClient.channel(topic, {
-        config: { private: true, presence: { key: userId } },
+      const channel = realtimeClient.channel(`user-presence:${targetUserId}`, {
+        config: { private: true },
       });
 
       channel
-        .on('presence', { event: 'sync' }, () => refreshPartnerStatus(partnerId, channel))
-        .on('presence', { event: 'join' }, () => refreshPartnerStatus(partnerId, channel))
-        .on('presence', { event: 'leave' }, () => refreshPartnerStatus(partnerId, channel))
-        .subscribe(async (status) => {
+        .on('presence', { event: 'sync' }, () => refreshUserStatus(targetUserId, channel))
+        .on('presence', { event: 'join' }, () => refreshUserStatus(targetUserId, channel))
+        .on('presence', { event: 'leave' }, () => refreshUserStatus(targetUserId, channel))
+        .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            try {
-              await channel.track({
-                user_id: userId,
-                online_at: new Date().toISOString(),
-              });
-              refreshPartnerStatus(partnerId, channel);
-            } catch {
-              statusByPartner.set(partnerId, false);
-              publish();
-            }
+            refreshUserStatus(targetUserId, channel);
           } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-            statusByPartner.set(partnerId, false);
+            statusByUser.set(targetUserId, false);
             publish();
           }
         });
 
       channels.push(channel);
     }
+
+    publish();
   };
 
   void start().catch(() => publish());
 
   return () => {
     stopped = true;
-    channels.forEach((channel) => {
-      void realtimeClient.removeChannel(channel);
-    });
+    channels.forEach((channel) => { void realtimeClient.removeChannel(channel); });
   };
 }
 
+/**
+ * Backwards-compatible alias. Presence is now user-scoped, not pair/conversation-scoped.
+ */
+export function watchConversationPresence(
+  userId: string,
+  partnerIds: string[],
+  onChange: (onlineIds: Set<string>) => void,
+): () => void {
+  return watchUserPresence(partnerIds.filter((id) => id && id !== userId), onChange);
+}
 
 /**
  * Subscribe to the signed-in user's Recent Live history.

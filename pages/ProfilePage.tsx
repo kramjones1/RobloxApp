@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { watchRecentLive } from '../chatPresence';
+import { watchRecentLive, watchUserPresence } from '../chatPresence';
+import OnlineDot from '../components/OnlineDot';
 import { getChatProfile, upsertChatProfile, ChatProfile, getRecentLive, clearRecentLive, getUserProfile, getAllMessagesForDownload, isAdmin, getProfilePosts, createProfilePost, deleteProfilePost, updateProfilePost, setProfilePostPrivacy, setProfilePostReaction, setProfileCommentReaction, addProfilePostComment, ChatPost, uploadProfilePhoto, getProfilePhotos, deleteProfilePhoto, removeProfilePostImage, ProfilePhoto } from '../supabaseClient';
 
 type Page = 'profile' | 'terms' | 'privacy' | 'home';
@@ -156,6 +157,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [recent, setRecent] = useState<{ id: string; name: string; bio: string; avatar: string; time: string }[]>([]);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [avatarUrl, setAvatarUrl] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -230,6 +232,19 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   }, []);
 
   const profileOwnerId = isViewingOther && viewUserId ? viewUserId : (user?.id || '');
+  const recentPresenceIds = recent.map((entry) => entry.id).filter(Boolean);
+  const presenceTargetIds = Array.from(new Set([profileOwnerId, ...recentPresenceIds])).filter((id) => id && id !== user?.id);
+  const presenceTargetKey = presenceTargetIds.slice().sort().join('|');
+
+  // Profile pages and Recent Live chatheads use the same shared directory as inbox.
+  // A profile can show presence even when the viewer has never messaged that user.
+  useEffect(() => {
+    if (!user?.id || !presenceTargetIds.length) {
+      setOnlineUserIds(new Set());
+      return;
+    }
+    return watchUserPresence(user.id, presenceTargetIds, setOnlineUserIds);
+  }, [user?.id, presenceTargetKey]);
 
   // Keep the owner's Recent Live chatheads synchronized across tabs/devices.
   // Initial fetch handles the current snapshot; Realtime refreshes after inserts/deletes.
@@ -849,6 +864,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           <div className="profile-avatar-wrap" style={s.avatarWrap}>
             <div className="avatar-circle profile-avatar" style={{ ...s.avatar, cursor: 'default' }}>
               {viewedUser.avatar ? <img src={viewedUser.avatar} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
+              <OnlineDot online={onlineUserIds.has(profileOwnerId)} size={18} borderColor="#1a1a1a" style={{ right: 7, bottom: 7 }} />
             </div>
           </div>
           <div className="profile-name-section" style={s.nameSection}>
@@ -922,9 +938,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             <div style={{ display: 'flex', gap: 14, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8, WebkitOverflowScrolling: 'touch' }}>
               {recent.map((r, i) => (
                 <div key={r.id || i} style={{ width: 76, minWidth: 76, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                  <button type="button" onClick={() => onViewProfile?.(r.id)} aria-label={'View ' + (r.name || 'user') + ' profile'} style={{ width: 62, height: 62, borderRadius: '50%', padding: 0, border: '2px solid #6c63ff', background: '#292929', overflow: 'hidden', cursor: 'pointer' }}>
-                    {r.avatar ? <img src={r.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#fff', fontSize: 22, display: 'grid', placeItems: 'center', height: '100%' }}>{(r.name || '?')[0].toUpperCase()}</span>}
-                  </button>
+                  <span style={{ position: 'relative', display: 'inline-flex' }}>
+                    <button type="button" onClick={() => onViewProfile?.(r.id)} aria-label={'View ' + (r.name || 'user') + ' profile'} style={{ width: 62, height: 62, borderRadius: '50%', padding: 0, border: '2px solid #6c63ff', background: '#292929', overflow: 'hidden', cursor: 'pointer' }}>
+                      {r.avatar ? <img src={r.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ color: '#fff', fontSize: 22, display: 'grid', placeItems: 'center', height: '100%' }}>{(r.name || '?')[0].toUpperCase()}</span>}
+                    </button>
+                    <OnlineDot online={onlineUserIds.has(r.id)} size={12} borderColor="#161616" />
+                  </span>
                   <span style={{ color: '#ddd', fontSize: 11, textAlign: 'center', maxWidth: 76, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name || 'Unknown'}</span>
                   {onMessage && r.id && <button type="button" onClick={() => onMessage(r.id)} style={{ border: 0, background: 'rgba(108,99,255,.16)', color: '#aaa4ff', borderRadius: 12, padding: '4px 8px', fontSize: 10 }}>Message</button>}
                 </div>

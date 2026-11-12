@@ -558,11 +558,34 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     }
   }
 
-  async function removePost(postId: string) {
+  async function removePost(post: ChatPost) {
     if (!window.confirm('Delete this post?')) return;
-    const { error } = await deleteProfilePost(postId);
-    if (error) setPostMsg(error);
-    else setPosts(current => current.filter(post => post.id !== postId));
+    // If this post currently supplies the profile or cover image, clear that
+    // profile reference before deleting its Storage object. Restore it if the
+    // post deletion fails so the header never points at a missing file.
+    const encodedPath = (path: string) => path.split('/').map(encodeURIComponent).join('/');
+    const slotsToClear: { slot: 'avatar' | 'cover'; url: string }[] = [];
+    if ((post.image_paths || []).some(path => avatarUrl.includes(encodedPath(path)))) slotsToClear.push({ slot: 'avatar', url: avatarUrl });
+    if ((post.image_paths || []).some(path => coverUrl.includes(encodedPath(path)))) slotsToClear.push({ slot: 'cover', url: coverUrl });
+    const cleared: typeof slotsToClear = [];
+    for (const item of slotsToClear) {
+      const { error } = await updateChatProfilePhoto(item.slot, '');
+      if (error) {
+        for (const previous of cleared) await updateChatProfilePhoto(previous.slot, previous.url);
+        setPostMsg(error);
+        return;
+      }
+      cleared.push(item);
+    }
+    const { error } = await deleteProfilePost(post.id);
+    if (error) {
+      for (const item of cleared) await updateChatProfilePhoto(item.slot, item.url);
+      setPostMsg(error);
+    } else {
+      if (cleared.some(item => item.slot === 'avatar')) setAvatarUrl('');
+      if (cleared.some(item => item.slot === 'cover')) setCoverUrl('');
+      setPosts(current => current.filter(item => item.id !== post.id));
+    }
   }
 
   async function editPost(post: ChatPost) {
@@ -688,7 +711,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 {canPublish && openPostMenu === post.id && <div style={{ position: 'absolute', right: 0, top: 34, zIndex: 20, minWidth: 170, padding: 6, borderRadius: 10, background: '#303030', border: '1px solid rgba(255,255,255,.12)', boxShadow: '0 8px 24px rgba(0,0,0,.4)' }}>
                   <button type="button" onClick={() => editPost(post)} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#eee', cursor: 'pointer' }}>Edit post</button>
                   <button type="button" disabled={privacySavingPostId === post.id} onClick={e => { e.preventDefault(); e.stopPropagation(); void togglePostPrivacy(post); }} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: privacySavingPostId === post.id ? 'rgba(255,255,255,.08)' : 'transparent', color: '#eee', cursor: privacySavingPostId === post.id ? 'wait' : 'pointer', opacity: privacySavingPostId === post.id ? .7 : 1 }}>{privacySavingPostId === post.id ? 'Saving…' : post.is_private ? 'Make public' : 'Make private'}</button>
-                  <button type="button" onClick={() => { setOpenPostMenu(null); removePost(post.id); }} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#ff9292', cursor: 'pointer' }}>Delete post</button>
+                  <button type="button" onClick={() => { setOpenPostMenu(null); removePost(post); }} style={{ display: 'block', width: '100%', padding: '10px 12px', textAlign: 'left', border: 0, borderRadius: 6, background: 'transparent', color: '#ff9292', cursor: 'pointer' }}>Delete post</button>
                 </div>}
               </div>
             </div>

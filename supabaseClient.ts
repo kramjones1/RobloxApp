@@ -1362,9 +1362,13 @@ export async function getProfilePhotos(userId: string): Promise<{ photos?: Profi
     ];
     return { photos: rows.map((row: any) => {
       const path = `${userId}/${row.relativeName}`;
+      const version = row.updated_at || row.created_at || row.metadata?.lastModified;
+      const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`;
       return {
         name: row.relativeName,
-        url: `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
+        // Avatar and cover objects use stable paths; version the gallery URL so
+        // an overwritten profile image cannot remain stale in the browser cache.
+        url: version ? `${baseUrl}?v=${encodeURIComponent(version)}` : baseUrl,
         size: Number(row.metadata?.size || 0),
       };
     }) };

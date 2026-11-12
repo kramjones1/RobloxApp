@@ -1,5 +1,5 @@
 name: Deploy production Cloudflare Pages
-# Rebuild production from the app source branch with unified user-scoped Realtime presence.
+# Rebuild production with token-refresh-safe unified user-scoped Realtime presence.
 
 on:
   workflow_dispatch:

@@ -214,6 +214,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [cropX, setCropX] = useState(50);
   const [cropY, setCropY] = useState(50);
   const [savingCrop, setSavingCrop] = useState(false);
+  const cropPreviewImageRef = useRef<HTMLImageElement>(null);
+  const cropPointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const cropGestureRef = useRef<{ mode: 'drag' | 'pinch'; startX: number; startY: number; baseX: number; baseY: number; startDistance: number; startZoom: number } | null>(null);
   const [activeTab, setActiveTab] = useState<'Posts' | 'Photos' | 'Timeline' | 'About'>('Posts');
   const [profilePhotos, setProfilePhotos] = useState<ProfilePhoto[]>([]);
   const [selectedPhoto, setSelectedPhoto] = useState<{ url: string; alt: string } | null>(null);
@@ -731,7 +734,63 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   function closePhotoCrop() {
     if (cropDraft?.url) URL.revokeObjectURL(cropDraft.url);
+    cropPointersRef.current.clear();
+    cropGestureRef.current = null;
     setCropDraft(null);
+  }
+
+  function cropPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (savingCrop) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    cropPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const points = Array.from(cropPointersRef.current.values());
+    if (points.length >= 2) {
+      const dx = points[1].x - points[0].x;
+      const dy = points[1].y - points[0].y;
+      cropGestureRef.current = { mode: 'pinch', startX: 0, startY: 0, baseX: cropX, baseY: cropY, startDistance: Math.hypot(dx, dy), startZoom: cropZoom };
+    } else {
+      cropGestureRef.current = { mode: 'drag', startX: event.clientX, startY: event.clientY, baseX: cropX, baseY: cropY, startDistance: 0, startZoom: cropZoom };
+    }
+  }
+
+  function cropPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (!cropPointersRef.current.has(event.pointerId)) return;
+    cropPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const points = Array.from(cropPointersRef.current.values());
+    const gesture = cropGestureRef.current;
+    if (!gesture) return;
+    if (points.length >= 2 && gesture.mode === 'pinch') {
+      const distance = Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
+      if (gesture.startDistance > 0) setCropZoom(Math.min(3, Math.max(1, gesture.startZoom * distance / gesture.startDistance)));
+      return;
+    }
+    if (points.length === 1 && gesture.mode === 'drag') {
+      const image = cropPreviewImageRef.current;
+      const bounds = event.currentTarget.getBoundingClientRect();
+      if (!image?.naturalWidth || !image?.naturalHeight) return;
+      const baseScale = Math.max(bounds.width / image.naturalWidth, bounds.height / image.naturalHeight);
+      const overflowX = Math.max(0, image.naturalWidth * baseScale * gesture.startZoom - bounds.width);
+      const overflowY = Math.max(0, image.naturalHeight * baseScale * gesture.startZoom - bounds.height);
+      const dx = event.clientX - gesture.startX;
+      const dy = event.clientY - gesture.startY;
+      setCropX(Math.min(100, Math.max(0, gesture.baseX - (overflowX ? dx / overflowX * 100 : 0))));
+      setCropY(Math.min(100, Math.max(0, gesture.baseY - (overflowY ? dy / overflowY * 100 : 0))));
+    }
+  }
+
+  function cropPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+    cropPointersRef.current.delete(event.pointerId);
+    const remaining = Array.from(cropPointersRef.current.values());
+    if (remaining.length === 1) {
+      cropGestureRef.current = { mode: 'drag', startX: remaining[0].x, startY: remaining[0].y, baseX: cropX, baseY: cropY, startDistance: 0, startZoom: cropZoom };
+    } else {
+      cropGestureRef.current = null;
+    }
+  }
+
+  function handleCropWheel(event: React.WheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setCropZoom(value => Math.min(3, Math.max(1, Number((value - event.deltaY * 0.002).toFixed(2)))));
   }
 
   async function handleGalleryUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -977,11 +1036,20 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <h2 style={{ margin: 0, fontSize: 18 }}>{cropDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'}</h2>
                 <button type="button" onClick={closePhotoCrop} aria-label="Close crop editor" style={{ border: 0, background: 'transparent', color: '#aaa', fontSize: 25, cursor: 'pointer' }}>×</button>
               </div>
-              <p style={{ color: '#aaa', fontSize: 13, margin: '0 0 12px' }}>Adjust the framing before saving. The preview shows how it will appear on your profile.</p>
-              <div style={{ width: '100%', aspectRatio: cropDraft.slot === 'avatar' ? '1' : '820 / 280', maxHeight: cropDraft.slot === 'avatar' ? 340 : 220, margin: '0 auto 18px', overflow: 'hidden', borderRadius: cropDraft.slot === 'avatar' ? '50%' : 10, background: '#111', position: 'relative' }}>
-                <img src={cropDraft.url} alt="Crop preview" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})`, transformOrigin: `${cropX}% ${cropY}%` }} />
+              <p style={{ color: '#aaa', fontSize: 13, margin: '0 0 12px' }}>Drag the photo to reposition. Pinch on mobile or use the zoom control to zoom in and out.</p>
+              <div
+                onPointerDown={cropPointerDown}
+                onPointerMove={cropPointerMove}
+                onPointerUp={cropPointerUp}
+                onPointerCancel={cropPointerUp}
+                onWheel={handleCropWheel}
+                style={{ width: '100%', aspectRatio: cropDraft.slot === 'avatar' ? '1' : '820 / 280', maxHeight: cropDraft.slot === 'avatar' ? 340 : 220, margin: '0 auto 18px', overflow: 'hidden', borderRadius: cropDraft.slot === 'avatar' ? '50%' : 10, background: '#111', position: 'relative', touchAction: 'none', cursor: 'grab', userSelect: 'none' }}>
+                <img ref={cropPreviewImageRef} src={cropDraft.url} draggable={false} alt="Crop preview" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${cropX}% ${cropY}%`, transform: `scale(${cropZoom})`, transformOrigin: 'center center', pointerEvents: 'none', userSelect: 'none' }} />
               </div>
-              <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Zoom <span style={{ color: '#999' }}>{cropZoom.toFixed(1)}×</span></label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Zoom <span style={{ color: '#999' }}>{cropZoom.toFixed(1)}×</span></label>
+                <button type="button" onClick={() => { setCropZoom(1); setCropX(50); setCropY(50); }} style={{ border: 0, background: 'transparent', color: '#9b96ff', fontSize: 12, cursor: 'pointer', padding: '4px 0 8px' }}>Reset crop</button>
+              </div>
               <input aria-label="Zoom crop" type="range" min="1" max="3" step="0.05" value={cropZoom} onChange={e => setCropZoom(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 12 }} />
               <label style={{ display: 'block', color: '#ddd', fontSize: 13, marginBottom: 6 }}>Horizontal position</label>
               <input aria-label="Horizontal crop position" type="range" min="0" max="100" value={cropX} onChange={e => setCropX(Number(e.target.value))} style={{ width: '100%', accentColor: '#7770ff', marginBottom: 12 }} />

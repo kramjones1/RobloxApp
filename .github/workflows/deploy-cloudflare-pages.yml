@@ -116,3 +116,5 @@ jobs:
 # Production deploy trigger: detect HEIC before conversion 2026-11-12
 # Production deploy trigger: Android file readability handling 2026-11-12
 # Production deploy trigger: alternate bitmap decoder and HEIC signature fix 2026-11-12
+
+# Trigger production deployment for direct profile and cover photo uploads.

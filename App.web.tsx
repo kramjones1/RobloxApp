@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage';
 import PrivacyPage from './pages/PrivacyPage';
 import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
+import ProfilePerformanceCheck from './components/ProfilePerformanceCheck';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 
@@ -1313,6 +1314,7 @@ export default function WebApp() {
           {page === 'profile' && (
             <div className="page-content profile-page-shell" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
+              {user?.id && <ProfilePerformanceCheck userId={user.id} />}
               <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} />
               <Footer setPage={handleNav} />
             </div>

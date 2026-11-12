@@ -1,5 +1,5 @@
 import { createClient, RealtimeChannel } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, getValidAccessToken } from './supabaseClient';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, getValidAccessToken, onAuthChange } from './supabaseClient';
 
 // Uses the existing signed-in user's JWT. No service-role key or new backend is needed.
 const realtimeClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -20,6 +20,12 @@ const realtimeClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 export function startUserPresence(userId: string): () => void {
   let stopped = false;
   let channel: RealtimeChannel | null = null;
+  const stopAuthListener = onAuthChange((nextUser) => {
+    if (nextUser?.id !== userId) return;
+    void getValidAccessToken().then((token) => {
+      if (token && !stopped) return realtimeClient.realtime.setAuth(token);
+    }).catch(() => {});
+  });
 
   const start = async () => {
     const token = await getValidAccessToken();
@@ -47,6 +53,7 @@ export function startUserPresence(userId: string): () => void {
 
   return () => {
     stopped = true;
+    stopAuthListener();
     if (channel) void realtimeClient.removeChannel(channel);
     channel = null;
   };
@@ -58,12 +65,19 @@ export function startUserPresence(userId: string): () => void {
  * read a user's online state, while only that user can publish to their topic.
  */
 export function watchUserPresence(
+  viewerId: string,
   userIds: string[],
   onChange: (onlineIds: Set<string>) => void,
 ): () => void {
   let stopped = false;
   const channels: RealtimeChannel[] = [];
   const statusByUser = new Map<string, boolean>();
+  const stopAuthListener = onAuthChange((nextUser) => {
+    if (nextUser?.id !== viewerId) return;
+    void getValidAccessToken().then((token) => {
+      if (token && !stopped) return realtimeClient.realtime.setAuth(token);
+    }).catch(() => {});
+  });
 
   const publish = () => {
     if (stopped) return;
@@ -124,6 +138,7 @@ export function watchUserPresence(
 
   return () => {
     stopped = true;
+    stopAuthListener();
     channels.forEach((channel) => { void realtimeClient.removeChannel(channel); });
   };
 }

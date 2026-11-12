@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
+import { startUserPresence } from './chatPresence';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -245,6 +246,11 @@ export default function WebApp() {
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    return startUserPresence(user.id);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) { setAdmin(false); setUnreadCount(0); setBanned(false); setBannedReason(''); return; }

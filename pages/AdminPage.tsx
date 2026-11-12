@@ -336,6 +336,40 @@ export default function AdminPage() {
                 </div>
               </>
             )}
+            {stats && (
+              <div style={{ ...s.card, marginBottom: 16 }}>
+                <div style={{ marginBottom: 12 }}>
+                  <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Operational checks</h2>
+                  <p style={{ color: '#888', fontSize: 12, marginTop: 4 }}>Rule-based indicators from the latest snapshot — not a live uptime or incident monitor</p>
+                </div>
+                {(() => {
+                  const storagePct = (Number(stats.storage_bytes || 0) / (1024 ** 3)) * 100;
+                  const databasePct = (Number(stats.database_bytes || 0) / (500 * 1024 ** 2)) * 100;
+                  const checks = [
+                    { label: 'Storage capacity', detail: `${storagePct.toFixed(2)}% of the 1 GB Free-plan allowance`, level: storagePct >= 85 ? 'critical' : storagePct >= 70 ? 'warning' : 'ok' },
+                    { label: 'Database capacity', detail: `${databasePct.toFixed(2)}% of the 500 MB Free-plan allowance`, level: databasePct >= 85 ? 'critical' : databasePct >= 70 ? 'warning' : 'ok' },
+                    { label: 'Realtime app sessions', detail: realtimeSessions === null ? 'Presence count not available yet' : `${realtimeSessions} observed app sessions against a 200-connection project limit`, level: realtimeSessions === null ? 'unknown' : realtimeSessions >= 180 ? 'critical' : realtimeSessions >= 150 ? 'warning' : 'ok' },
+                    { label: 'Pending moderation reports', detail: `${Number(stats.pending_reports || 0)} awaiting operator review`, level: Number(stats.pending_reports || 0) > 0 ? 'warning' : 'ok' },
+                    { label: 'Profile completeness', detail: `${Number(stats.profiles_missing || 0)} registered accounts without a profile`, level: Number(stats.profiles_missing || 0) > 0 ? 'warning' : 'ok' },
+                  ];
+                  const palette: Record<string, { color: string; label: string }> = {
+                    ok: { color: '#81c784', label: 'OK' },
+                    warning: { color: '#ffb74d', label: 'Review' },
+                    critical: { color: '#ff8a80', label: 'High' },
+                    unknown: { color: '#aaa', label: 'Unknown' },
+                  };
+                  return checks.map(check => (
+                    <div key={check.label} style={{ ...s.row, alignItems: 'flex-start' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ color: '#ddd', fontWeight: 600 }}>{check.label}</div>
+                        <div style={{ color: '#777', fontSize: 11, marginTop: 3 }}>{check.detail}</div>
+                      </div>
+                      <span style={{ color: palette[check.level].color, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap' }}>{palette[check.level].label}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
             <div style={{ color: '#777', fontSize: 11, marginBottom: 10 }}>
               {statsUpdatedAt ? `Last updated: ${statsUpdatedAt.toLocaleTimeString()}` : 'Waiting for first metrics snapshot…'}
             </div>

@@ -120,3 +120,5 @@ jobs:
 # Trigger production deployment for direct profile and cover photo uploads.
 
 # Deploy original profile photo upload followed by crop editing 2026-11-12
+
+# Keep profile and cover photo uploads direct without editing 2026-11-12

@@ -1025,9 +1025,32 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     if (photo.name.startsWith('posts/')) {
       const matchingPost = posts.find(post => (post.image_paths || []).includes(`${user.id}/${photo.name}`));
       if (matchingPost) {
-        const { error } = await removeProfilePostImage(matchingPost.id, `${user.id}/${photo.name}`);
-        if (error) { setMsg(error); return; }
-        setPosts(current => current.map(post => post.id === matchingPost.id ? { ...post, image_paths: (post.image_paths || []).filter(path => path !== `${user.id}/${photo.name}`) } : post));
+        const imagePath = `${user.id}/${photo.name}`;
+        const encodedPath = imagePath.split('/').map(encodeURIComponent).join('/');
+        const clearsAvatar = avatarUrl.includes(encodedPath);
+        const clearsCover = coverUrl.includes(encodedPath);
+        if (clearsAvatar) {
+          const { error } = await updateChatProfilePhoto('avatar', '');
+          if (error) { setMsg(error); return; }
+        }
+        if (clearsCover) {
+          const { error } = await updateChatProfilePhoto('cover', '');
+          if (error) {
+            if (clearsAvatar) await updateChatProfilePhoto('avatar', avatarUrl);
+            setMsg(error);
+            return;
+          }
+        }
+        const { error } = await removeProfilePostImage(matchingPost.id, imagePath);
+        if (error) {
+          if (clearsAvatar) await updateChatProfilePhoto('avatar', avatarUrl);
+          if (clearsCover) await updateChatProfilePhoto('cover', coverUrl);
+          setMsg(error);
+          return;
+        }
+        if (clearsAvatar) setAvatarUrl('');
+        if (clearsCover) setCoverUrl('');
+        setPosts(current => current.map(post => post.id === matchingPost.id ? { ...post, image_paths: (post.image_paths || []).filter(path => path !== imagePath) } : post));
         postImageRemoved = true;
       }
     }
@@ -1085,16 +1108,16 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <button type="button" onClick={() => setActiveTab('Photos')} style={{ border: 0, background: 'transparent', color: '#aaa4ff', fontSize: 11, fontWeight: 650, cursor: 'pointer' }}>See all</button>
               </div>
               {photosLoading ? <p style={{ color: '#777', fontSize: 12 }}>Loading photos…</p> :
-                profilePhotos.length === 0 ? <p style={{ color: '#777', fontSize: 12 }}>No photos yet.</p> :
+                galleryPhotos.length === 0 ? <p style={{ color: '#777', fontSize: 12 }}>No photos yet.</p> :
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 5 }}>
-                  {profilePhotos.slice(0, 6).map(photo => (
-                    <button key={photo.name} type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 6, overflow: 'hidden', background: '#292929', cursor: 'zoom-in' }}>
+                  {galleryPhotos.slice(0, 6).map((photo, index) => (
+                    <button key={`${photo.post?.id || 'legacy'}:${photo.name}:${index}`} type="button" onClick={() => photo.post ? setSelectedPost(photo.post) : setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Open original post or photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 6, overflow: 'hidden', background: '#292929', cursor: 'zoom-in' }}>
                       <img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     </button>
                   ))}
                 </div>
               }
-              {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 7, padding: '9px 10px', background: 'rgba(108,99,255,.16)', color: '#c2bdff', fontSize: 12, fontWeight: 650, cursor: 'pointer', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : '＋ Add photo'}</button>}
+              {canEdit && <button type="button" disabled={uploadingGallery || galleryPhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ marginTop: 10, width: '100%', border: 0, borderRadius: 7, padding: '9px 10px', background: 'rgba(108,99,255,.16)', color: '#c2bdff', fontSize: 12, fontWeight: 650, cursor: 'pointer', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : '＋ Add photo'}</button>}
             </section>
           </aside>
           <main className="profile-main">
@@ -1115,14 +1138,14 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
                 {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
               </div>
-              {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{profilePhotos.length}/25 photos · max 200 KB each · 5 MB total · WebP only</p>}
+              {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{galleryPhotos.length}/25 photos · max 200 KB each · 5 MB total · WebP only</p>}
               {canEdit && msg && <p style={{ color: msg.includes('saved') || msg.includes('deleted') ? '#4caf50' : '#f44336', fontSize: 12 }}>{msg}</p>}
               {photosLoading || postsLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading photos…</p> :
                 galleryPhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
                   {galleryPhotos.map((photo, index) => (
-                    <div key={photo.name} style={{ position: 'relative', background: '#292929', borderRadius: 9 }}>
-                      <button type="button" onClick={() => setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Enlarge photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 9, overflow: 'hidden', background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
+                    <div key={`${photo.post?.id || 'legacy'}:${photo.name}:${index}`} style={{ position: 'relative', background: '#292929', borderRadius: 9 }}>
+                      <button type="button" onClick={() => photo.post ? setSelectedPost(photo.post) : setSelectedPhoto({ url: photo.url, alt: 'Profile gallery photo' })} aria-label="Open original post or photo" style={{ display: 'block', width: '100%', aspectRatio: '1', padding: 0, border: 0, borderRadius: 9, overflow: 'hidden', background: 'transparent', cursor: 'zoom-in' }}><img src={photo.url} alt="Profile gallery" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /></button>
                       {canEdit && <div style={{ position: 'absolute', top: 6, right: 6, zIndex: 4 }}>
                         <button type="button" aria-label="Photo options" aria-haspopup="menu" aria-expanded={openPhotoMenu === photo.name} onClick={event => {
                           if (openPhotoMenu === photo.name) { setOpenPhotoMenu(null); setPhotoMenuPosition(null); return; }

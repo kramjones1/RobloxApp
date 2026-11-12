@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getConversations, getMessages, sendMessage, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
-import { watchConversationPresence, createChatCallSignaling, ChatCallSignal, ChatCallSignaling } from '../chatPresence';
+import { watchUserPresence, createChatCallSignaling, ChatCallSignal, ChatCallSignaling } from '../chatPresence';
 
 const btn = {
   background: 'linear-gradient(135deg, #6c63ff, #2a6eff)', color: '#fff', border: 'none',
@@ -427,8 +427,8 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     return () => clearInterval(iv);
   }, []);
 
-  // Presence is shared only inside existing one-to-one conversations.
-  // Each private channel is authorized by the chat-presence SQL policies.
+  // Online status comes from each user's own presence topic, not from whether
+  // both people happen to have this inbox open or have a friendship connection.
   useEffect(() => () => {
     if (callTimeoutRef.current) clearTimeout(callTimeoutRef.current);
     callPcRef.current?.close();
@@ -445,7 +445,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       return;
     }
     const partnerIds = presencePartnerKey.split('|').filter(Boolean);
-    return watchConversationPresence(myId, partnerIds, setOnlinePartners);
+    return watchUserPresence(partnerIds, setOnlinePartners);
   }, [myId, presencePartnerKey]);
 
   useEffect(() => {

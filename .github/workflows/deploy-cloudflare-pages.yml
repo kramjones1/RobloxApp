@@ -113,3 +113,4 @@ jobs:
 # Deploy profile-picture-only square crop editor; keep cover uploads direct.
 # Production deploy trigger: avatar-stage-diagnostics 2026-11-12
 # Production deploy trigger: avatar-preparation-stage-diagnostics 2026-11-12
+# Production deploy trigger: detect HEIC before conversion 2026-11-12

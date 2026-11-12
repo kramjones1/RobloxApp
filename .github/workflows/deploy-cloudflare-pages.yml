@@ -107,3 +107,5 @@ jobs:
 # Deploy shared post detail modal and paginated image gallery 2026-11-12
 
 # Deploy isolated avatar and cover upload completion handling 2026-11-12
+
+# Production photo upload timeout deployment trigger

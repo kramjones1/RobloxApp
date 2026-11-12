@@ -31,7 +31,9 @@ async function compressProfileImage(file: File): Promise<File> {
   }
   const bitmap = await createImageBitmap(file);
   try {
-    for (const maxSide of [1280, 1024, 900, 768, 640]) {
+    // Profile and cover assets share a strict 200 KB storage limit. Keep
+    // reducing dimensions and quality until the upload-safe WebP is produced.
+    for (const maxSide of [1280, 1024, 900, 768, 640, 512, 448, 384, 320, 256]) {
       const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -39,7 +41,7 @@ async function compressProfileImage(file: File): Promise<File> {
       const context = canvas.getContext('2d');
       if (!context) throw new Error('Image compression is not supported in this browser.');
       context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42]) {
+      for (const quality of [0.82, 0.72, 0.62, 0.52, 0.42, 0.34, 0.28]) {
         const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', quality));
         if (blob && blob.size <= 200 * 1024) {
           return new File([blob], 'profile-photo.webp', { type: 'image/webp', lastModified: Date.now() });

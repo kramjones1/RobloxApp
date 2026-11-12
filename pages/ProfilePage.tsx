@@ -173,16 +173,30 @@ async function cropProfileImage(file: File, slot: 'avatar' | 'cover', zoom: numb
     const safeY = Math.min(100, Math.max(0, Number.isFinite(y) ? y : 50));
     const sx = Math.min(decoded.width - sourceWidth, Math.max(0, (decoded.width - sourceWidth) * (safeX / 100)));
     const sy = Math.min(decoded.height - sourceHeight, Math.max(0, (decoded.height - sourceHeight) * (safeY / 100)));
-    const canvas = document.createElement('canvas');
-    // 1200px is ample for the displayed cover while avoiding oversized
-    // 1640px WebP files that trigger expensive recompression on mobile.
-    canvas.width = slot === 'avatar' ? 800 : 1200;
-    canvas.height = Math.round(canvas.width / aspect);
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Image editing is not supported in this browser.');
-    context.drawImage(decoded.source, sx, sy, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
-    const blob = await canvasToWebPBlob(canvas, 0.9);
-    return new File([blob], slot === 'avatar' ? 'profile-picture.webp' : 'cover-photo.webp', { type: 'image/webp', lastModified: Date.now() });
+    // Encode the final crop directly under the Storage 200 KB ceiling.
+    // This avoids creating a large 90%-quality WebP and decoding/re-encoding
+    // it again in compressProfileImage (a costly double pass on mobile).
+    const targetWidth = slot === 'avatar' ? 800 : 1200;
+    const attempts = [
+      { width: targetWidth, quality: 0.76 },
+      { width: targetWidth, quality: 0.62 },
+      { width: targetWidth, quality: 0.48 },
+      { width: Math.round(targetWidth * 0.78), quality: 0.58 },
+      { width: Math.round(targetWidth * 0.65), quality: 0.46 },
+    ];
+    for (const attempt of attempts) {
+      const canvas = document.createElement('canvas');
+      canvas.width = attempt.width;
+      canvas.height = Math.round(canvas.width / aspect);
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Image editing is not supported in this browser.');
+      context.drawImage(decoded.source, sx, sy, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height);
+      const blob = await canvasToWebPBlob(canvas, attempt.quality);
+      if (blob.size > 0 && blob.size <= 200 * 1024) {
+        return new File([blob], slot === 'avatar' ? 'profile-picture.webp' : 'cover-photo.webp', { type: 'image/webp', lastModified: Date.now() });
+      }
+    }
+    throw new Error('This photo is too detailed to fit the 200 KB upload limit. Please choose another photo.');
   } finally {
     decoded.cleanup();
   }

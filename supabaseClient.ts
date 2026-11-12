@@ -1091,7 +1091,7 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
   if (!user) return { error: 'Invalid token' };
   const clean = content.trim();
   if (!clean && imagePaths.length === 0) return { error: 'Write a caption or add at least one photo.' };
-  if (imagePaths.length > 3) return { error: 'You can add up to 3 photos per post.' };
+  if (imagePaths.length > 5) return { error: 'You can add up to 5 photos per post.' };
   if (imagePaths.some(path => !path.startsWith(`${user.id}/posts/`) || !path.endsWith('.webp'))) return { error: 'Invalid post photo path.' };
   if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
   try {
@@ -1356,9 +1356,7 @@ export async function getProfilePhotos(userId: string): Promise<{ photos?: Profi
     const [rootRows, postRows] = await Promise.all([listPrefix(userId), listPrefix(`${userId}/posts`)]);
     const rows = [
       ...(Array.isArray(rootRows) ? rootRows.filter((row: any) =>
-        row.name?.toLowerCase().endsWith('.webp') &&
-        row.name !== 'avatar.webp' &&
-        row.name !== 'cover.webp'
+        row.name?.toLowerCase().endsWith('.webp')
       ).map((row: any) => ({ ...row, relativeName: row.name })) : []),
       ...(Array.isArray(postRows) ? postRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: `posts/${row.name}` })) : []),
     ];

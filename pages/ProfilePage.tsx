@@ -645,7 +645,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       <div className="profile-section" style={{ ...s.card, padding: 0, overflow: 'hidden' }}>
         <div style={{ padding: '18px 0 12px' }}>
           <h2 style={{ ...s.cardTitle, marginBottom: 14 }}>{photosOnly ? 'Photo posts' : 'Posts'}</h2>
-          {canPublish && (
+          {canPublish && !photosOnly && (
             <div style={{ background: 'transparent', border: 0, borderBottom: '1px solid rgba(255,255,255,.08)', borderRadius: 0, padding: '0 0 16px', marginBottom: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                 {authorAvatar ? <img src={authorAvatar} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} /> : <div style={s.friendAvatar}>{(authorName || 'A')[0].toUpperCase()}</div>}

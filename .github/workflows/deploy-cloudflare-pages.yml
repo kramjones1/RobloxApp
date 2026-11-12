@@ -97,3 +97,5 @@ jobs:
 # Rebuild production with post-driven profile and cover photo uploads 2026-11-12
 
 # Retry production build after Photos tab JSX correction 2026-11-12
+
+# Deploy profile photo post deletion consistency guard 2026-11-12

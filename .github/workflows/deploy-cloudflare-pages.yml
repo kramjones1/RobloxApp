@@ -3,6 +3,7 @@ name: Deploy production Cloudflare Pages
 # Rebuild app-wide light/dark theme coverage for profile editor, profile panels, and admin panels.
 # Include final inline-style contrast corrections for light-theme admin labels and dialogs.
 # Keep Inbox labels and surfaces synchronized with the saved light/dark appearance setting.
+# Deploy social-style avatar and cover photo crop previews and gallery-to-profile photo actions.
 
 on:
   workflow_dispatch:

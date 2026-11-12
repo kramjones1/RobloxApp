@@ -26,6 +26,7 @@ type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs';
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [stats, setStats] = useState<any>(null);
+  const [statsUpdatedAt, setStatsUpdatedAt] = useState<Date | null>(null);
   const [search, setSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[] | null>(null);
   const [userTotal, setUserTotal] = useState(0);
@@ -43,14 +44,24 @@ export default function AdminPage() {
 
   const [error, setError] = useState('');
 
-  useEffect(() => { if (tab === 'dashboard') loadStats(); if (tab === 'users') loadUsers(userPage); if (tab === 'bans') loadBans(); if (tab === 'reports') loadReports(); if (tab === 'logs') loadLogs(); }, [tab, userPage]);
+  useEffect(() => {
+    if (tab === 'dashboard') {
+      loadStats();
+      const refreshTimer = window.setInterval(() => loadStats(), 30000);
+      return () => window.clearInterval(refreshTimer);
+    }
+    if (tab === 'users') loadUsers(userPage);
+    if (tab === 'bans') loadBans();
+    if (tab === 'reports') loadReports();
+    if (tab === 'logs') loadLogs();
+  }, [tab, userPage]);
 
   async function loadStats() {
     setLoading(true); setError('');
     try {
       const r = await getAdminStats();
       if (r.error) setError(r.error);
-      else if (r.stats) setStats(r.stats);
+      else if (r.stats) { setStats(r.stats); setStatsUpdatedAt(new Date()); }
     } catch (e: any) { setError(e?.message || 'Unable to load dashboard statistics.'); }
     finally { setLoading(false); }
   }
@@ -246,6 +257,80 @@ export default function AdminPage() {
                 })()}
               </div>
             )}
+            {stats && (
+              <>
+                <div style={{ ...s.card, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+                    <div>
+                      <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Storage monitoring</h2>
+                      <p style={{ color: '#888', fontSize: 12, marginTop: 4 }}>Automatic refresh every 30 seconds · current object metadata and database size</p>
+                    </div>
+                    <span style={s.chip}>Production · Free plan</span>
+                  </div>
+                  {(() => {
+                    const storageBytes = Number(stats.storage_bytes) || 0;
+                    const databaseBytes = Number(stats.database_bytes) || 0;
+                    const storageLimit = 1024 ** 3;
+                    const databaseLimit = 500 * 1024 ** 2;
+                    const storagePct = Math.min(100, storageBytes / storageLimit * 100);
+                    const databasePct = Math.min(100, databaseBytes / databaseLimit * 100);
+                    const bytes = (value: number) => value >= 1024 ** 3 ? `${(value / 1024 ** 3).toFixed(2)} GB` : value >= 1024 ** 2 ? `${(value / 1024 ** 2).toFixed(2)} MB` : value >= 1024 ? `${(value / 1024).toFixed(1)} KB` : `${value} B`;
+                    const usageBar = (label: string, value: number, limit: number, pct: number) => (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 7, color: '#ccc', fontSize: 12 }}>
+                          <strong>{label}</strong><span>{bytes(value)} / {bytes(limit)} · {pct.toFixed(2)}%</span>
+                        </div>
+                        <div style={{ height: 10, borderRadius: 8, background: '#303039', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: pct >= 85 ? '#f44336' : pct >= 70 ? '#ffb74d' : '#26a69a', borderRadius: 8, transition: 'width .25s ease' }} />
+                        </div>
+                      </div>
+                    );
+                    return (
+                      <>
+                        {usageBar('Supabase Storage', storageBytes, storageLimit, storagePct)}
+                        {usageBar('Postgres database', databaseBytes, databaseLimit, databasePct)}
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                          <div style={{ ...s.statBox, minWidth: 120 }}><div style={s.statNum}>{Number(stats.storage_objects || 0).toLocaleString()}</div><div style={s.statLabel}>Stored objects</div></div>
+                          <div style={{ ...s.statBox, minWidth: 120 }}><div style={s.statNum}>{Array.isArray(stats.storage_by_bucket) ? stats.storage_by_bucket.length : 0}</div><div style={s.statLabel}>Buckets in use</div></div>
+                        </div>
+                        {Array.isArray(stats.storage_by_bucket) && stats.storage_by_bucket.length > 0 && (
+                          <div style={{ marginTop: 16 }}>
+                            <div style={{ color: '#aaa', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Bucket breakdown</div>
+                            {stats.storage_by_bucket.map((bucket: any) => (
+                              <div key={bucket.bucket} style={s.row}>
+                                <span>{bucket.bucket}</span><span>{Number(bucket.objects || 0).toLocaleString()} files · {bytes(Number(bucket.bytes) || 0)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p style={{ color: '#777', fontSize: 11, marginTop: 12 }}>Storage is summed from object metadata. Database size is the current Postgres database size; Supabase usage reports may refresh on a different schedule.</p>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                <div style={{ ...s.card, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+                    <div>
+                      <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Load overview</h2>
+                      <p style={{ color: '#888', fontSize: 12, marginTop: 4 }}>Live database-session snapshot and application activity over the last 15 minutes</p>
+                    </div>
+                    <span style={s.chip}>30-second refresh</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: 10 }}>
+                    <div style={s.statBox}><div style={s.statNum}>{Number(stats.db_active_sessions || 0)}</div><div style={s.statLabel}>Active DB sessions</div></div>
+                    <div style={s.statBox}><div style={s.statNum}>{Number(stats.db_sessions || 0)}</div><div style={s.statLabel}>Total DB sessions</div></div>
+                    <div style={s.statBox}><div style={s.statNum}>{Number(stats.active_chat_users_last_15m || 0)}</div><div style={s.statLabel}>Chat participants · 15m</div></div>
+                    <div style={s.statBox}><div style={s.statNum}>{Number(stats.messages_last_15m || 0)}</div><div style={s.statLabel}>Messages · 15m</div></div>
+                    <div style={s.statBox}><div style={s.statNum}>{Number(stats.posts_last_15m || 0)}</div><div style={s.statLabel}>Posts · 15m</div></div>
+                  </div>
+                  <p style={{ color: '#777', fontSize: 11, marginTop: 12 }}>These are database connections and recent app activity, not CPU, bandwidth, WebRTC viewers, or live Supabase Realtime socket counts.</p>
+                </div>
+              </>
+            )}
+            <div style={{ color: '#777', fontSize: 11, marginBottom: 10 }}>
+              {statsUpdatedAt ? `Last updated: ${statsUpdatedAt.toLocaleTimeString()}` : 'Waiting for first metrics snapshot…'}
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={s.btn} onClick={loadStats} disabled={loading}>Refresh</button>
               <button style={s.btn} disabled={loading} onClick={async () => {

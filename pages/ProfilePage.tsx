@@ -34,7 +34,7 @@ type DecodedProfileImage = {
   cleanup: () => void;
 };
 
-async function decodeProfileImage(file: File): Promise<DecodedProfileImage> {
+async function decodeProfileImage(file: File, onStage?: (stage: string) => void): Promise<DecodedProfileImage> {
   if (!file || !file.size) throw new Error('The selected file is empty. Please choose another image.');
 
   const loadImage = async (sourceFile: Blob): Promise<{ image: HTMLImageElement; url: string }> => {
@@ -73,7 +73,13 @@ async function decodeProfileImage(file: File): Promise<DecodedProfileImage> {
       // Android/iOS photo pickers can return HEIC/HEIF files even when the
       // filename or MIME metadata looks generic. Convert those bytes to JPEG.
       try {
-        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+        onStage?.('Converting photo format…');
+        // Some mobile HEIC converters can remain pending indefinitely. Bound
+        // this fallback so the editor always reports a useful failure.
+        const converted = await Promise.race([
+          heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 }),
+          new Promise<never>((_, reject) => window.setTimeout(() => reject(new Error('Photo format conversion timed out. Please choose a JPEG or PNG copy of this photo.')), 15000)),
+        ]);
         const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
         loaded = await loadImage(jpegBlob);
       } catch {
@@ -162,9 +168,11 @@ async function compressProfileImage(file: File): Promise<File> {
 }
 
 
-async function createSquareAvatarCrop(file: File, zoom: number): Promise<File> {
-  const decoded = await decodeProfileImage(file);
+async function createSquareAvatarCrop(file: File, zoom: number, onStage?: (stage: string) => void): Promise<File> {
+  onStage?.('Reading selected photo…');
+  const decoded = await decodeProfileImage(file, onStage);
   try {
+    onStage?.('Cropping square image…');
     const side = Math.min(decoded.width, decoded.height) / Math.max(1, zoom);
     const sx = (decoded.width - side) / 2;
     const sy = (decoded.height - side) / 2;
@@ -174,6 +182,7 @@ async function createSquareAvatarCrop(file: File, zoom: number): Promise<File> {
     const context = canvas.getContext('2d');
     if (!context) throw new Error('Image editing is not supported in this browser.');
     context.drawImage(decoded.source, sx, sy, side, side, 0, 0, 640, 640);
+    onStage?.('Encoding profile picture…');
     const blob = await canvasToWebPBlob(canvas, 0.84);
     return new File([blob], 'profile-picture-crop.webp', { type: 'image/webp', lastModified: Date.now() });
   } finally {
@@ -828,7 +837,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setAvatarSaveStage('Preparing image…');
     setMsg('');
     try {
-      const cropped = await createSquareAvatarCrop(avatarEditDraft.file, avatarCropZoom);
+      const cropped = await createSquareAvatarCrop(avatarEditDraft.file, avatarCropZoom, setAvatarSaveStage);
       await saveProfilePhoto(cropped, 'avatar', setAvatarSaveStage);
       closeAvatarEditor();
     } catch (error: any) {

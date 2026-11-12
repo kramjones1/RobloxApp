@@ -971,8 +971,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
 
         {cropDraft && (
-          <div role="presentation" onClick={closePhotoCrop} style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
-            <section role="dialog" aria-modal="true" aria-label={cropDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'} onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '94vh', overflowY: 'auto', background: '#202020', color: '#fff', borderRadius: 16, padding: 18, boxShadow: '0 18px 60px rgba(0,0,0,.55)' }}>
+          <div className="profile-crop-overlay" role="presentation" onClick={closePhotoCrop} style={{ position: 'fixed', inset: 0, zIndex: 1200, background: 'rgba(0,0,0,.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 14 }}>
+            <section className="profile-crop-dialog" role="dialog" aria-modal="true" aria-label={cropDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'} onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: 520, maxHeight: '94vh', overflowY: 'auto', background: '#202020', color: '#fff', borderRadius: 16, padding: 18, boxShadow: '0 18px 60px rgba(0,0,0,.55)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                 <h2 style={{ margin: 0, fontSize: 18 }}>{cropDraft.slot === 'avatar' ? 'Crop profile picture' : 'Crop cover photo'}</h2>
                 <button type="button" onClick={closePhotoCrop} aria-label="Close crop editor" style={{ border: 0, background: 'transparent', color: '#aaa', fontSize: 25, cursor: 'pointer' }}>×</button>

@@ -1314,7 +1314,11 @@ export async function getProfilePhotos(userId: string): Promise<{ photos?: Profi
     };
     const [rootRows, postRows] = await Promise.all([listPrefix(userId), listPrefix(`${userId}/posts`)]);
     const rows = [
-      ...(Array.isArray(rootRows) ? rootRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: row.name })) : []),
+      ...(Array.isArray(rootRows) ? rootRows.filter((row: any) =>
+        row.name?.toLowerCase().endsWith('.webp') &&
+        row.name !== 'avatar.webp' &&
+        row.name !== 'cover.webp'
+      ).map((row: any) => ({ ...row, relativeName: row.name })) : []),
       ...(Array.isArray(postRows) ? postRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: `posts/${row.name}` })) : []),
     ];
     return { photos: rows.map((row: any) => {

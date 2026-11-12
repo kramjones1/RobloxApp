@@ -4,6 +4,7 @@ name: Deploy production Cloudflare Pages
 # Include final inline-style contrast corrections for light-theme admin labels and dialogs.
 # Keep Inbox labels and surfaces synchronized with the saved light/dark appearance setting.
 # Deploy social-style avatar and cover photo crop previews and gallery-to-profile photo actions.
+# Unify crop-editor appearance with saved app theme and exclude reserved avatar/cover assets from gallery.
 
 on:
   workflow_dispatch:

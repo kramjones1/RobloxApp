@@ -24,18 +24,18 @@ type Step = {
 
 const steps: Step[] = [
   { id: 'profile_photo', title: 'Make your profile yours', body: 'Add a clear profile photo so people can recognize you. Tap the highlighted photo area to choose an image.', target: ['.profile-avatar', '[aria-label="Change profile picture"]'], destination: 'profile' },
-  { id: 'discover', title: 'Discover people', body: 'This is where you explore LivMe and discover members. Open a profile to learn more and decide who you would like to connect with.', target: ['[data-onboarding-target="discover"]', 'main', '.page-content'], destination: 'home' },
-  { id: 'random_call', title: 'Try Random Call', body: 'Random Call is how you meet someone live. The tutorial preview below is not a real call and will not enter the matching queue.', target: ['[data-onboarding-target="random-call"]', 'button[aria-label*="Random" i]', 'button'], destination: 'home' },
-  { id: 'conversation', title: 'Your conversations', body: 'Messages live here. Regular outgoing messages keep using the normal 1 LC charge. This tour never bypasses message billing.', target: ['[data-onboarding-target="messages"]', 'button[aria-label*="message" i]', 'nav'], destination: 'messages' },
-  { id: 'coins', title: 'Your LivMe Coins', body: 'Your wallet shows your LC balance and transaction history. You do not need to buy coins to complete this introduction.', target: ['[data-onboarding-target="wallet"]', 'button[aria-label*="wallet" i]', 'main', '.page-content'], destination: 'wallet' },
-  { id: 'safety', title: 'Keep your experience safe', body: 'Use block and report controls when needed. Never share passwords, verification codes, or sensitive personal information.', target: ['[data-onboarding-target="safety"]', 'main', '.page-content'], destination: 'settings' },
+  { id: 'discover', title: 'Discover people', body: 'This is where you explore LivMe and discover members. Open a profile to learn more and decide who you would like to connect with.', target: ['[data-onboarding-target="discover"]', 'main', '.home-page-root'], destination: 'home' },
+  { id: 'random_call', title: 'Try Random Call', body: 'Random Call is how you meet someone live. The tutorial preview below is not a real call and will not enter the matching queue.', target: ['[data-onboarding-target="random-call"]', 'text:random call', 'text:go live'], destination: 'home' },
+  { id: 'conversation', title: 'Your conversations', body: 'Messages live here. Regular outgoing messages keep using the normal 1 LC charge. This tour never bypasses message billing.', target: ['[data-onboarding-target="messages"]', 'text:messages', 'text:inbox'], destination: 'messages' },
+  { id: 'coins', title: 'Your LivMe Coins', body: 'Your wallet shows your LC balance and transaction history. You do not need to buy coins to complete this introduction.', target: ['[data-onboarding-target="wallet"]', 'text:wallet', 'text:coins'], destination: 'wallet' },
+  { id: 'safety', title: 'Keep your experience safe', body: 'Use block and report controls when needed. Never share passwords, verification codes, or sensitive personal information.', target: ['[data-onboarding-target="safety"]', 'text:settings', 'main'], destination: 'settings' },
   { id: 'complete', title: 'You are ready!', body: 'That is the LivMe tour. You can replay this guide any time from Settings.', target: [] },
 ];
 
 function findTarget(selectors: string[]): HTMLElement | null {
   for (const selector of selectors) {
     try {
-      const found = document.querySelector(selector) as HTMLElement | null;
+      const found = selector.startsWith('text:')\n        ? Array.from(document.querySelectorAll('button,a,[role="button"]')).find(node => (node.textContent || '').trim().toLowerCase().includes(selector.slice(5))) as HTMLElement | undefined\n        : document.querySelector(selector) as HTMLElement | null;
       if (found && found.getClientRects().length && found.getAttribute('aria-hidden') !== 'true') return found;
     } catch {}
   }

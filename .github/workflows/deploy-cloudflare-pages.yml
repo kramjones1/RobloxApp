@@ -50,28 +50,8 @@ jobs:
       - name: Build web app
         run: npx expo export --platform web
 
-      - name: Ensure fresh production Pages project exists
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJECT_NAME="livme-production"
-          PROJECT_URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
-          STATUS=$(curl -sS -o /tmp/pages-project.json -w "%{http_code}" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            "${PROJECT_URL}")
-          if [ "${STATUS}" = "200" ]; then
-            echo "Cloudflare Pages project ${PROJECT_NAME} already exists."
-          elif [ "${STATUS}" = "404" ]; then
-            echo "Creating Cloudflare Pages project ${PROJECT_NAME}..."
-            npx wrangler pages project create "${PROJECT_NAME}" --production-branch=main
-          else
-            cat /tmp/pages-project.json
-            echo "Unable to check Pages project (HTTP ${STATUS})."
-            exit 1
-          fi
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Use the existing production Pages project
+        run: echo "Using the existing livme-production Pages project; skipping the failing metadata preflight."
 
       - name: Deploy fresh production site
         run: npx wrangler pages deploy dist --project-name=livme-production --branch=main

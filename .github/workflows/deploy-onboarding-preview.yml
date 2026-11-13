@@ -1,0 +1,65 @@
+name: Deploy isolated LivMe onboarding preview
+
+on:
+  push:
+    branches:
+      - feature/animated-onboarding
+    paths:
+      - '**'
+      - '!README.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: livme-onboarding-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout onboarding feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/animated-onboarding
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web app
+        run: npx expo export --platform web
+
+      - name: Ensure isolated preview Pages project exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_NAME="livme-onboarding-preview"
+          PROJECT_URL="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/pages/projects/${PROJECT_NAME}"
+          STATUS=$(curl -sS -o /tmp/pages-project.json -w "%{http_code}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            "${PROJECT_URL}")
+          if [ "${STATUS}" = "200" ]; then
+            echo "Preview Pages project already exists."
+          elif [ "${STATUS}" = "404" ]; then
+            npx wrangler pages project create "${PROJECT_NAME}" --production-branch=main
+          else
+            cat /tmp/pages-project.json
+            echo "Unable to check preview Pages project (HTTP ${STATUS})."
+            exit 1
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy onboarding preview only
+        run: npx wrangler pages deploy dist --project-name=livme-onboarding-preview --branch=onboarding-test
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

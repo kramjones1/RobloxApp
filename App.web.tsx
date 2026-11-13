@@ -143,6 +143,7 @@ export default function WebApp() {
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotCooldown, setForgotCooldown] = useState(0);
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'dob' | 'name' | 'bio' | null>(null);
@@ -230,7 +231,7 @@ export default function WebApp() {
         }
         const result = await setSessionToken(exchanged.access_token, exchanged.refresh_token, true);
         if (result.error) setAuthMsg(result.error);
-        else setRecoveryMode(true);
+        else { setRecoveryAccessToken(exchanged.access_token); setRecoveryMode(true); }
         setAuthLoading(false);
       })();
       return;
@@ -248,7 +249,7 @@ export default function WebApp() {
         }
         const result = await setSessionToken(verified.access_token, verified.refresh_token, true);
         if (result.error) setAuthMsg(result.error);
-        else setRecoveryMode(true);
+        else { setRecoveryAccessToken(verified.access_token); setRecoveryMode(true); }
         setAuthLoading(false);
       })();
       return;
@@ -273,6 +274,7 @@ export default function WebApp() {
             return;
           }
           if (type === 'recovery') {
+            setRecoveryAccessToken(token);
             setRecoveryMode(true);
             setAuthLoading(false);
           } else {
@@ -317,7 +319,7 @@ export default function WebApp() {
       history.replaceState(null, '', window.location.pathname + window.location.search);
       if (binding.error) { setAuthMsg(binding.error); return; }
       const oauthType = e.data.oauthType;
-      if (oauthType === 'recovery') setRecoveryMode(true);
+      if (oauthType === 'recovery') { setRecoveryAccessToken(e.data.access_token); setRecoveryMode(true); }
       else {
         const u2 = getSession();
         setUser(u2);
@@ -454,7 +456,7 @@ export default function WebApp() {
     setAuthMsg('');
     if (newPassword.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     setSubmitting(true);
-    const { error } = await updatePassword(newPassword);
+    const { error } = await updatePassword(newPassword, recoveryAccessToken);
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPasswordUpdated(true);

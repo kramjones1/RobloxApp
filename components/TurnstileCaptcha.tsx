@@ -11,7 +11,7 @@ declare global {
 
 const SITE_KEY = '0x4AAAAAAF_LUXAxG7meWKvs';
 
-export default function TurnstileCaptcha({ onVerify }: { onVerify: (token: string) => void }) {
+export default function TurnstileCaptcha({ onVerify, resetKey = 0 }: { onVerify: (token: string) => void; resetKey?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
 
@@ -53,7 +53,7 @@ export default function TurnstileCaptcha({ onVerify }: { onVerify: (token: strin
       cancelled = true;
       if (widgetIdRef.current && window.turnstile) window.turnstile.remove(widgetIdRef.current);
     };
-  }, [onVerify]);
+  }, [onVerify, resetKey]);
 
   return <div ref={containerRef} style={{ display: 'flex', justifyContent: 'center', minHeight: 65, margin: '4px 0' }} />;
 }

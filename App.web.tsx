@@ -10,6 +10,7 @@ import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
+import WalletPage from './pages/WalletPage';
 
 // Keep preview/local testing isolated on the staging Worker. Production Pages
 // must use the migrated production Worker so it receives the production fixes.
@@ -1324,6 +1325,14 @@ export default function WebApp() {
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               <SettingsPage userId={user?.id || ''} />
+              <Footer setPage={handleNav} />
+            </div>
+          )}
+
+          {page === 'wallet' && (
+            <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
+              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
+              <WalletPage />
               <Footer setPage={handleNav} />
             </div>
           )}

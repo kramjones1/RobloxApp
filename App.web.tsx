@@ -906,7 +906,7 @@ export default function WebApp() {
                     <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', maxWidth: 320, lineHeight: 1.5, marginBottom: 16, wordBreak: 'break-word' }}>
                       If an account exists at <b style={{ color: '#fff' }}>{forgotEmail}</b>, we've sent a password reset link. Check your inbox and spam folder.
                     </p>
-                    <button onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }} style={mobileBtn}>
+                    <button onClick={() => { setCaptchaToken(''); setCaptchaResetKey(v => v + 1); setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }} style={mobileBtn}>
                       Back to Sign In
                     </button>
                   </>
@@ -918,7 +918,7 @@ export default function WebApp() {
                       {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                     </button>
                     {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
-                    <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setShowForgot(false); setAuthMsg(''); }}>
+                    <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setCaptchaToken(''); setCaptchaResetKey(v => v + 1); setShowForgot(false); setAuthMsg(''); }}>
                       ← Back to Sign In
                     </p>
                   </form>
@@ -957,7 +957,7 @@ export default function WebApp() {
                 </button>
                 {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
                 {authMode === 'login' && (
-                  <p style={{ color: '#6c63ff', fontSize: 13, marginTop: 12, cursor: 'pointer' }} onClick={() => { setShowForgot(true); setAuthMsg(''); }}>
+                  <p style={{ color: '#6c63ff', fontSize: 13, marginTop: 12, cursor: 'pointer' }} onClick={() => { setCaptchaToken(''); setCaptchaResetKey(v => v + 1); setShowForgot(true); setAuthMsg(''); }}>
                     Forgot password?
                   </p>
                 )}
@@ -990,8 +990,8 @@ export default function WebApp() {
                 forgotCooldown={forgotCooldown}
                 onForgotEmailChange={setForgotEmail}
                 onForgotSubmit={handleForgotPassword}
-                onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
-                onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
+                onShowForgot={() => { setCaptchaToken(''); setCaptchaResetKey(v => v + 1); setShowForgot(true); setAuthMsg(''); }}
+                onBackToSignIn={() => { setCaptchaToken(''); setCaptchaResetKey(v => v + 1); setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
                 onGoogleSignIn={() => signInWithGoogle()}
                 onGitHubSignIn={() => signInWithGitHub()}
                 captchaToken={captchaToken}

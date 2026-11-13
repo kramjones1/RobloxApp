@@ -134,10 +134,9 @@ export default function SupportChatPanel({ user, admin = false }: Props) {
 
   return (
     <>
-      <section aria-label="LivMe customer support" style={{ position: 'fixed', zIndex: 3000, right: 16, bottom: 82, width: 'min(360px, calc(100vw - 24px))', height: 'min(540px, calc(100dvh - 110px))', display: 'flex', flexDirection: 'column', background: '#19191f', color: '#f5f5f7', border: '1px solid #353541', borderRadius: 16, boxShadow: '0 18px 60px rgba(0,0,0,.55)', overflow: 'hidden', fontFamily: 'system-ui,sans-serif' }}>
+      <section aria-label="LivMe customer support" style={{ position: 'relative', zIndex: 1, width: '100%', minHeight: 420, maxHeight: 560, display: 'flex', flexDirection: 'column', background: '#19191f', color: '#f5f5f7', border: '1px solid #353541', borderRadius: 16, boxShadow: 'none', overflow: 'hidden', fontFamily: 'system-ui,sans-serif' }}>
           <header style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #30303a' }}>
             <div><strong style={{ fontSize: 14 }}>LivMe Support</strong><div style={{ color: '#9b9ba8', fontSize: 11, marginTop: 2 }}>We’re here to help</div></div>
-            <button onClick={() => setOpen(false)} aria-label="Close support" style={{ background: 'transparent', color: '#aaa', border: 0, fontSize: 22, cursor: 'pointer' }}>×</button>
           </header>
           {mode === 'loading' ? <div style={{ padding: 20, color: '#aaa' }}>Loading…</div> : mode === 'list' ? (
             <div style={{ padding: 14, overflowY: 'auto', flex: 1 }}>

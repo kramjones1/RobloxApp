@@ -1501,3 +1501,116 @@ export async function deleteProfilePhoto(name: string): Promise<{ error?: string
     return { error: e.message || 'Could not delete photo.' };
   }
 }
+
+
+// ── LivMe customer support ────────────────────────────────────────────────
+export interface SupportConversation {
+  id: string;
+  user_id: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
+  subject: string;
+  status: 'open' | 'pending' | 'resolved';
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+}
+export interface SupportMessage {
+  id: string;
+  conversation_id?: string;
+  sender_type: 'user' | 'guest' | 'operator';
+  body: string;
+  created_at: string;
+}
+function supportAuthHeaders(token?: string) {
+  return {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${token || SUPABASE_ANON_KEY}`,
+    'Content-Type': 'application/json',
+  };
+}
+export async function getSupportConversations(): Promise<{ conversations?: SupportConversation[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/support_conversations?select=*&order=updated_at.desc&limit=50`, { headers: supportAuthHeaders(token) });
+    if (rows?.error) return { error: rows.error };
+    return { conversations: Array.isArray(rows) ? rows : [] };
+  } catch (e: any) { return { error: e.message || 'Could not load support conversations.' }; }
+}
+export async function getSupportMessages(conversationId: string): Promise<{ messages?: SupportMessage[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/support_messages?select=id,conversation_id,sender_type,body,created_at&conversation_id=eq.${encodeURIComponent(conversationId)}&order=created_at.asc&limit=200`, { headers: supportAuthHeaders(token) });
+    if (rows?.error) return { error: rows.error };
+    return { messages: Array.isArray(rows) ? rows : [] };
+  } catch (e: any) { return { error: e.message || 'Could not load support messages.' }; }
+}
+export async function createSupportConversation(subject: string, message: string): Promise<{ conversationId?: string; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/create_support_conversation`, {
+      method: 'POST', headers: supportAuthHeaders(token), body: JSON.stringify({ p_subject: subject, p_message: message }),
+    });
+    if (result?.error) return { error: result.error };
+    return { conversationId: typeof result === 'string' ? result : undefined };
+  } catch (e: any) { return { error: e.message || 'Could not start support conversation.' }; }
+}
+export async function sendSupportMessage(conversationId: string, message: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/send_support_message`, {
+      method: 'POST', headers: supportAuthHeaders(token), body: JSON.stringify({ p_conversation_id: conversationId, p_message: message }),
+    });
+    return result?.error ? { error: result.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not send support message.' }; }
+}
+export async function createGuestSupportConversation(name: string, email: string, subject: string, message: string): Promise<{ conversationId?: string; accessToken?: string; error?: string }> {
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/create_guest_support_conversation`, {
+      method: 'POST', headers: supportAuthHeaders(), body: JSON.stringify({ p_name: name, p_email: email, p_subject: subject, p_message: message }),
+    });
+    if (result?.error) return { error: result.error };
+    return { conversationId: result?.conversation_id, accessToken: result?.access_token };
+  } catch (e: any) { return { error: e.message || 'Could not start guest support conversation.' }; }
+}
+export async function getGuestSupportMessages(conversationId: string, accessToken: string): Promise<{ messages?: SupportMessage[]; error?: string }> {
+  try {
+    const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/get_guest_support_messages`, {
+      method: 'POST', headers: supportAuthHeaders(), body: JSON.stringify({ p_conversation_id: conversationId, p_access_token: accessToken }),
+    });
+    if (rows?.error) return { error: rows.error };
+    return { messages: Array.isArray(rows) ? rows : [] };
+  } catch (e: any) { return { error: e.message || 'Could not load guest support messages.' }; }
+}
+export async function sendGuestSupportMessage(conversationId: string, accessToken: string, message: string): Promise<{ error?: string }> {
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/send_guest_support_message`, {
+      method: 'POST', headers: supportAuthHeaders(), body: JSON.stringify({ p_conversation_id: conversationId, p_access_token: accessToken, p_message: message }),
+    });
+    return result?.error ? { error: result.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not send guest support message.' }; }
+}
+export async function adminReplySupportMessage(conversationId: string, message: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/admin_reply_support_message`, {
+      method: 'POST', headers: supportAuthHeaders(token), body: JSON.stringify({ p_conversation_id: conversationId, p_message: message }),
+    });
+    return result?.error ? { error: result.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not send operator reply.' }; }
+}
+export async function adminUpdateSupportStatus(conversationId: string, status: 'open' | 'pending' | 'resolved'): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  try {
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/admin_update_support_status`, {
+      method: 'POST', headers: supportAuthHeaders(token), body: JSON.stringify({ p_conversation_id: conversationId, p_status: status }),
+    });
+    return result?.error ? { error: result.error } : {};
+  } catch (e: any) { return { error: e.message || 'Could not update support status.' }; }
+}

@@ -190,7 +190,8 @@ export default function LandingPage({
                     </>
                   ) : (
                     <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} />\n                      <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
+                      <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} />
+                      <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
                       <button type="submit" disabled={submitting || !captchaToken || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
                         {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                       </button>
@@ -209,7 +210,8 @@ export default function LandingPage({
                       <input style={{ ...s.input, paddingRight: 64 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                       <button type="button" onClick={onTogglePassword} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 0, color: '#aaa', cursor: 'pointer', padding: 8, fontSize: 12 }}>{showPassword ? 'Hide' : 'Show'}</button>
                     </div>
-                    <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} />\n                    <button type="submit" disabled={submitting || !captchaToken} style={{...s.submitBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>
+                    <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} />
+                    <button type="submit" disabled={submitting || !captchaToken} style={{...s.submitBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>
                       {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>

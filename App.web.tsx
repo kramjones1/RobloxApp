@@ -559,7 +559,20 @@ export default function WebApp() {
       const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob, terms_accepted_at: new Date().toISOString(), terms_version: '2026-11-11' } as any);
       setSubmitting(false);
       if (error) setAuthMsg(error);
-      else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); setOnboardingTourDone([]); setOnboardingTourStep('profile_photo'); setOnboardingTourActive(true); void saveOnboardingProgress('profile_photo', []); }
+      else {
+        setUnderage(calcAge(onboardingDob) < 18);
+        setCamError('');
+        setOnboardingStep(null);
+        setPage('profile');
+        const progressResult = await saveOnboardingProgress('profile_photo', []);
+        if (progressResult.error) {
+          setAuthMsg('Your profile was created, but we could not save your onboarding progress. Please stay signed in and try again.');
+          return;
+        }
+        setOnboardingTourDone([]);
+        setOnboardingTourStep('profile_photo');
+        setOnboardingTourActive(true);
+      }
     }
   }
 

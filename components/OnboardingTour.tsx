@@ -88,7 +88,7 @@ export default function OnboardingTour({
     };
     refresh();
     const observer = new MutationObserver(refresh);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener('resize', refresh);
     window.addEventListener('scroll', refresh, true);
     const target = findTarget(current.target);

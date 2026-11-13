@@ -8,6 +8,9 @@ on:
         required: true
         default: feature/spotlight-onboarding-tour
         type: string
+  push:
+    branches:
+      - preview/onboarding-trigger
 
 permissions:
   contents: read
@@ -23,7 +26,7 @@ jobs:
       - name: Checkout selected onboarding source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ github.event.inputs.source_ref || 'feature/spotlight-onboarding-tour' }}
 
       - name: Point app to the current LivMe signaling worker
         run: sed -i 's/omegle-signaling-server\.kafka9607\.workers\.dev/omegle-signaling-cloudflare.kafka9607.workers.dev/g' App.web.tsx

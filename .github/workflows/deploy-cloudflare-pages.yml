@@ -158,3 +158,5 @@ jobs:
 # Trigger production rebuild for verified recovery-token handoff 2026-11-13
 
 # Trigger Cloudflare production deployment for gallery profile-picture fix 2026-11-13
+
+# Trigger production deployment for the LivMe animated onboarding tour 2026-11-13

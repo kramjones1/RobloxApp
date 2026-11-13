@@ -35,7 +35,9 @@ const steps: Step[] = [
 function findTarget(selectors: string[]): HTMLElement | null {
   for (const selector of selectors) {
     try {
-      const found = selector.startsWith('text:')\n        ? Array.from(document.querySelectorAll('button,a,[role="button"]')).find(node => (node.textContent || '').trim().toLowerCase().includes(selector.slice(5))) as HTMLElement | undefined\n        : document.querySelector(selector) as HTMLElement | null;
+      const found = selector.startsWith('text:')
+        ? Array.from(document.querySelectorAll('button,a,[role="button"]')).find(node => (node.textContent || '').trim().toLowerCase().includes(selector.slice(5))) as HTMLElement | undefined
+        : document.querySelector(selector) as HTMLElement | null;
       if (found && found.getClientRects().length && found.getAttribute('aria-hidden') !== 'true') return found;
     } catch {}
   }

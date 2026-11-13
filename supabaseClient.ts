@@ -560,6 +560,34 @@ export async function getCoinWallet(): Promise<{ wallet?: CoinWallet; error?: st
   }
 }
 
+export interface CoinTransaction {
+  id: string;
+  transaction_type: string;
+  coin_source: string;
+  amount: number;
+  balance_after: number;
+  metadata: Record<string, any> | null;
+  created_at: string;
+}
+
+export async function getCoinTransactions(limit = 50): Promise<{ transactions?: CoinTransaction[]; error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(limit) || 50));
+  try {
+    const rows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/coin_transactions?user_id=eq.${encodeURIComponent(user.id)}&select=id,transaction_type,coin_source,amount,balance_after,metadata,created_at&order=created_at.desc&limit=${safeLimit}`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+    );
+    if (rows?.error) return { error: rows.error };
+    return { transactions: Array.isArray(rows) ? rows as CoinTransaction[] : [] };
+  } catch (e: any) {
+    return { error: e.message || 'Could not load LivMe Coins transaction history' };
+  }
+}
+
 function createChatMessageRequestId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {

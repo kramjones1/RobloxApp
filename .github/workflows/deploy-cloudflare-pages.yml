@@ -152,3 +152,5 @@ jobs:
 # Deploy LivMe guest and registered-user customer support chat 2026-11-13
 
 # Trigger production deployment for production-branch Settings support and password recovery fixes 2026-11-13
+
+# Trigger Cloudflare production rebuild for PKCE password-recovery callback fix 2026-11-13

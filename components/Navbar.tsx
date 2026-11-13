@@ -198,7 +198,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
             )}
             {[
               { id: 'home', label: 'Home' },
-              ...(user ? [{ id: 'messages' as const, label: 'Messages' }] : []),
+              ...(user ? [{ id: 'wallet' as const, label: 'Wallet' }, { id: 'messages' as const, label: 'Messages' }] : []),
               ...(user ? [{ id: 'profile' as const, label: 'Profile' }, { id: 'settings' as const, label: 'Settings' }] : []),
               ...(admin ? [{ id: 'admin' as const, label: 'Operator' }] : []),
               { id: 'privacy', label: 'Privacy' },
@@ -235,6 +235,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
           <button style={page === 'home' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('home')}>Home</button>
           {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
           {user && <button style={page === 'settings' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('settings')}>Settings</button>}
+          {user && <button style={page === 'wallet' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('wallet')}>Wallet</button>}
           {user && <button style={page === 'messages' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('messages')}>
             Messages
             {unreadCount > 0 && <span style={{

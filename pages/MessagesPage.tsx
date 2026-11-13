@@ -21,6 +21,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const pendingSendRef = useRef<{ receiverId: string; content: string; id: string } | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<Record<string, { name: string; avatar: string }>>({});
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -558,12 +559,22 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     if (!messageText || !selectedId) return;
     setSending(true);
     setError('');
-    const result = await sendMessage(selectedId, messageText);
+    if (!pendingSendRef.current || pendingSendRef.current.receiverId !== selectedId || pendingSendRef.current.content !== messageText) {
+      const id = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
+            const r = Math.random() * 16 | 0;
+            return (ch === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+          });
+      pendingSendRef.current = { receiverId: selectedId, content: messageText, id };
+    }
+    const result = await sendMessage(selectedId, messageText, pendingSendRef.current.id);
     if (result.error) {
       setSending(false);
       setError(result.error);
       return;
     }
+    pendingSendRef.current = null;
     setText('');
     if (composerRef.current) composerRef.current.style.height = '42px';
     setSending(false);

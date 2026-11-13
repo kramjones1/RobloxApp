@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { watchOperatorSessionCount } from '../chatPresence';
 import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins } from '../supabaseClient';
 
@@ -39,6 +39,7 @@ export default function AdminPage() {
   const [coinWallet, setCoinWallet] = useState<any>(null);
   const [coinAmount, setCoinAmount] = useState('');
   const [coinReason, setCoinReason] = useState('');
+  const pendingCoinGrantRef = useRef<{ userId: string; amount: number; reason: string; requestId: string } | null>(null);
   const [flagReason, setFlagReason] = useState('');
   const [banReason, setBanReason] = useState('');
   const [bannedUsers, setBannedUsers] = useState<any[]>([]);
@@ -163,6 +164,7 @@ export default function AdminPage() {
   async function viewUser(u: any) {
     setSelectedUser(u);
     setUserMessages(null);
+    setCoinWallet(null);
     setError('');
     setLoading(true);
     try {
@@ -197,16 +199,24 @@ export default function AdminPage() {
       setError('Enter a reason of at least 3 characters.');
       return;
     }
-    const requestId = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `manual-${Date.now()}-${selectedUser.user_id}`;
     const reason = coinReason.trim();
+    const userId = selectedUser.user_id;
+    const pending = pendingCoinGrantRef.current;
+    const requestId = pending && pending.userId === userId && pending.amount === amount && pending.reason === reason
+      ? pending.requestId
+      : (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `manual-${Date.now()}-${userId}`);
+    // Keep the same request ID after network/timeout errors so retrying cannot
+    // credit the same operator action twice.
+    pendingCoinGrantRef.current = { userId, amount, reason, requestId };
     await runAction(
-      () => adminAddLivmeCoins(selectedUser.user_id, amount, reason, requestId),
+      () => adminAddLivmeCoins(userId, amount, reason, requestId),
       async () => {
+        pendingCoinGrantRef.current = null;
         setCoinAmount('');
         setCoinReason('');
-        await refreshCoinWallet(selectedUser.user_id);
+        await refreshCoinWallet(userId);
       }
     );
   }

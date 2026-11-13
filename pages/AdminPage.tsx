@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { watchOperatorSessionCount } from '../chatPresence';
-import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload } from '../supabaseClient';
+import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins } from '../supabaseClient';
 
 const s = {
   page: { background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', padding: 24, overflowY: 'auto' as const },
@@ -36,6 +36,9 @@ export default function AdminPage() {
   const userPageSize = 50;
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [userMessages, setUserMessages] = useState<any[] | null>(null);
+  const [coinWallet, setCoinWallet] = useState<any>(null);
+  const [coinAmount, setCoinAmount] = useState('');
+  const [coinReason, setCoinReason] = useState('');
   const [flagReason, setFlagReason] = useState('');
   const [banReason, setBanReason] = useState('');
   const [bannedUsers, setBannedUsers] = useState<any[]>([]);
@@ -166,12 +169,46 @@ export default function AdminPage() {
       const r = await adminGetUserMessages(u.user_id);
       if (r.error) setError(r.error);
       setUserMessages(r.messages || []);
+      const walletResult = await adminGetCoinWallet(u.user_id);
+      if (walletResult.error) setError(walletResult.error);
+      else setCoinWallet(walletResult.wallet || null);
     } catch (e: any) {
       setError(e?.message || 'Unable to load this user\'s messages.');
       setUserMessages([]);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function refreshCoinWallet(userId = selectedUser?.user_id) {
+    if (!userId) return;
+    const result = await adminGetCoinWallet(userId);
+    if (result.error) setError(result.error);
+    else setCoinWallet(result.wallet || null);
+  }
+
+  async function submitManualCoinAdd() {
+    const amount = Number(coinAmount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100000) {
+      setError('Enter a whole-number amount from 1 to 100,000 LC.');
+      return;
+    }
+    if (coinReason.trim().length < 3) {
+      setError('Enter a reason of at least 3 characters.');
+      return;
+    }
+    const requestId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `manual-${Date.now()}-${selectedUser.user_id}`;
+    const reason = coinReason.trim();
+    await runAction(
+      () => adminAddLivmeCoins(selectedUser.user_id, amount, reason, requestId),
+      async () => {
+        setCoinAmount('');
+        setCoinReason('');
+        await refreshCoinWallet(selectedUser.user_id);
+      }
+    );
   }
 
   async function runAction(action: () => Promise<{ error?: string }>, after?: () => void | Promise<void>) {
@@ -492,6 +529,34 @@ export default function AdminPage() {
                 </div>
                 {selectedUser.flagged && <p style={{ color: '#ffb74d', fontSize: 12, marginBottom: 8 }}>Flagged: {selectedUser.flag_reason || 'No reason supplied'}</p>}
                 {selectedUser.banned && <p style={{ color: '#ff8a80', fontSize: 12, marginBottom: 8 }}>Banned: {selectedUser.ban_reason || 'No reason supplied'}</p>}
+                <div style={{ ...s.card, background: '#191919', border: '1px solid rgba(108,99,255,0.25)', marginTop: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <div>
+                      <h4 style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>LivMe Coins wallet</h4>
+                      <p style={{ color: '#aaa', fontSize: 12, marginTop: 4 }}>
+                        {coinWallet ? `Total ${coinWallet.total_balance ?? 0} LC · Promotional ${coinWallet.promotional_balance ?? 0} · Purchased ${coinWallet.purchased_balance ?? 0}` : 'Loading wallet…'}
+                      </p>
+                    </div>
+                    <button style={s.btnSm} disabled={loading} onClick={() => refreshCoinWallet(selectedUser.user_id)}>Refresh wallet</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                    <input style={{ ...s.input, width: 130 }} type="number" min="1" max="100000" step="1" inputMode="numeric" placeholder="Amount (LC)" value={coinAmount} onChange={e => setCoinAmount(e.target.value)} />
+                    <input style={{ ...s.input, flex: 1, minWidth: 180 }} placeholder="Reason for manual credit (required)" value={coinReason} maxLength={240} onChange={e => setCoinReason(e.target.value)} />
+                    <button style={s.btn} disabled={loading || !coinWallet || !coinAmount || coinReason.trim().length < 3} onClick={submitManualCoinAdd}>Add LC</button>
+                  </div>
+                  <p style={{ color: '#777', fontSize: 11, marginTop: 7 }}>Manual credits go to promotional balance and are permanently recorded in the coin ledger with the operator and reason.</p>
+                  {Array.isArray(coinWallet?.transactions) && coinWallet.transactions.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <p style={{ color: '#aaa', fontSize: 11, marginBottom: 4 }}>Recent wallet activity</p>
+                      {coinWallet.transactions.slice(0, 5).map((tx: any) => (
+                        <div key={tx.id} style={{ ...s.row, fontSize: 11 }}>
+                          <span>{tx.transaction_type?.replace(/_/g, ' ')} · {tx.metadata?.reason || tx.metadata?.adjustment_type || tx.coin_source}</span>
+                          <span style={{ color: tx.transaction_type === 'message_spend' ? '#ff8a80' : '#81c784', whiteSpace: 'nowrap' }}>{tx.transaction_type === 'message_spend' ? '−' : '+'}{tx.amount} LC</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
                   {selectedUser.profile_exists && (!selectedUser.flagged ? (
                     <>

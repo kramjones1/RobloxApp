@@ -880,6 +880,21 @@ export async function getAdminStats(): Promise<{ stats?: any; error?: string }> 
   return { stats: res };
 }
 
+export async function adminGetCoinWallet(userId: string): Promise<{ wallet?: any; error?: string }> {
+  const res = await adminRpc('admin_get_coin_wallet', { p_target_user_id: userId });
+  if (res?.error) return { error: res.error };
+  return { wallet: res };
+}
+
+export async function adminAddLivmeCoins(userId: string, amount: number, reason: string, requestId: string): Promise<{ error?: string; balance?: number }> {
+  const res = await adminRpc('admin_add_livme_coins', {
+    p_target_user_id: userId, p_amount: amount, p_reason: reason.trim(), p_request_id: requestId,
+  });
+  if (res?.error) return { error: res.error };
+  await adminLog('livme_coins_manual_add', userId, `${amount} LC · ${reason.trim()}`);
+  return { balance: Number(res?.balance) };
+}
+
 export async function adminListUsers(term: string | null = null, page = 0, pageSize = 50): Promise<{ users?: any[]; total?: number; error?: string }> {
   const safePage = Math.max(0, Math.floor(page));
   const safePageSize = Math.min(100, Math.max(1, Math.floor(pageSize)));

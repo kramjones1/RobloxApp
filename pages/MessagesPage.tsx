@@ -788,7 +788,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         {/* Conversation list */}
         <div style={{ flex: isMobile ? 1 : undefined, width: isMobile ? '100%' : 320, borderRight: isMobile ? 'none' : `1px solid ${palette.border}`, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${palette.border}` }}>
-            <h2 style={{ color: palette.text, fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
+            <h2 data-onboarding-target="messages" style={{ color: palette.text, fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
           </div>
           <div style={{ padding: '12px 16px 10px', borderBottom: `1px solid ${palette.border}` }}>
             <div style={{ color: palette.secondary, fontSize: 11, fontWeight: 700, letterSpacing: 0.7, marginBottom: 9 }}>ONLINE USERS</div>

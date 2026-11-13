@@ -568,7 +568,7 @@ function createChatMessageRequestId(): string {
   });
 }
 
-export async function sendMessage(receiverId: string, content: string): Promise<{ error?: string; balance?: number; charged?: boolean }> {
+export async function sendMessage(receiverId: string, content: string, requestId?: string): Promise<{ error?: string; balance?: number; charged?: boolean }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
@@ -580,7 +580,7 @@ export async function sendMessage(receiverId: string, content: string): Promise<
     const endpoint = isCallLog ? 'log_chat_call_message' : 'send_chat_message';
     const body = isCallLog
       ? { p_receiver_id: receiverId, p_content: trimmedContent }
-      : { p_message_id: createChatMessageRequestId(), p_receiver_id: receiverId, p_content: trimmedContent };
+      : { p_message_id: requestId || createChatMessageRequestId(), p_receiver_id: receiverId, p_content: trimmedContent };
     const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
       method: 'POST',
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

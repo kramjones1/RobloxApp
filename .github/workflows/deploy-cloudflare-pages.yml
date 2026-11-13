@@ -154,3 +154,5 @@ jobs:
 # Trigger production deployment for production-branch Settings support and password recovery fixes 2026-11-13
 
 # Trigger Cloudflare production rebuild for PKCE password-recovery callback fix 2026-11-13
+
+# Trigger production rebuild for verified recovery-token handoff 2026-11-13

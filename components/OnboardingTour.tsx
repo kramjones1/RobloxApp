@@ -161,6 +161,7 @@ export default function OnboardingTour({ initialStep = 'profile_photo', complete
         <div className="livme-tour-shade" style={{ left: rightLeft, top: rect.top, right: 0, height: rect.height }} />
         <div className="livme-tour-shade" style={{ left: 0, top: bottomTop, width: '100%', bottom: 0 }} />
         <div className="livme-tour-focus" style={{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }} />
+        {step === 'random_call' && <div aria-hidden="true" style={{ position: 'fixed', top: rect.top, left: rect.left, width: rect.width, height: rect.height, zIndex: 10002, background: 'transparent', pointerEvents: 'auto' }} onClick={event => { event.preventDefault(); event.stopPropagation(); }} />}
       </> : <div className="livme-tour-shade" style={{ inset: 0 }} />}
       <section className="livme-tour-card" aria-labelledby="livme-tour-title">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>

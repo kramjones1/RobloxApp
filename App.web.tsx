@@ -390,6 +390,7 @@ export default function WebApp() {
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
+    if (!captchaToken) { setAuthMsg('Please complete the security check first.'); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(forgotEmail)) { setAuthMsg('Please enter a valid email address (e.g. name@domain.com)'); return; }
     setSubmitting(true);
@@ -821,7 +822,12 @@ export default function WebApp() {
       const camFail = e.message?.includes('Could not start');
       if (denied) setCamError('Camera or microphone permission denied. Allow BOTH devices for LiveMe in your browser settings, then try again.');
       else if (notFound) setCamError('A camera or microphone could not be found on this device.');
-      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\n\nIf no other apps are open:\n• Open Task Manager and end ALL Chrome processes\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\n• Or try a different browser (Firefox, Edge)');
+      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.
+
+If no other apps are open:
+• Open Task Manager and end ALL Chrome processes
+• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"
+• Or try a different browser (Firefox, Edge)');
       else if (camFail) setCamError('Camera or microphone failed to start. Try restarting your browser or reconnecting your devices.');
       else setCamError('Could not access both camera and microphone: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));
@@ -1248,7 +1254,8 @@ export default function WebApp() {
                     <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
-                  <TurnstileCaptcha onVerify={setCaptchaToken} />\n                  <button type="submit" disabled={submitting || !captchaToken} style={{...mobileBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+                  <TurnstileCaptcha onVerify={setCaptchaToken} />
+                  <button type="submit" disabled={submitting || !captchaToken} style={{...mobileBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
                   <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
@@ -1311,7 +1318,9 @@ export default function WebApp() {
                 onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
                 onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
                 onGoogleSignIn={() => { setAuthMsg(''); signInWithGoogle(); }}
-                onGitHubSignIn={() => { setAuthMsg(''); signInWithGitHub(); }}\n                captchaToken={captchaToken}\n                onCaptchaVerify={setCaptchaToken}
+                onGitHubSignIn={() => { setAuthMsg(''); signInWithGitHub(); }}
+                captchaToken={captchaToken}
+                onCaptchaVerify={setCaptchaToken}
               />
             </div>
             <Footer setPage={handleNav} />

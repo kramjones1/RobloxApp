@@ -359,6 +359,7 @@ export default function WebApp() {
     setSubmitting(true);
     const { error } = await signIn(email, password, captchaToken);
     setCaptchaToken('');
+    setCaptchaResetKey(v => v + 1);
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPage('profile');
@@ -398,6 +399,7 @@ export default function WebApp() {
     setSubmitting(true);
     const { error } = await resetPassword(forgotEmail, window.location.origin, captchaToken);
     setCaptchaToken('');
+    setCaptchaResetKey(v => v + 1);
     setSubmitting(false);
     if (error) {
       setAuthMsg(error);
@@ -824,12 +826,7 @@ export default function WebApp() {
       const camFail = e.message?.includes('Could not start');
       if (denied) setCamError('Camera or microphone permission denied. Allow BOTH devices for LiveMe in your browser settings, then try again.');
       else if (notFound) setCamError('A camera or microphone could not be found on this device.');
-      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.
-
-If no other apps are open:
-• Open Task Manager and end ALL Chrome processes
-• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"
-• Or try a different browser (Firefox, Edge)');
+      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\\n\\nIf no other apps are open:\\n• Open Task Manager and end ALL Chrome processes\\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\\n• Or try a different browser (Firefox, Edge)');
       else if (camFail) setCamError('Camera or microphone failed to start. Try restarting your browser or reconnecting your devices.');
       else setCamError('Could not access both camera and microphone: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));
@@ -1236,7 +1233,7 @@ If no other apps are open:
                 ) : (
                   <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
                     <TurnstileCaptcha onVerify={setCaptchaToken} resetKey={captchaResetKey} /><input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
-                    <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
+                    <button type="submit" disabled={submitting || !captchaToken || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || !captchaToken || forgotCooldown > 0 ? 0.5 : 1}}>
                       {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                     </button>
                     {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
@@ -1256,7 +1253,7 @@ If no other apps are open:
                     <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
-                  <TurnstileCaptcha onVerify={setCaptchaToken} />
+                  <TurnstileCaptcha onVerify={setCaptchaToken} resetKey={captchaResetKey} />
                   <button type="submit" disabled={submitting || !captchaToken} style={{...mobileBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>

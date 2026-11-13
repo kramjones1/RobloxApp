@@ -58,8 +58,8 @@ export default function OnboardingTour({ initialStep = 'profile_photo', complete
     finally { setBusy(false); }
   }
 
-  return <div role="dialog" aria-modal="true" aria-labelledby="livme-onboarding-title" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.78)', display: 'grid', placeItems: 'center', padding: 18, fontFamily: 'system-ui,sans-serif' }}>
-    <div style={{ width: '100%', maxWidth: 440, borderRadius: 20, padding: 24, background: '#171722', border: '1px solid rgba(255,255,255,.12)', color: '#fff', boxShadow: '0 24px 80px rgba(0,0,0,.45)', animation: 'fadeIn .24s ease-out' }}>
+  return <div role="region" aria-label="LivMe getting started guide" style={{ position: 'fixed', right: 16, bottom: 16, zIndex: 10000, pointerEvents: 'none', padding: 0, maxWidth: 'calc(100vw - 32px)', fontFamily: 'system-ui,sans-serif' }}>
+    <div style={{ pointerEvents: 'auto', width: 'min(440px, calc(100vw - 32px))', maxHeight: 'min(70vh, 560px)', overflowY: 'auto', borderRadius: 20, padding: 24, background: '#171722', border: '1px solid rgba(255,255,255,.12)', color: '#fff', boxShadow: '0 12px 42px rgba(0,0,0,.45)', animation: 'fadeIn .24s ease-out' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <span style={{ color: '#aaa5ff', fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>LIVME · GETTING STARTED</span>
         <span style={{ color: '#aaa', fontSize: 12 }}>{Math.max(1, index + 1)} / {steps.length}</span>

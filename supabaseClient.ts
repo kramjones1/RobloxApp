@@ -773,6 +773,39 @@ export async function upsertChatProfile(profile: ChatProfile): Promise<{ error?:
   }
 }
 
+export async function updateChatProfilePhoto(slot: 'avatar' | 'cover', url: string): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user?.id) return { error: 'Invalid token' };
+  const column = slot === 'avatar' ? 'avatar_url' : 'cover_url';
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+  try {
+    // Upsert only the selected photo column. This also handles accounts that
+    // do not yet have a chat_profiles row without overwriting the other slot.
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?on_conflict=user_id&select=user_id`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=representation',
+      },
+      body: JSON.stringify({ user_id: user.id, [column]: url, updated_at: new Date().toISOString() }),
+    });
+    if (result?.error) return { error: result.error };
+    if (!Array.isArray(result) || result.length !== 1 || result[0]?.user_id !== user.id) {
+      return { error: 'The photo uploaded, but your profile record was not updated. Please refresh and try again.' };
+    }
+    return {};
+  } catch (error: any) {
+    return { error: error?.name === 'AbortError' ? 'Profile save timed out after 12 seconds. Your photo upload did not finish saving to the profile.' : (error?.message || 'Could not save the photo to your profile.') };
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
 export async function saveRecentLive(partnerId: string, name: string, bio: string, avatar: string): Promise<{ error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
@@ -1125,9 +1158,12 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
   if (imagePaths.length > 5) return { error: 'You can add up to 5 photos per post.' };
   if (imagePaths.some(path => !path.startsWith(`${user.id}/posts/`) || !path.endsWith('.webp'))) return { error: 'Invalid post photo path.' };
   if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 15000);
   try {
     const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,created_at`, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
@@ -1138,39 +1174,44 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
     });
     if (rows?.error) return { error: rows.error };
     if (!Array.isArray(rows) || !rows[0]) return { error: 'Post was not saved.' };
-    // The database retains the latest 100 posts. Remove any post-image objects
-    // that are no longer referenced after the retention trigger has run.
-    try {
-      const [savedPosts, storedImages] = await Promise.all([
-        supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=image_paths&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc&limit=100`, {
-          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
-          method: 'POST',
-          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prefix: `${user.id}/posts`, limit: 1000, offset: 0 }),
-        }),
-      ]);
-      const newPostIsConfirmed = Array.isArray(savedPosts) && savedPosts.some((row: any) =>
-        imagePaths.length === 0 || imagePaths.every(path => (row.image_paths || []).includes(path))
-      );
-      if (newPostIsConfirmed && storedImages.ok) {
-        const keep = new Set(savedPosts.flatMap((row: any) => row.image_paths || []));
-        const files = await storedImages.json();
-        const stale = (Array.isArray(files) ? files : [])
-          .filter((file: any) => typeof file.name === 'string' && file.name.endsWith('.webp'))
-          .map((file: any) => `${user.id}/posts/${file.name}`)
-          .filter((path: string) => !keep.has(path));
-        if (stale.length) await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
-          method: 'DELETE',
-          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prefixes: stale }),
-        });
-      }
-    } catch { /* Cleanup can retry after the next successful post. */ }
-    return { post: rows[0] as ChatPost };
+    // Return the saved post immediately. Retention cleanup is deliberately
+    // best-effort and runs in the background so Storage listing/deletion latency
+    // cannot keep the preview or publishing spinner open.
+    void (async () => {
+      try {
+        const [savedPosts, storedImages] = await Promise.all([
+          supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=image_paths&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc&limit=100`, {
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
+            method: 'POST',
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prefix: `${user.id}/posts`, limit: 1000, offset: 0 }),
+          }),
+        ]);
+        const newPostIsConfirmed = Array.isArray(savedPosts) && savedPosts.some((row: any) =>
+          imagePaths.length === 0 || imagePaths.every(path => (row.image_paths || []).includes(path))
+        );
+        if (newPostIsConfirmed && storedImages.ok) {
+          const keep = new Set(savedPosts.flatMap((row: any) => row.image_paths || []));
+          const files = await storedImages.json();
+          const stale = (Array.isArray(files) ? files : [])
+            .filter((file: any) => typeof file.name === 'string' && file.name.endsWith('.webp'))
+            .map((file: any) => `${user.id}/posts/${file.name}`)
+            .filter((path: string) => !keep.has(path));
+          if (stale.length) await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
+            method: 'DELETE',
+            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prefixes: stale }),
+          });
+        }
+      } catch { /* Cleanup can retry after the next successful post. */ }
+    })();
+    return { post: { ...rows[0], is_private: rows[0].is_private ?? false, reactions: [], comments: [] } as ChatPost };
   } catch (e: any) {
-    return { error: e.message || 'Could not publish post' };
+    return { error: e?.name === 'AbortError' ? 'Creating the photo post timed out after 15 seconds. Please try again.' : (e.message || 'Could not publish post') };
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -1381,20 +1422,22 @@ export async function getProfilePhotos(userId: string): Promise<{ photos?: Profi
       if (!response.ok) throw new Error((await response.text()) || 'Could not load photos.');
       return await response.json();
     };
-    const [rootRows, postRows] = await Promise.all([listPrefix(userId), listPrefix(`${userId}/posts`)]);
-    const rows = [
-      ...(Array.isArray(rootRows) ? rootRows.filter((row: any) =>
-        row.name?.toLowerCase().endsWith('.webp') &&
-        row.name !== 'avatar.webp' &&
-        row.name !== 'cover.webp'
-      ).map((row: any) => ({ ...row, relativeName: row.name })) : []),
-      ...(Array.isArray(postRows) ? postRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: `posts/${row.name}` })) : []),
-    ];
+    // Post images are rendered from chat_posts so Photos shows the full
+    // original post, not a detached Storage thumbnail. This list is only for
+    // standalone gallery uploads and legacy profile/cover files.
+    const rootRows = await listPrefix(userId);
+    const rows = Array.isArray(rootRows) ? rootRows.filter((row: any) =>
+      row.name?.toLowerCase().endsWith('.webp')
+    ).map((row: any) => ({ ...row, relativeName: row.name })) : [];
     return { photos: rows.map((row: any) => {
       const path = `${userId}/${row.relativeName}`;
+      const version = row.updated_at || row.created_at || row.metadata?.lastModified;
+      const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`;
       return {
         name: row.relativeName,
-        url: `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
+        // Avatar and cover objects use stable paths; version the gallery URL so
+        // an overwritten profile image cannot remain stale in the browser cache.
+        url: version ? `${baseUrl}?v=${encodeURIComponent(version)}` : baseUrl,
         size: Number(row.metadata?.size || 0),
       };
     }) };

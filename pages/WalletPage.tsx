@@ -61,7 +61,7 @@ export default function WalletPage() {
       <div style={styles.inner}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0 }}>LivMe Coins Wallet</h1>
+            <h1 data-onboarding-target="wallet" style={{ fontSize: 26, fontWeight: 800, margin: 0 }}>LivMe Coins Wallet</h1>
             <p style={{ color: palette.muted, fontSize: 13, margin: '6px 0 0' }}>Your balance and complete recent activity</p>
           </div>
           <button onClick={() => void loadWallet(true)} disabled={refreshing || loading} style={{ border: '1px solid ' + palette.border, borderRadius: 9, padding: '9px 12px', background: palette.surface, color: palette.text, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>

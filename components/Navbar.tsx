@@ -204,7 +204,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               { id: 'privacy', label: 'Privacy' },
               { id: 'terms', label: 'Terms' },
             ].map(t => (
-              <button key={t.id} onClick={() => nav(t.id)} style={{
+              <button key={t.id} data-onboarding-target={t.id} onClick={() => nav(t.id)} style={{
                 display: 'block', width: '100%', textAlign: 'left', padding: '10px 20px',
                 background: page === t.id ? 'rgba(108,99,255,0.12)' : 'transparent',
                 border: 'none', color: page === t.id ? (lightMode ? '#252a35' : '#fff') : (lightMode ? '#586171' : '#c4c4c4'), fontSize: 15,
@@ -234,9 +234,9 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
         <div style={styles.topLinks}>
           <button style={page === 'home' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('home')}>Home</button>
           {callActive && <button style={{ position: 'relative', color: '#4caf50', fontSize: 13, cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: 0, whiteSpace: 'nowrap', fontWeight: 600 }} onClick={() => setPage('chat')}>● Live</button>}
-          {user && <button style={page === 'settings' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('settings')}>Settings</button>}
-          {user && <button style={page === 'wallet' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('wallet')}>Wallet</button>}
-          {user && <button style={page === 'messages' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('messages')}>
+          {user && <button data-onboarding-target="settings" style={page === 'settings' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('settings')}>Settings</button>}
+          {user && <button data-onboarding-target="wallet" style={page === 'wallet' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('wallet')}>Wallet</button>}
+          {user && <button data-onboarding-target="messages" style={page === 'messages' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('messages')}>
             Messages
             {unreadCount > 0 && <span style={{
               position: 'absolute', top: -6, right: -14, minWidth: 16, height: 16,

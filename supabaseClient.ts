@@ -576,7 +576,7 @@ export async function sendMessage(receiverId: string, content: string): Promise<
   const trimmedContent = content.trim();
   if (!trimmedContent) return { error: 'Message is empty' };
   try {
-    const isCallLog = /^\\[livme-call\\]\\|(audio|video)\\|[0-9]+\\|completed$/.test(trimmedContent);
+    const isCallLog = /^\[livme-call\]\|(audio|video)\|[0-9]+\|completed$/.test(trimmedContent);
     const endpoint = isCallLog ? 'log_chat_call_message' : 'send_chat_message';
     const body = isCallLog
       ? { p_receiver_id: receiverId, p_content: trimmedContent }

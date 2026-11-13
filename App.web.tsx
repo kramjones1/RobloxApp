@@ -12,7 +12,7 @@ import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
 import TurnstileCaptcha from './components/TurnstileCaptcha';
-import OnboardingTour, { OnboardingStep } from './components/OnboardingTour';
+import OnboardingTour, { type OnboardingStep } from './components/OnboardingTour';
 import { getOnboardingProgress, saveOnboardingProgress } from './onboardingClient';
 
 // Keep preview/local testing isolated on the staging Worker. Production Pages

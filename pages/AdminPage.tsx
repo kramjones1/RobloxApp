@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { watchOperatorSessionCount } from '../chatPresence';
-import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins } from '../supabaseClient';
+import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins } from '../supabaseClient';
 
 const s = {
   page: { background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', padding: 24, overflowY: 'auto' as const },
@@ -40,6 +40,7 @@ export default function AdminPage() {
   const [coinAmount, setCoinAmount] = useState('');
   const [coinReason, setCoinReason] = useState('');
   const pendingCoinGrantRef = useRef<{ userId: string; amount: number; reason: string; requestId: string } | null>(null);
+  const pendingCoinDeductRef = useRef<{ userId: string; amount: number; reason: string; requestId: string } | null>(null);
   const [flagReason, setFlagReason] = useState('');
   const [banReason, setBanReason] = useState('');
   const [bannedUsers, setBannedUsers] = useState<any[]>([]);
@@ -214,6 +215,37 @@ export default function AdminPage() {
       () => adminAddLivmeCoins(userId, amount, reason, requestId),
       async () => {
         pendingCoinGrantRef.current = null;
+        setCoinAmount('');
+        setCoinReason('');
+        await refreshCoinWallet(userId);
+      }
+    );
+  }
+
+  async function submitManualCoinDeduct() {
+    const amount = Number(coinAmount);
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100000) {
+      setError('Enter a whole-number amount from 1 to 100,000 LC.');
+      return;
+    }
+    if (coinReason.trim().length < 3) {
+      setError('Enter a reason of at least 3 characters.');
+      return;
+    }
+    const reason = coinReason.trim();
+    const userId = selectedUser.user_id;
+    const pending = pendingCoinDeductRef.current;
+    const requestId = pending && pending.userId === userId && pending.amount === amount && pending.reason === reason
+      ? pending.requestId
+      : (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `manual-deduct-${Date.now()}-${userId}`);
+    // Reuse the same request ID on retries so an uncertain response cannot deduct twice.
+    pendingCoinDeductRef.current = { userId, amount, reason, requestId };
+    await runAction(
+      () => adminDeductLivmeCoins(userId, amount, reason, requestId),
+      async () => {
+        pendingCoinDeductRef.current = null;
         setCoinAmount('');
         setCoinReason('');
         await refreshCoinWallet(userId);
@@ -553,8 +585,11 @@ export default function AdminPage() {
                     <input style={{ ...s.input, width: 130 }} type="number" min="1" max="100000" step="1" inputMode="numeric" placeholder="Amount (LC)" value={coinAmount} onChange={e => setCoinAmount(e.target.value)} />
                     <input style={{ ...s.input, flex: 1, minWidth: 180 }} placeholder="Reason for manual credit (required)" value={coinReason} maxLength={240} onChange={e => setCoinReason(e.target.value)} />
                     <button style={s.btn} disabled={loading || !coinWallet || !coinAmount || coinReason.trim().length < 3} onClick={submitManualCoinAdd}>Add LC</button>
+                    <button style={s.btnDanger} disabled={loading || !coinWallet || !coinAmount || coinReason.trim().length < 3 || Number(coinAmount) > Number(coinWallet.total_balance ?? 0)} onClick={() => {
+                      if (window.confirm(`Deduct ${coinAmount} LC from this user's wallet? This cannot be undone.`)) submitManualCoinDeduct();
+                    }}>Deduct LC</button>
                   </div>
-                  <p style={{ color: '#777', fontSize: 11, marginTop: 7 }}>Manual credits go to promotional balance and are permanently recorded in the coin ledger with the operator and reason.</p>
+                  <p style={{ color: '#777', fontSize: 11, marginTop: 7 }}>Manual additions and deductions require an operator reason and are permanently recorded in the ledger. Deductions use promotional LC first, then purchased LC, and cannot exceed the wallet balance.</p>
                   {Array.isArray(coinWallet?.transactions) && coinWallet.transactions.length > 0 && (
                     <div style={{ marginTop: 12 }}>
                       <p style={{ color: '#aaa', fontSize: 11, marginBottom: 4 }}>Recent wallet activity</p>

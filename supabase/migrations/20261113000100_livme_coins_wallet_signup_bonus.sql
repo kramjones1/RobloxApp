@@ -13,7 +13,7 @@ create table if not exists public.coin_wallets (
 
 create table if not exists public.coin_transactions (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null,
   transaction_type text not null check (
     transaction_type in ('launch_bonus', 'signup_bonus', 'purchase', 'message_spend', 'refund', 'adjustment')
   ),

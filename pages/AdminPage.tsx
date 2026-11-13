@@ -583,7 +583,7 @@ export default function AdminPage() {
                   </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                     <input style={{ ...s.input, width: 130 }} type="number" min="1" max="100000" step="1" inputMode="numeric" placeholder="Amount (LC)" value={coinAmount} onChange={e => setCoinAmount(e.target.value)} />
-                    <input style={{ ...s.input, flex: 1, minWidth: 180 }} placeholder="Reason for manual credit (required)" value={coinReason} maxLength={240} onChange={e => setCoinReason(e.target.value)} />
+                    <input style={{ ...s.input, flex: 1, minWidth: 180 }} placeholder="Reason for adjustment (required)" value={coinReason} maxLength={240} onChange={e => setCoinReason(e.target.value)} />
                     <button style={s.btn} disabled={loading || !coinWallet || !coinAmount || coinReason.trim().length < 3} onClick={submitManualCoinAdd}>Add LC</button>
                     <button style={s.btnDanger} disabled={loading || !coinWallet || !coinAmount || coinReason.trim().length < 3 || Number(coinAmount) > Number(coinWallet.total_balance ?? 0)} onClick={() => {
                       if (window.confirm(`Deduct ${coinAmount} LC from this user's wallet? This cannot be undone.`)) submitManualCoinDeduct();
@@ -596,7 +596,7 @@ export default function AdminPage() {
                       {coinWallet.transactions.slice(0, 5).map((tx: any) => (
                         <div key={tx.id} style={{ ...s.row, fontSize: 11 }}>
                           <span>{tx.transaction_type?.replace(/_/g, ' ')} · {tx.metadata?.reason || tx.metadata?.adjustment_type || tx.coin_source}</span>
-                          <span style={{ color: tx.transaction_type === 'message_spend' ? '#ff8a80' : '#81c784', whiteSpace: 'nowrap' }}>{tx.transaction_type === 'message_spend' ? '−' : '+'}{tx.amount} LC</span>
+                          <span style={{ color: tx.transaction_type === 'message_spend' || tx.metadata?.adjustment_type === 'operator_manual_deduct' ? '#ff8a80' : '#81c784', whiteSpace: 'nowrap' }}>{tx.transaction_type === 'message_spend' || tx.metadata?.adjustment_type === 'operator_manual_deduct' ? '−' : '+'}{tx.amount} LC</span>
                         </div>
                       ))}
                     </div>

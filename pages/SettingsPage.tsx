@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import SupportChatPanel from './SupportChatPanel';
 
 const panel: React.CSSProperties = { maxWidth: 720, margin: '0 auto', padding: '28px 18px 48px', color: '#fff', fontFamily: 'system-ui, sans-serif' };
 const card: React.CSSProperties = { background: '#151515', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: 18, marginTop: 14 };
@@ -102,6 +103,11 @@ export default function SettingsPage({ userId }: { userId: string }) {
       <button type="button" disabled={busy} onClick={requestDevices} style={{ background: '#6c63ff', color: '#fff', border: 0, borderRadius: 8, padding: '11px 16px', fontWeight: 600, cursor: busy ? 'wait' : 'pointer', opacity: busy ? .6 : 1 }}>{busy ? 'Checking devices…' : 'Enable Camera & Microphone'}</button>
       {message && <p role="status" style={{ color: light ? '#4d5563' : '#ccc', fontSize: 13, lineHeight: 1.5, margin: '12px 0 0' }}>{message}</p>}
       <p style={{ color: light ? '#737987' : '#777', fontSize: 12, lineHeight: 1.5, margin: '14px 0 0' }}>Note: Browser permissions are controlled by your browser or device. This setting cannot override a denial or force Always Allow. If access is blocked, open your browser site settings and change Camera and Microphone to Allow.</p>
+    </section>
+    <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>
+      <h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Help & Support</h2>
+      <p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.5, margin: '0 0 12px' }}>Contact the LivMe team and follow your support conversations here.</p>
+      <SupportChatPanel user={{ id: userId }} />
     </section>
   </main>;
 }

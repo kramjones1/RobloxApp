@@ -534,30 +534,79 @@ export interface ChatMessage {
   read: boolean;
 }
 
-export async function sendMessage(receiverId: string, content: string): Promise<{ error?: string }> {
+export interface CoinWallet {
+  total_balance: number;
+  purchased_balance: number;
+  promotional_balance: number;
+}
+
+export async function getCoinWallet(): Promise<{ wallet?: CoinWallet; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
-  if (!content.trim()) return { error: 'Message is empty' };
   try {
-    const banned = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/is_user_banned`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ check_id: user.id }),
-    });
-    if (banned === true) return { error: 'Your account has been suspended.' };
-    const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_messages`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender_id: user.id, receiver_id: receiverId, content: content.trim(),
-      }),
-    });
-    if (res?.error) return { error: res.error };
-    return {};
+    const rows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/coin_wallets?user_id=eq.${encodeURIComponent(user.id)}&select=total_balance,purchased_balance,promotional_balance&limit=1`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+    );
+    if (rows?.error) return { error: rows.error };
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { wallet: { total_balance: 0, purchased_balance: 0, promotional_balance: 0 } };
+    }
+    return { wallet: rows[0] as CoinWallet };
   } catch (e: any) {
-    return { error: e.message };
+    return { error: e.message || 'Could not load LivMe Coins balance' };
+  }
+}
+
+function createChatMessageRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
+    const r = Math.random() * 16 | 0;
+    return (ch === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+export async function sendMessage(receiverId: string, content: string, requestId?: string): Promise<{ error?: string; balance?: number; charged?: boolean }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  const trimmedContent = content.trim();
+  if (!trimmedContent) return { error: 'Message is empty' };
+  try {
+    const isCallLog = /^\[livme-call\]\|(audio|video)\|[0-9]+\|completed$/.test(trimmedContent);
+    const endpoint = isCallLog ? 'log_chat_call_message' : 'send_chat_message';
+    const body = isCallLog
+      ? { p_receiver_id: receiverId, p_content: trimmedContent }
+      : { p_message_id: requestId || createChatMessageRequestId(), p_receiver_id: receiverId, p_content: trimmedContent };
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (result?.error) {
+      const errorMap: Record<string, string> = {
+        AUTH_REQUIRED: 'Please sign in again.',
+        ACCOUNT_SUSPENDED: 'Your account has been suspended.',
+        INSUFFICIENT_LC: 'You need 1 LC to send this message, but your balance is empty.',
+        INVALID_RECIPIENT: 'This recipient is not available.',
+        RECIPIENT_NOT_FOUND: 'This user could not be found.',
+        MESSAGE_LENGTH_INVALID: 'Messages must be between 1 and 2,000 characters.',
+      };
+      return { error: errorMap[result.error] || result.error };
+    }
+    if (result?.ok === false && result.code === 'INSUFFICIENT_LC') {
+      return { error: 'You need 1 LC to send this message. Your current balance is 0 LC.', balance: Number(result.balance || 0) };
+    }
+    if (result?.ok !== true) return { error: 'Message could not be sent. Please try again.' };
+    if (typeof window !== 'undefined' && !isCallLog) {
+      window.dispatchEvent(new CustomEvent('liveme-coins-updated'));
+    }
+    return { balance: typeof result.balance === 'number' ? result.balance : undefined, charged: Boolean(result.charged) };
+  } catch (e: any) {
+    return { error: e.message || 'Could not send message' };
   }
 }
 export async function hideConversation(partnerId: string): Promise<{ error?: string }> {

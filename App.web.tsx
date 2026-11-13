@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, exchangeRecoveryCode, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import { startUserPresence, startOperatorSessionPresence } from './chatPresence';
 import Navbar from './components/Navbar';
@@ -217,6 +217,24 @@ export default function WebApp() {
     } catch {}
     const recoveryQuery = new URLSearchParams(window.location.search);
     const recoveryHash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const recoveryCode = recoveryQuery.get('code');
+    if (recoveryCode) {
+      history.replaceState(null, '', window.location.pathname);
+      setAuthLoading(true);
+      void (async () => {
+        const exchanged = await exchangeRecoveryCode(recoveryCode);
+        if (exchanged.error || !exchanged.access_token) {
+          setAuthMsg(exchanged.error || 'This password reset link is invalid or has expired. Request a new one.');
+          setAuthLoading(false);
+          return;
+        }
+        const result = await setSessionToken(exchanged.access_token, exchanged.refresh_token, true);
+        if (result.error) setAuthMsg(result.error);
+        else setRecoveryMode(true);
+        setAuthLoading(false);
+      })();
+      return;
+    }
     const tokenHash = recoveryQuery.get('token_hash') || recoveryHash.get('token_hash');
     if (tokenHash && (recoveryQuery.get('type') === 'recovery' || recoveryHash.get('type') === 'recovery')) {
       history.replaceState(null, '', window.location.pathname);

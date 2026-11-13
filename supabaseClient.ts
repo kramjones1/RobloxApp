@@ -345,6 +345,35 @@ export async function resetPassword(email: string, redirectTo?: string, captchaT
   }
 }
 
+export async function exchangeRecoveryCode(code: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
+  try {
+    // Supabase PKCE redirects store the verifier in localStorage under the
+    // project's auth storage key. Accept the standard key and compatible
+    // auth-token verifier keys without ever sending a missing verifier.
+    let verifier: string | null = null;
+    try {
+      const suffix = '-auth-token-code-verifier';
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.endsWith(suffix)) continue;
+        const stored = localStorage.getItem(key);
+        if (stored) { verifier = stored.split('/')[0]; break; }
+      }
+    } catch {}
+    if (!verifier) return { error: 'This password reset link is missing its security verifier. Please request a new reset email.' };
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
+    });
+    if (data.error) return { error: data.error };
+    if (!data.access_token) return { error: 'This password reset link is invalid or has expired. Request a new one.' };
+    return { access_token: data.access_token, refresh_token: data.refresh_token || '' };
+  } catch (e: any) {
+    return { error: e.message || 'Could not exchange password reset code.' };
+  }
+}
+
 export async function verifyRecoveryToken(tokenHash: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
   try {
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/verify`, {

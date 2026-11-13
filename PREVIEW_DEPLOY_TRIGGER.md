@@ -1,0 +1,1 @@
+Trigger isolated onboarding preview deployment after adding automatic creation of the separate Cloudflare Pages preview project.

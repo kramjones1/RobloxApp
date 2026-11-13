@@ -146,3 +146,5 @@ jobs:
 # Deploy final LivMe Coins Operator retry safety and charge enforcement 2026-11-13
 
 # Deploy Operator LC deduction controls 2026-11-13
+
+# Deploy corrected Operator LC ledger debit display 2026-11-13

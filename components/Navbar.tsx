@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { getCoinWallet } from '../supabaseClient';
 
 interface NavbarProps {
   page: string;
@@ -90,6 +91,7 @@ const styles = {
 
 export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0, callActive = false, admin = false, avatar }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [coinBalance, setCoinBalance] = useState<number | null>(null);
   const [lightMode, setLightMode] = useState(() => document.documentElement.dataset.theme === 'light');
   useEffect(() => {
     const syncTheme = () => setLightMode(document.documentElement.dataset.theme === 'light');
@@ -97,6 +99,26 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
     window.addEventListener('liveme-theme-change', syncTheme);
     return () => window.removeEventListener('liveme-theme-change', syncTheme);
   }, []);
+  useEffect(() => {
+    if (!user?.id) {
+      setCoinBalance(null);
+      return;
+    }
+    let active = true;
+    const refreshCoins = async () => {
+      const result = await getCoinWallet();
+      if (active && result.wallet) setCoinBalance(Number(result.wallet.total_balance || 0));
+    };
+    void refreshCoins();
+    const interval = window.setInterval(refreshCoins, 30000);
+    window.addEventListener('liveme-coins-updated', refreshCoins);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener('liveme-coins-updated', refreshCoins);
+    };
+  }, [user?.id]);
+
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -130,7 +152,16 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
             background: 'linear-gradient(135deg, #6c63ff, #2a6eff)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
           }} onClick={() => nav('home')}>LiveMe</span>
-          <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {user && coinBalance !== null && (
+              <span aria-label={`LivMe Coins balance: ${coinBalance} LC`} style={{
+                marginBottom: 9, padding: '5px 9px', borderRadius: 14,
+                background: lightMode ? '#f0edff' : 'rgba(108,99,255,0.18)',
+                border: lightMode ? '1px solid #ded8ff' : '1px solid rgba(108,99,255,0.35)',
+                color: lightMode ? '#5548b8' : '#c4bcff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+              }}>◈ {coinBalance} LC</span>
+            )}
+            <div style={{ position: 'relative' }}>
             <button onClick={() => setMenuOpen(o => !o)} style={{
               background: 'none', border: 'none', color: lightMode ? '#20232a' : '#fff', fontSize: 24,
               cursor: 'pointer', marginBottom: 10, padding: '0 0 0 8px',
@@ -146,6 +177,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               position: 'absolute', bottom: 2, right: -2, width: 10, height: 10,
               borderRadius: '50%', background: '#4caf50', border: '2px solid rgba(10,10,10,0.92)',
             }} />}
+            </div>
           </div>
         </div>
         {menuOpen && (
@@ -212,12 +244,20 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               padding: '0 4px', lineHeight: 1,
             }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </button>}
-          {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Operator</button>}
+          {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Admin</button>}
           <button style={page === 'privacy' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('privacy')}>Privacy</button>
           <button style={page === 'terms' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('terms')}>Terms</button>
         </div>
         {user && (
           <div style={styles.userSection}>
+            {coinBalance !== null && (
+              <span aria-label={`LivMe Coins balance: ${coinBalance} LC`} style={{
+                padding: '5px 10px', borderRadius: 14,
+                background: lightMode ? '#f0edff' : 'rgba(108,99,255,0.18)',
+                border: lightMode ? '1px solid #ded8ff' : '1px solid rgba(108,99,255,0.35)',
+                color: lightMode ? '#5548b8' : '#c4bcff', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+              }}>◈ {coinBalance} LC</span>
+            )}
             <div style={{ cursor: 'pointer' }} onClick={() => setPage('profile')}>
               {avatar ? <img src={avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} /> : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#333', flexShrink: 0 }} />}
             </div>

@@ -18,7 +18,7 @@ import { saveOnboardingProgress } from './onboardingClient';
 // Keep preview/local testing isolated on the staging Worker. Production Pages
 // must use the migrated production Worker so it receives the production fixes.
 const IS_STAGING = typeof window !== 'undefined' &&
-  (window.location.hostname.includes('deploy-preview-') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  (window.location.hostname.includes('deploy-preview-') || window.location.hostname.endsWith('.livme-onboarding-preview.pages.dev') || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const WS_URL = IS_STAGING
   ? 'wss://omegle-signaling-server.kafka9607.workers.dev'
   : 'wss://omegle-signaling-cloudflare.kafka9607.workers.dev';

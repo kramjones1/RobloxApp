@@ -51,7 +51,7 @@ export default function TurnstileCaptcha({ onVerify, resetKey = 0 }: { onVerify:
 
     return () => {
       cancelled = true;
-      if (widgetIdRef.current && window.turnstile) window.turnstile.remove(widgetIdRef.current);
+      if (widgetIdRef.current && window.turnstile) { window.turnstile.remove(widgetIdRef.current); widgetIdRef.current = null; }
     };
   }, [onVerify, resetKey]);
 

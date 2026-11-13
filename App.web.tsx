@@ -138,6 +138,7 @@ export default function WebApp() {
   const [authMsg, setAuthMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
@@ -343,6 +344,7 @@ export default function WebApp() {
       setSubmitting(true);
       const res = await signUp(normalizedEmail, password, captchaToken);
       setCaptchaToken('');
+      setCaptchaResetKey(v => v + 1);
       setSubmitting(false);
       if (res.error) { setAuthMsg(res.error); return; }
       setEmail(normalizedEmail);
@@ -1233,7 +1235,7 @@ If no other apps are open:
                   </>
                 ) : (
                   <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
-                    <TurnstileCaptcha onVerify={setCaptchaToken} /><input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
+                    <TurnstileCaptcha onVerify={setCaptchaToken} resetKey={captchaResetKey} /><input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
                     <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
                       {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                     </button>
@@ -1320,6 +1322,7 @@ If no other apps are open:
                 onGoogleSignIn={() => { setAuthMsg(''); signInWithGoogle(); }}
                 onGitHubSignIn={() => { setAuthMsg(''); signInWithGitHub(); }}
                 captchaToken={captchaToken}
+                captchaResetKey={captchaResetKey}
                 onCaptchaVerify={setCaptchaToken}
               />
             </div>

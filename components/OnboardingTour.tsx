@@ -37,8 +37,8 @@ export default function OnboardingTour({ initialStep = 'profile_photo', complete
     if (busy) return;
     if (step === 'profile_photo') { onNavigate('profile'); return; }
     if (step === 'discover') { onNavigate('home'); return; }
-    if (step === 'random_call') { onStartCallDemo(); return; }
-    if (step === 'conversation') { onStartConversation(); return; }
+    if (step === 'random_call') { onStartCallDemo(); const nextDone = [...new Set([...done, step])]; await onStepChange('conversation', nextDone); setDone(nextDone); setStep('conversation'); return; }
+    if (step === 'conversation') { onStartConversation(); const nextDone = [...new Set([...done, step])]; await onStepChange('coins', nextDone); setDone(nextDone); setStep('coins'); return; }
     if (step === 'coins') { onNavigate('wallet'); return; }
     if (step === 'safety') { onNavigate('settings'); return; }
     if (step === 'complete') { onFinish(); return; }
@@ -70,10 +70,10 @@ export default function OnboardingTour({ initialStep = 'profile_photo', complete
       <h2 id="livme-onboarding-title" style={{ fontSize: 25, margin: '0 0 12px', lineHeight: 1.2 }}>{current.title}</h2>
       <p style={{ color: '#c2c2ce', fontSize: 15, lineHeight: 1.65, margin: '0 0 24px' }}>{current.body}</p>
       <button type="button" disabled={busy} onClick={() => {
-        if (step === 'profile_photo') void continueFrom('profile');
+        if (step === 'profile_photo') onNavigate('profile');
         else if (step === 'discover') void continueFrom('home');
-        else if (step === 'random_call') onStartCallDemo();
-        else if (step === 'conversation') onStartConversation();
+        else if (step === 'random_call') void advance();
+        else if (step === 'conversation') void advance();
         else if (step === 'coins') void continueFrom('wallet');
         else if (step === 'safety') void continueFrom('settings');
         else void advance();

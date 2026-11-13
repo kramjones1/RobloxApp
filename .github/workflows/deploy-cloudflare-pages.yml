@@ -17,6 +17,8 @@ on:
     paths:
       - '**'
       - '!README.md'
+      - '!.github/workflows/deploy-cloudflare-pages.yml'
+      - '!.github/workflows/deploy-onboarding-preview.yml'
 
 permissions:
   contents: read

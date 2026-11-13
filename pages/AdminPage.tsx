@@ -32,7 +32,10 @@ export default function AdminPage() {
   const [userPage, setUserPage] = useState(0);
   const userPageSize = 50;
   const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [userMessages, setUserMessages] = useState<any[] | null>(null);\n  const [coinWallet, setCoinWallet] = useState<any>(null);\n  const [coinAmount, setCoinAmount] = useState('');\n  const [coinReason, setCoinReason] = useState('');
+  const [userMessages, setUserMessages] = useState<any[] | null>(null);
+  const [coinWallet, setCoinWallet] = useState<any>(null);
+  const [coinAmount, setCoinAmount] = useState('');
+  const [coinReason, setCoinReason] = useState('');
   const [flagReason, setFlagReason] = useState('');
   const [banReason, setBanReason] = useState('');
   const [bannedUsers, setBannedUsers] = useState<any[]>([]);
@@ -380,7 +383,7 @@ export default function AdminPage() {
                       {coinWallet.transactions.slice(0, 5).map((tx: any) => (
                         <div key={tx.id} style={{ ...s.row, fontSize: 11 }}>
                           <span>{tx.transaction_type?.replace(/_/g, ' ')} · {tx.metadata?.reason || tx.metadata?.adjustment_type || tx.coin_source}</span>
-                          <span style={{ color: '#81c784', whiteSpace: 'nowrap' }}>+{tx.amount} LC</span>
+                          <span style={{ color: '#81c784', whiteSpace: 'nowrap' }}>+{tx.transaction_type === 'message_spend' ? '−' : '+'}{tx.amount} LC</span>
                         </div>
                       ))}
                     </div>

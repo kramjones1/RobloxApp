@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import AdminSupportInbox from './AdminSupportInbox';
 import { watchOperatorSessionCount } from '../chatPresence';
 import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins } from '../supabaseClient';
 
@@ -22,7 +23,7 @@ const s = {
   badge: { background: '#f44336', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700, marginLeft: 6 },
 };
 
-type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs';
+type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs' | 'support';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -279,6 +280,7 @@ export default function AdminPage() {
       { id: 'reports', label: `Reports${reports.filter(r => !r.dismissed).length > 0 ? ` (${reports.filter(r => !r.dismissed).length})` : ''}` },
       { id: 'bans', label: 'Bans' },
       { id: 'logs', label: 'Logs' },
+      { id: 'support', label: 'Support' },
     ];
     return <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)', overflowX: 'auto' as const }}>
       {tabs.map(t => (
@@ -630,6 +632,8 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {tab === 'support' && <AdminSupportInbox />}
+
         {/* REPORTS */}
         {tab === 'reports' && (
           <div>

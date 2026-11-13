@@ -12,6 +12,8 @@ import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
 import TurnstileCaptcha from './components/TurnstileCaptcha';
+import OnboardingTour, { OnboardingStep } from './components/OnboardingTour';
+import { saveOnboardingProgress } from './onboardingClient';
 
 // Keep preview/local testing isolated on the staging Worker. Production Pages
 // must use the migrated production Worker so it receives the production fixes.
@@ -147,6 +149,9 @@ export default function WebApp() {
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'dob' | 'name' | 'bio' | null>(null);
+  const [onboardingTourActive, setOnboardingTourActive] = useState(false);
+  const [onboardingTourStep, setOnboardingTourStep] = useState<OnboardingStep>('profile_photo');
+  const [onboardingTourDone, setOnboardingTourDone] = useState<string[]>([]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [liveUsers, setLiveUsers] = useState<{ id: string; user_id: string; name: string; avatar: string; bio: string }[]>([]);
   const [liveTs, setLiveTs] = useState(0);
@@ -204,6 +209,21 @@ export default function WebApp() {
     return () => clearInterval(iv);
   }, []);
 
+
+  async function handleTourStepChange(step: OnboardingStep, completed: string[]) {
+    const result = await saveOnboardingProgress(step, completed);
+    if (result.error) throw new Error(result.error);
+    setOnboardingTourStep(step);
+    setOnboardingTourDone(completed);
+  }
+
+  async function handleAvatarSaved() {
+    const completed = Array.from(new Set([...onboardingTourDone, 'profile_photo']));
+    const result = await saveOnboardingProgress('discover', completed);
+    if (result.error) { setAuthMsg('Your photo was saved, but onboarding progress could not be saved. Please try again.'); return; }
+    setOnboardingTourDone(completed);
+    setOnboardingTourStep('discover');
+  }
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
@@ -517,7 +537,7 @@ export default function WebApp() {
       const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob, terms_accepted_at: new Date().toISOString(), terms_version: '2026-11-11' } as any);
       setSubmitting(false);
       if (error) setAuthMsg(error);
-      else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); }
+      else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); setOnboardingTourDone([]); setOnboardingTourStep('profile_photo'); setOnboardingTourActive(true); void saveOnboardingProgress('profile_photo', []); }
     }
   }
 
@@ -1371,7 +1391,7 @@ export default function WebApp() {
           {page === 'profile' && (
             <div className="page-content profile-page-shell" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} />
+              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} onAvatarSaved={handleAvatarSaved} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1379,7 +1399,7 @@ export default function WebApp() {
           {page === 'settings' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <SettingsPage userId={user?.id || ''} />
+              <SettingsPage userId={user?.id || ''} onReplayOnboarding={() => { setOnboardingTourStep('profile_photo'); setOnboardingTourDone([]); setOnboardingTourActive(true); }} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1476,6 +1496,27 @@ export default function WebApp() {
         </>
       )}
 
+
+
+      {onboardingTourActive && user?.id && (
+        <OnboardingTour
+          initialStep={onboardingTourStep}
+          completedSteps={onboardingTourDone}
+          onStepChange={handleTourStepChange}
+          onNavigate={(destination) => setPage(destination)}
+          onStartCallDemo={() => {
+            window.alert(underage
+              ? 'Random video calls are restricted to adults. This introduction will continue without starting a call.'
+              : 'Demo call: this is a tutorial preview only. No real person is connected and you are not placed in the matching queue.');
+          }}
+          onStartConversation={() => setPage('messages')}
+          onFinish={() => {
+            void handleTourStepChange('complete', Array.from(new Set([...onboardingTourDone, 'safety', 'complete'])))
+              .then(() => setOnboardingTourActive(false))
+              .catch(error => setAuthMsg(error?.message || 'Could not finish onboarding.'));
+          }}
+        />
+      )}
 
       {onboardingStep === 'welcome' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>

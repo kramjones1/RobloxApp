@@ -32,13 +32,15 @@ export default function SupportChatWidget({ user, admin = false }: Props) {
     else setMessages(result.messages || []);
   };
 
-  const loadUserConversations = async () => {
+  const loadUserConversations = async (showList = true) => {
     const result = await getSupportConversations();
     if (result.error) { setError(result.error); setMode('new'); return; }
     const rows = result.conversations || [];
     setConversations(rows);
-    if (rows.length) setMode('list');
-    else setMode('new');
+    if (showList) {
+      if (rows.length) setMode('list');
+      else setMode('new');
+    }
   };
 
   useEffect(() => {
@@ -121,7 +123,7 @@ export default function SupportChatWidget({ user, admin = false }: Props) {
       setDraft('');
       const id = user ? selected?.id : guestSession?.conversationId;
       if (id) await loadMessages(id);
-      if (user) await loadUserConversations();
+      if (user) await loadUserConversations(false);
     } catch (e: any) { setError(e.message || 'Could not send message.'); }
     finally { setBusy(false); }
   }

@@ -534,30 +534,79 @@ export interface ChatMessage {
   read: boolean;
 }
 
-export async function sendMessage(receiverId: string, content: string): Promise<{ error?: string }> {
+export interface CoinWallet {
+  total_balance: number;
+  purchased_balance: number;
+  promotional_balance: number;
+}
+
+export async function getCoinWallet(): Promise<{ wallet?: CoinWallet; error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
-  if (!content.trim()) return { error: 'Message is empty' };
   try {
-    const banned = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/is_user_banned`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ check_id: user.id }),
-    });
-    if (banned === true) return { error: 'Your account has been suspended.' };
-    const res = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_messages`, {
-      method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sender_id: user.id, receiver_id: receiverId, content: content.trim(),
-      }),
-    });
-    if (res?.error) return { error: res.error };
-    return {};
+    const rows = await supabaseFetch(
+      `${SUPABASE_URL}/rest/v1/coin_wallets?user_id=eq.${encodeURIComponent(user.id)}&select=total_balance,purchased_balance,promotional_balance&limit=1`,
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
+    );
+    if (rows?.error) return { error: rows.error };
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { wallet: { total_balance: 0, purchased_balance: 0, promotional_balance: 0 } };
+    }
+    return { wallet: rows[0] as CoinWallet };
   } catch (e: any) {
-    return { error: e.message };
+    return { error: e.message || 'Could not load LivMe Coins balance' };
+  }
+}
+
+function createChatMessageRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, ch => {
+    const r = Math.random() * 16 | 0;
+    return (ch === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+export async function sendMessage(receiverId: string, content: string, requestId?: string): Promise<{ error?: string; balance?: number; charged?: boolean }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  const user = parseJwt(token);
+  if (!user) return { error: 'Invalid token' };
+  const trimmedContent = content.trim();
+  if (!trimmedContent) return { error: 'Message is empty' };
+  try {
+    const isCallLog = /^\[livme-call\]\|(audio|video)\|[0-9]+\|completed$/.test(trimmedContent);
+    const endpoint = isCallLog ? 'log_chat_call_message' : 'send_chat_message';
+    const body = isCallLog
+      ? { p_receiver_id: receiverId, p_content: trimmedContent }
+      : { p_message_id: requestId || createChatMessageRequestId(), p_receiver_id: receiverId, p_content: trimmedContent };
+    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/rpc/${endpoint}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (result?.error) {
+      const errorMap: Record<string, string> = {
+        AUTH_REQUIRED: 'Please sign in again.',
+        ACCOUNT_SUSPENDED: 'Your account has been suspended.',
+        INSUFFICIENT_LC: 'You need 1 LC to send this message, but your balance is empty.',
+        INVALID_RECIPIENT: 'This recipient is not available.',
+        RECIPIENT_NOT_FOUND: 'This user could not be found.',
+        MESSAGE_LENGTH_INVALID: 'Messages must be between 1 and 2,000 characters.',
+      };
+      return { error: errorMap[result.error] || result.error };
+    }
+    if (result?.ok === false && result.code === 'INSUFFICIENT_LC') {
+      return { error: 'You need 1 LC to send this message. Your current balance is 0 LC.', balance: Number(result.balance || 0) };
+    }
+    if (result?.ok !== true) return { error: 'Message could not be sent. Please try again.' };
+    if (typeof window !== 'undefined' && !isCallLog) {
+      window.dispatchEvent(new CustomEvent('liveme-coins-updated'));
+    }
+    return { balance: typeof result.balance === 'number' ? result.balance : undefined, charged: Boolean(result.charged) };
+  } catch (e: any) {
+    return { error: e.message || 'Could not send message' };
   }
 }
 export async function hideConversation(partnerId: string): Promise<{ error?: string }> {
@@ -724,39 +773,6 @@ export async function upsertChatProfile(profile: ChatProfile): Promise<{ error?:
   }
 }
 
-export async function updateChatProfilePhoto(slot: 'avatar' | 'cover', url: string): Promise<{ error?: string }> {
-  const token = getStoredSession();
-  if (!token) return { error: 'Not authenticated' };
-  const user = parseJwt(token);
-  if (!user?.id) return { error: 'Invalid token' };
-  const column = slot === 'avatar' ? 'avatar_url' : 'cover_url';
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 12000);
-  try {
-    // Upsert only the selected photo column. This also handles accounts that
-    // do not yet have a chat_profiles row without overwriting the other slot.
-    const result = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_profiles?on_conflict=user_id&select=user_id`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=representation',
-      },
-      body: JSON.stringify({ user_id: user.id, [column]: url, updated_at: new Date().toISOString() }),
-    });
-    if (result?.error) return { error: result.error };
-    if (!Array.isArray(result) || result.length !== 1 || result[0]?.user_id !== user.id) {
-      return { error: 'The photo uploaded, but your profile record was not updated. Please refresh and try again.' };
-    }
-    return {};
-  } catch (error: any) {
-    return { error: error?.name === 'AbortError' ? 'Profile save timed out after 12 seconds. Your photo upload did not finish saving to the profile.' : (error?.message || 'Could not save the photo to your profile.') };
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
 export async function saveRecentLive(partnerId: string, name: string, bio: string, avatar: string): Promise<{ error?: string }> {
   const token = getStoredSession();
   if (!token) return { error: 'Not authenticated' };
@@ -1109,12 +1125,9 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
   if (imagePaths.length > 5) return { error: 'You can add up to 5 photos per post.' };
   if (imagePaths.some(path => !path.startsWith(`${user.id}/posts/`) || !path.endsWith('.webp'))) return { error: 'Invalid post photo path.' };
   if (clean.length > 500) return { error: 'Posts are limited to 500 characters.' };
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), 15000);
   try {
     const rows = await supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=id,user_id,content,image_paths,created_at`, {
       method: 'POST',
-      signal: controller.signal,
       headers: {
         apikey: SUPABASE_ANON_KEY,
         Authorization: `Bearer ${token}`,
@@ -1125,44 +1138,39 @@ export async function createProfilePost(content: string, imagePaths: string[] = 
     });
     if (rows?.error) return { error: rows.error };
     if (!Array.isArray(rows) || !rows[0]) return { error: 'Post was not saved.' };
-    // Return the saved post immediately. Retention cleanup is deliberately
-    // best-effort and runs in the background so Storage listing/deletion latency
-    // cannot keep the preview or publishing spinner open.
-    void (async () => {
-      try {
-        const [savedPosts, storedImages] = await Promise.all([
-          supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=image_paths&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc&limit=100`, {
-            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
-            method: 'POST',
-            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prefix: `${user.id}/posts`, limit: 1000, offset: 0 }),
-          }),
-        ]);
-        const newPostIsConfirmed = Array.isArray(savedPosts) && savedPosts.some((row: any) =>
-          imagePaths.length === 0 || imagePaths.every(path => (row.image_paths || []).includes(path))
-        );
-        if (newPostIsConfirmed && storedImages.ok) {
-          const keep = new Set(savedPosts.flatMap((row: any) => row.image_paths || []));
-          const files = await storedImages.json();
-          const stale = (Array.isArray(files) ? files : [])
-            .filter((file: any) => typeof file.name === 'string' && file.name.endsWith('.webp'))
-            .map((file: any) => `${user.id}/posts/${file.name}`)
-            .filter((path: string) => !keep.has(path));
-          if (stale.length) await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
-            method: 'DELETE',
-            headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prefixes: stale }),
-          });
-        }
-      } catch { /* Cleanup can retry after the next successful post. */ }
-    })();
-    return { post: { ...rows[0], is_private: rows[0].is_private ?? false, reactions: [], comments: [] } as ChatPost };
+    // The database retains the latest 100 posts. Remove any post-image objects
+    // that are no longer referenced after the retention trigger has run.
+    try {
+      const [savedPosts, storedImages] = await Promise.all([
+        supabaseFetch(`${SUPABASE_URL}/rest/v1/chat_posts?select=image_paths&user_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc&limit=100`, {
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${SUPABASE_URL}/storage/v1/object/list/profile-photos`, {
+          method: 'POST',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefix: `${user.id}/posts`, limit: 1000, offset: 0 }),
+        }),
+      ]);
+      const newPostIsConfirmed = Array.isArray(savedPosts) && savedPosts.some((row: any) =>
+        imagePaths.length === 0 || imagePaths.every(path => (row.image_paths || []).includes(path))
+      );
+      if (newPostIsConfirmed && storedImages.ok) {
+        const keep = new Set(savedPosts.flatMap((row: any) => row.image_paths || []));
+        const files = await storedImages.json();
+        const stale = (Array.isArray(files) ? files : [])
+          .filter((file: any) => typeof file.name === 'string' && file.name.endsWith('.webp'))
+          .map((file: any) => `${user.id}/posts/${file.name}`)
+          .filter((path: string) => !keep.has(path));
+        if (stale.length) await fetch(`${SUPABASE_URL}/storage/v1/object/profile-photos`, {
+          method: 'DELETE',
+          headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefixes: stale }),
+        });
+      }
+    } catch { /* Cleanup can retry after the next successful post. */ }
+    return { post: rows[0] as ChatPost };
   } catch (e: any) {
-    return { error: e?.name === 'AbortError' ? 'Creating the photo post timed out after 15 seconds. Please try again.' : (e.message || 'Could not publish post') };
-  } finally {
-    window.clearTimeout(timeoutId);
+    return { error: e.message || 'Could not publish post' };
   }
 }
 
@@ -1373,22 +1381,20 @@ export async function getProfilePhotos(userId: string): Promise<{ photos?: Profi
       if (!response.ok) throw new Error((await response.text()) || 'Could not load photos.');
       return await response.json();
     };
-    // Post images are rendered from chat_posts so Photos shows the full
-    // original post, not a detached Storage thumbnail. This list is only for
-    // standalone gallery uploads and legacy profile/cover files.
-    const rootRows = await listPrefix(userId);
-    const rows = Array.isArray(rootRows) ? rootRows.filter((row: any) =>
-      row.name?.toLowerCase().endsWith('.webp')
-    ).map((row: any) => ({ ...row, relativeName: row.name })) : [];
+    const [rootRows, postRows] = await Promise.all([listPrefix(userId), listPrefix(`${userId}/posts`)]);
+    const rows = [
+      ...(Array.isArray(rootRows) ? rootRows.filter((row: any) =>
+        row.name?.toLowerCase().endsWith('.webp') &&
+        row.name !== 'avatar.webp' &&
+        row.name !== 'cover.webp'
+      ).map((row: any) => ({ ...row, relativeName: row.name })) : []),
+      ...(Array.isArray(postRows) ? postRows.filter((row: any) => row.name?.toLowerCase().endsWith('.webp')).map((row: any) => ({ ...row, relativeName: `posts/${row.name}` })) : []),
+    ];
     return { photos: rows.map((row: any) => {
       const path = `${userId}/${row.relativeName}`;
-      const version = row.updated_at || row.created_at || row.metadata?.lastModified;
-      const baseUrl = `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`;
       return {
         name: row.relativeName,
-        // Avatar and cover objects use stable paths; version the gallery URL so
-        // an overwritten profile image cannot remain stale in the browser cache.
-        url: version ? `${baseUrl}?v=${encodeURIComponent(version)}` : baseUrl,
+        url: `${SUPABASE_URL}/storage/v1/object/public/profile-photos/${path.split('/').map(encodeURIComponent).join('/')}`,
         size: Number(row.metadata?.size || 0),
       };
     }) };

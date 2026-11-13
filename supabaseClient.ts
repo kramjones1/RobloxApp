@@ -234,10 +234,10 @@ export async function getValidAccessToken(): Promise<string | null> {
   return validToken;
 }
 
-export async function setSessionToken(token: string | null, refreshToken?: string | null): Promise<{ error?: string }> {
+export async function setSessionToken(token: string | null, refreshToken?: string | null, skipBrowserBinding = false): Promise<{ error?: string }> {
   const existing = getStoredTokens();
   if (token) {
-    const binding = await claimBrowserAccount(token);
+    const binding = skipBrowserBinding ? {} : await claimBrowserAccount(token);
     if (binding.error) return { error: binding.error === 'BROWSER_ACCOUNT_MISMATCH'
       ? 'This browser is already linked to another LiveMe account. Sign in with the account originally used on this browser.'
       : 'We could not verify this browser. Please try again.' };
@@ -342,6 +342,21 @@ export async function resetPassword(email: string, redirectTo?: string, captchaT
     return {};
   } catch (e: any) {
     return { error: e.message || 'Network error' };
+  }
+}
+
+export async function verifyRecoveryToken(tokenHash: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
+  try {
+    const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ type: 'recovery', token: tokenHash }),
+    });
+    if (data.error) return { error: data.error };
+    if (!data.access_token) return { error: 'This password reset link is invalid or has expired. Request a new one and try again.' };
+    return { access_token: data.access_token, refresh_token: data.refresh_token || '' };
+  } catch (e: any) {
+    return { error: e.message || 'Could not verify password reset link.' };
   }
 }
 

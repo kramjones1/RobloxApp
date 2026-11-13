@@ -389,8 +389,10 @@ export async function verifyRecoveryToken(tokenHash: string): Promise<{ access_t
   }
 }
 
-export async function updatePassword(newPassword: string): Promise<{ error?: string }> {
-  const token = getStoredSession();
+export async function updatePassword(newPassword: string, recoveryToken?: string | null): Promise<{ error?: string }> {
+  // Use the verified recovery token directly as a fallback if browser storage
+  // is unavailable or has not persisted the session yet.
+  const token = recoveryToken || getStoredSession();
   if (!token) return { error: 'Not authenticated' };
   try {
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/user`, {

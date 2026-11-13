@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import { startUserPresence, startOperatorSessionPresence } from './chatPresence';
 import Navbar from './components/Navbar';
@@ -215,6 +215,26 @@ export default function WebApp() {
       oauthLogin = sessionStorage.getItem('liveme-oauth-login') === '1';
       sessionStorage.removeItem('liveme-oauth-login');
     } catch {}
+    const recoveryQuery = new URLSearchParams(window.location.search);
+    const recoveryHash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const tokenHash = recoveryQuery.get('token_hash') || recoveryHash.get('token_hash');
+    if (tokenHash && (recoveryQuery.get('type') === 'recovery' || recoveryHash.get('type') === 'recovery')) {
+      history.replaceState(null, '', window.location.pathname);
+      setAuthLoading(true);
+      void (async () => {
+        const verified = await verifyRecoveryToken(tokenHash);
+        if (verified.error || !verified.access_token) {
+          setAuthMsg(verified.error || 'This password reset link is invalid or has expired. Request a new one.');
+          setAuthLoading(false);
+          return;
+        }
+        const result = await setSessionToken(verified.access_token, verified.refresh_token, true);
+        if (result.error) setAuthMsg(result.error);
+        else setRecoveryMode(true);
+        setAuthLoading(false);
+      })();
+      return;
+    }
     const hash = window.location.hash;
     if (hash.includes('access_token=')) {
       const params = new URLSearchParams(hash.slice(1));
@@ -228,7 +248,7 @@ export default function WebApp() {
         }
         history.replaceState(null, '', window.location.pathname + window.location.search);
         setAuthLoading(true);
-        void setSessionToken(token, params.get('refresh_token')).then(result => {
+        void setSessionToken(token, params.get('refresh_token'), type === 'recovery').then(result => {
           if (result.error) {
             setAuthMsg(result.error);
             setAuthLoading(false);
@@ -275,7 +295,7 @@ export default function WebApp() {
     // Listen for OAuth tokens from popup windows
     async function handleOAuthMessage(e: MessageEvent) {
       if (e.origin !== window.location.origin || e.data?.type !== 'oauth_token') return;
-      const binding = await setSessionToken(e.data.access_token, e.data.refresh_token);
+      const binding = await setSessionToken(e.data.access_token, e.data.refresh_token, e.data.oauthType === 'recovery');
       history.replaceState(null, '', window.location.pathname + window.location.search);
       if (binding.error) { setAuthMsg(binding.error); return; }
       const oauthType = e.data.oauthType;

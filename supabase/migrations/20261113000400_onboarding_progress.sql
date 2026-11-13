@@ -31,3 +31,6 @@ create policy "Users can update own onboarding progress"
 
 create index if not exists onboarding_progress_updated_at_idx
   on public.onboarding_progress (updated_at desc);
+
+-- The table is exposed through the Data API only to authenticated users; RLS scopes rows to auth.uid().
+grant select, insert, update on public.onboarding_progress to authenticated;

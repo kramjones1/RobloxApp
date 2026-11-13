@@ -14,6 +14,7 @@ interface Props {
   viewUserId?: string | null;
   onViewProfile?: (userId: string) => void;
   onClearView?: () => void;
+  onAvatarSaved?: () => void;
 }
 
 function formatCommentTimestamp(value: string): string {
@@ -305,7 +306,7 @@ if (!document.getElementById('profile-hover-styles')) {
   document.head.appendChild(hoverStyles);
 }
 
-export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView }: Props) {
+export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView, onAvatarSaved }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
   const [bio, setBio] = useState('');
   const [work, setWork] = useState('');
@@ -847,6 +848,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setMsg('');
     try {
       await saveProfilePhoto(file, 'avatar', setAvatarSaveStage);
+      onAvatarSaved?.();
     } catch (error: any) {
       setAvatarSaveStage('Save stopped');
       setMsg(error.message || 'Could not save this profile picture.');

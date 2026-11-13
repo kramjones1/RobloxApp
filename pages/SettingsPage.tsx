@@ -4,7 +4,7 @@ import SupportChatPanel from './SupportChatPanel';
 const panel: React.CSSProperties = { maxWidth: 720, margin: '0 auto', padding: '28px 18px 48px', color: '#fff', fontFamily: 'system-ui, sans-serif' };
 const card: React.CSSProperties = { background: '#151515', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: 18, marginTop: 14 };
 
-export default function SettingsPage({ userId }: { userId: string }) {
+export default function SettingsPage({ userId, onReplayOnboarding }: { userId: string; onReplayOnboarding?: () => void }) {
   const key = 'liveme-media-auto-request:' + userId;
   const [autoRequest, setAutoRequest] = useState(true);
   const [camera, setCamera] = useState('Checking…');
@@ -81,6 +81,7 @@ export default function SettingsPage({ userId }: { userId: string }) {
   return <main style={{ ...panel, color: light ? '#20232a' : '#fff' }}>
     <h1 style={{ fontSize: 26, margin: '0 0 6px' }}>Settings</h1>
     <p style={{ color: light ? '#626875' : '#999', fontSize: 14, lineHeight: 1.5 }}>Manage your appearance and camera/microphone access.</p>
+    {onReplayOnboarding && <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}><h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Getting started</h2><p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.5, margin: '0 0 12px' }}>Replay the interactive introduction to LivMe.</p><button type="button" onClick={onReplayOnboarding} style={{ background: '#6c63ff', color: '#fff', border: 0, borderRadius: 8, padding: '11px 16px', fontWeight: 600, cursor: 'pointer' }}>Replay onboarding</button></section>}
     <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>
       <h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Appearance</h2>
       <p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.5, margin: '0 0 14px' }}>Choose how LiveMe looks on this device. Your choice is saved automatically.</p>

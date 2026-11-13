@@ -146,6 +146,7 @@ interface Props {
   onGoogleSignIn?: () => void;
   onGitHubSignIn?: () => void;
   captchaToken?: string;
+  captchaResetKey?: number;
   onCaptchaVerify?: (token: string) => void;
 }
 
@@ -154,7 +155,7 @@ export default function LandingPage({
   onEmailChange, onPasswordChange, showPassword, onTogglePassword, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
-  onGoogleSignIn, onGitHubSignIn, captchaToken, onCaptchaVerify,
+  onGoogleSignIn, onGitHubSignIn, captchaToken, captchaResetKey, onCaptchaVerify,
 }: Props) {
   const showAuth = !!onSubmit;
   return (
@@ -190,7 +191,7 @@ export default function LandingPage({
                     </>
                   ) : (
                     <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} />
+                      <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} resetKey={captchaResetKey} />
                       <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
                       <button type="submit" disabled={submitting || !captchaToken || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
                         {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}

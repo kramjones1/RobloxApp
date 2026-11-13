@@ -1,0 +1,32 @@
+name: LivMe Coins staging validation
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - 'supabaseClient.ts'
+      - 'pages/MessagesPage.tsx'
+      - 'components/Navbar.tsx'
+      - 'supabase/migrations/**'
+      - '.github/workflows/livme-coins-validation.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  validate-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: staging
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Export web build
+        run: npx expo export --platform web

@@ -13,7 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
 import TurnstileCaptcha from './components/TurnstileCaptcha';
 import OnboardingTour, { OnboardingStep } from './components/OnboardingTour';
-import { saveOnboardingProgress } from './onboardingClient';
+import { getOnboardingProgress, saveOnboardingProgress } from './onboardingClient';
 
 // Keep preview/local testing isolated on the staging Worker. Production Pages
 // must use the migrated production Worker so it receives the production fixes.
@@ -225,6 +225,16 @@ export default function WebApp() {
     setOnboardingTourStep('discover');
   }
 
+  async function resumeOnboardingIfNeeded() {
+    const { progress, error } = await getOnboardingProgress();
+    if (error || !progress || progress.completed_at) return;
+    const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
+    const step = validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step as OnboardingStep : 'profile_photo';
+    setOnboardingTourDone(progress.completed_steps || []);
+    setOnboardingTourStep(step);
+    setOnboardingTourActive(true);
+  }
+
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
     setPage(p);
@@ -323,6 +333,7 @@ export default function WebApp() {
           if (profile) {
             setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
             if (oauthLogin) setPage('profile');
+            void resumeOnboardingIfNeeded();
           } else {
             setOnboardingStep('welcome');
           }
@@ -350,6 +361,7 @@ export default function WebApp() {
           if (profile) {
             setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
             setPage('profile');
+            void resumeOnboardingIfNeeded();
           } else setOnboardingStep('welcome');
         });
       }
@@ -357,7 +369,7 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile, error }) => { if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; } if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('welcome'); }); }
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile, error }) => { if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; } if (profile) { setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); void resumeOnboardingIfNeeded(); } else setOnboardingStep('welcome'); }); }
       else { setAdmin(false); setMyProfile(null); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };

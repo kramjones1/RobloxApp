@@ -1,0 +1,47 @@
+name: Deploy onboarding preview to Cloudflare Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Branch or ref to build
+        required: true
+        default: feature/spotlight-onboarding-tour
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: livme-onboarding-preview
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout selected onboarding source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: Point app to the current LivMe signaling worker
+        run: sed -i 's/omegle-signaling-server\.kafka9607\.workers\.dev/omegle-signaling-cloudflare.kafka9607.workers.dev/g' App.web.tsx
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build web app
+        run: npx expo export --platform web
+
+      - name: Deploy isolated onboarding preview
+        run: npx wrangler pages deploy dist --project-name=livme-onboarding-preview --branch=onboarding-test
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

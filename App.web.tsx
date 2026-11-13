@@ -1411,7 +1411,7 @@ export default function WebApp() {
           {page === 'settings' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <SettingsPage userId={user?.id || ''} onReplayOnboarding={() => { setOnboardingTourStep('profile_photo'); setOnboardingTourDone([]); setOnboardingTourActive(true); }} />
+              <SettingsPage userId={user?.id || ''} onReplayOnboarding={() => { setOnboardingTourStep('discover'); setOnboardingTourDone(['profile_photo']); setOnboardingTourActive(true); }} />
               <Footer setPage={handleNav} />
             </div>
           )}

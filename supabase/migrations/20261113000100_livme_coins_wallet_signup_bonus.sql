@@ -45,8 +45,8 @@ create policy "Users can view their own coin transactions"
   to authenticated
   using ((select auth.uid()) = user_id);
 
-revoke all on public.coin_wallets from anon, authenticated;
-revoke all on public.coin_transactions from anon, authenticated;
+revoke all on public.coin_wallets from public, anon, authenticated;
+revoke all on public.coin_transactions from public, anon, authenticated;
 grant select on public.coin_wallets to authenticated;
 grant select on public.coin_transactions to authenticated;
 
@@ -64,6 +64,7 @@ set search_path = ''
 as $$
 declare
   v_balance integer;
+  v_total_balance integer;
   v_transaction_id uuid;
 begin
   if p_transaction_type not in ('launch_bonus', 'signup_bonus') then
@@ -74,8 +75,8 @@ begin
   values (p_user_id)
   on conflict (user_id) do nothing;
 
-  select promotional_balance
-    into v_balance
+  select promotional_balance, total_balance
+    into v_balance, v_total_balance
     from public.coin_wallets
     where user_id = p_user_id
     for update;
@@ -94,7 +95,7 @@ begin
     p_transaction_type,
     'promotional',
     100,
-    v_balance + 100,
+    v_total_balance + 100,
     p_idempotency_key,
     jsonb_build_object('reason', case
       when p_transaction_type = 'launch_bonus' then 'one-time existing-user launch grant'

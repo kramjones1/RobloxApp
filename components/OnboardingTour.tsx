@@ -26,10 +26,18 @@ const steps: Step[] = [
 function findTarget(selectors: string[]): HTMLElement | null {
   for (const selector of selectors) {
     try {
-      const found = selector.startsWith('text:')
-        ? Array.from(document.querySelectorAll('button,a,[role="button"]')).find(node => (node.textContent || '').trim().toLowerCase().includes(selector.slice(5))) as HTMLElement | undefined
-        : selector.includes(':has-text(') ? null : document.querySelector(selector) as HTMLElement | null;
-      if (found && found.getClientRects().length && found.getAttribute('aria-hidden') !== 'true') return found;
+      const candidates = selector.startsWith('text:')
+        ? Array.from(document.querySelectorAll('button,a,[role="button"],h1,h2,h3'))
+            .filter(node => (node.textContent || '').trim().toLowerCase().includes(selector.slice(5)))
+        : Array.from(document.querySelectorAll(selector));
+      const visible = candidates.find(node => {
+        const element = node as HTMLElement;
+        return element.getClientRects().length > 0
+          && element.getAttribute('aria-hidden') !== 'true'
+          && getComputedStyle(element).visibility !== 'hidden'
+          && getComputedStyle(element).display !== 'none';
+      }) as HTMLElement | undefined;
+      if (visible) return visible;
     } catch {}
   }
   return null;

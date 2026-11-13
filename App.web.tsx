@@ -11,7 +11,6 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
-import SupportChatWidget from './pages/SupportChatWidget';
 import TurnstileCaptcha from './components/TurnstileCaptcha';
 
 // Keep preview/local testing isolated on the staging Worker. Production Pages
@@ -1437,7 +1436,6 @@ export default function WebApp() {
         </>
       )}
 
-      <SupportChatWidget user={user} admin={admin} />
 
       {onboardingStep === 'welcome' && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>

@@ -903,7 +903,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
       if (!response.ok) throw new Error('Could not open this gallery photo.');
       const blob = await response.blob();
       const file = new File([blob], photo.name.split('/').pop() || 'gallery-photo.webp', { type: blob.type || 'image/webp' });
-      if (slot === 'avatar') openAvatarEditor(file);
+      if (slot === 'avatar') await saveProfilePhoto(file, 'avatar');
       else await saveProfilePhoto(file, 'cover');
     } catch (error: any) {
       setMsg(error.message || 'Could not use this photo.');

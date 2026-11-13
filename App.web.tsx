@@ -826,7 +826,7 @@ export default function WebApp() {
       const camFail = e.message?.includes('Could not start');
       if (denied) setCamError('Camera or microphone permission denied. Allow BOTH devices for LiveMe in your browser settings, then try again.');
       else if (notFound) setCamError('A camera or microphone could not be found on this device.');
-      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\\n\\nIf no other apps are open:\\n• Open Task Manager and end ALL Chrome processes\\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\\n• Or try a different browser (Firefox, Edge)');
+      else if (inUse) setCamError('Camera or microphone is in use by another app or tab. Close Zoom, OBS, or other camera apps and try again.\n\nIf no other apps are open:\n• Open Task Manager and end ALL Chrome processes\n• Check Windows: Settings → Privacy & Security → Camera → turn ON "Let desktop apps access your camera"\n• Or try a different browser (Firefox, Edge)');
       else if (camFail) setCamError('Camera or microphone failed to start. Try restarting your browser or reconnecting your devices.');
       else setCamError('Could not access both camera and microphone: ' + (e.message || e.name));
       addLog('Error: ' + (e.message || e.name));

@@ -115,6 +115,7 @@ export default function OnboardingTour({
   async function handleNext() {
     if (busy) return;
     if (step === 'complete') { onFinish(); return; }
+    if (current.destination && !findTarget(current.target)) { onNavigate(current.destination); return; }
     if (step === 'random_call') {
       onStartCallDemo();
       await saveAndMove('conversation');
@@ -127,7 +128,8 @@ export default function OnboardingTour({
     }
     const next = steps[Math.min(index + 1, steps.length - 1)].id;
     await saveAndMove(next);
-    if (current.destination) onNavigate(current.destination);
+    const nextStep = steps.find(item => item.id === next);
+    if (nextStep?.destination) onNavigate(nextStep.destination);
   }
 
   async function handleBack() {
@@ -150,7 +152,6 @@ export default function OnboardingTour({
     }
   }
 
-  const pad = 9;
   const rect = targetRect;
   const topHeight = rect ? Math.max(0, rect.top) : 0;
   const leftWidth = rect ? Math.max(0, rect.left) : 0;

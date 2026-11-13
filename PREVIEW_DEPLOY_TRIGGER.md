@@ -1,1 +1,1 @@
-This pull request exists only to trigger the isolated onboarding preview workflow. The workflow builds feature/spotlight-onboarding-tour and deploys it to the separate livme-onboarding-preview Pages project. It does not merge application changes into production.
+Trigger isolated onboarding preview deployment after adding automatic creation of the separate Cloudflare Pages preview project.

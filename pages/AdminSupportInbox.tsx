@@ -53,7 +53,7 @@ export default function AdminSupportInbox() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 0.85fr) minmax(0, 1.5fr)', gap: 14, minHeight: 500 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth < 700 ? '1fr' : 'minmax(220px, 0.85fr) minmax(0, 1.5fr)', gap: 14, minHeight: 500 }}>
       <section style={{ background: '#1f1f1f', borderRadius: 12, padding: 14, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
           <strong style={{ color: '#fff', fontSize: 14 }}>Support Inbox</strong>

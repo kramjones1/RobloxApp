@@ -7,6 +7,12 @@ on:
     paths:
       - '**'
       - '!README.md'
+  pull_request:
+    branches:
+      - production
+    paths:
+      - '**'
+      - '!README.md'
 
 permissions:
   contents: read
@@ -17,6 +23,7 @@ concurrency:
 
 jobs:
   deploy-preview:
+    if: github.event_name == 'push' || github.head_ref == 'feature/animated-onboarding'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout onboarding feature branch

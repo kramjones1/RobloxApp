@@ -244,7 +244,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               padding: '0 4px', lineHeight: 1,
             }}>{unreadCount > 9 ? '9+' : unreadCount}</span>}
           </button>}
-          {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Admin</button>}
+          {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Operator</button>}
           <button style={page === 'privacy' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('privacy')}>Privacy</button>
           <button style={page === 'terms' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('terms')}>Terms</button>
         </div>

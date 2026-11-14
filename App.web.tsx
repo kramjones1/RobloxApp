@@ -1136,7 +1136,7 @@ export default function WebApp() {
     );
   }
 
-  if (onboardingStep && onboardingStep !== 'welcome') {
+  if (onboardingStep && onboardingStep !== 'welcome' && onboardingStep !== 'terms') {
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
         <OnboardingConfetti />

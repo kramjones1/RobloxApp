@@ -1606,13 +1606,11 @@ export default function WebApp() {
             </div>
           )}
 
-          {page === 'messages' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} onChatOpened={() => getConversations().then(({ conversations }) => { if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0)); })} />
-              {window.innerWidth >= 700 && <Footer setPage={handleNav} />}
-            </div>
-          )}
+          <div className="page-content" style={{ width: '100%', height: '100%', display: page === 'messages' ? 'flex' : 'none', flexDirection: 'column' }}>
+            {page === 'messages' && <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />}
+            <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} onChatOpened={() => getConversations().then(({ conversations }) => { if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0)); })} />
+            {page === 'messages' && window.innerWidth >= 700 && <Footer setPage={handleNav} />}
+          </div>
 
           {page === 'home' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const, overflowX: 'hidden' as const, maxWidth: '100%' }}>

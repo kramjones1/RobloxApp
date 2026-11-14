@@ -182,17 +182,19 @@ async function compressProfileImage(file: File): Promise<File> {
   // to WebP before it reaches storage.
   const decoded = await decodeProfileImage(file);
   try {
-    // Bound mobile CPU work: use a small, descending set of canvas sizes
-    // and qualities instead of dozens of sequential WebP encodes. Covers are
-    // already cropped to a wide 1200px output, so they usually pass early.
+    // Keep every stored profile image at or below 50 KB. Progressively
+    // reduce dimensions and quality so large phone photos can still upload.
     const attempts = [
-      { maxSide: 1280, quality: 0.76 },
-      { maxSide: 1024, quality: 0.66 },
-      { maxSide: 896, quality: 0.56 },
-      { maxSide: 768, quality: 0.46 },
-      { maxSide: 640, quality: 0.38 },
-      { maxSide: 512, quality: 0.32 },
-      { maxSide: 384, quality: 0.28 },
+      { maxSide: 1280, quality: 0.62 },
+      { maxSide: 1024, quality: 0.52 },
+      { maxSide: 896, quality: 0.44 },
+      { maxSide: 768, quality: 0.36 },
+      { maxSide: 640, quality: 0.30 },
+      { maxSide: 512, quality: 0.24 },
+      { maxSide: 384, quality: 0.20 },
+      { maxSide: 320, quality: 0.17 },
+      { maxSide: 256, quality: 0.14 },
+      { maxSide: 192, quality: 0.12 },
     ];
     for (const attempt of attempts) {
       const scale = Math.min(1, attempt.maxSide / Math.max(decoded.width, decoded.height));
@@ -203,14 +205,14 @@ async function compressProfileImage(file: File): Promise<File> {
       if (!context) throw new Error('Image compression is not supported in this browser.');
       context.drawImage(decoded.source, 0, 0, canvas.width, canvas.height);
       const blob = await canvasToWebPBlob(canvas, attempt.quality);
-      if (blob.size <= 200 * 1024) {
+      if (blob.size <= 50 * 1024) {
         return new File([blob], 'profile-photo.webp', { type: 'image/webp', lastModified: Date.now() });
       }
     }
   } finally {
     decoded.cleanup();
   }
-  throw new Error('This image cannot be compressed below 200 KB. Please choose a smaller image.');
+  throw new Error('This image cannot be compressed below 50 KB. Please choose a simpler or smaller image.');
 }
 
 
@@ -811,7 +813,12 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover', onStage?: (stage: string) => void) {
     // Profile and cover changes are ordinary photo posts. The post's image
     // path is the canonical file used by both the profile header and Photos tab.
-    const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 200 * 1024
+    const existingImageCount = posts.reduce((total, post) => total + (post.image_paths?.length || 0), 0) + profilePhotos.length;
+    const replacingExistingSlot = Boolean(slot === 'avatar' ? avatarUrl : coverUrl);
+    if (!replacingExistingSlot && existingImageCount >= 10) {
+      throw new Error('Storage limit reached: maximum 10 stored images per account, including profile and cover photos.');
+    }
+    const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 50 * 1024
       ? file
       : await compressProfileImage(file);
     onStage?.('Uploading photo…');
@@ -903,6 +910,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    if (posts.reduce((total, post) => total + (post.image_paths?.length || 0), 0) + profilePhotos.length >= 10) {
+      setMsg('Storage limit reached: maximum 10 stored images per account, including profile and cover photos.');
+      return;
+    }
     setUploadingGallery(true);
     setMsg('');
     let uploadedName = '';
@@ -1056,9 +1067,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
             <section className="profile-section" style={s.card}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
                 <h2 style={{ ...s.cardTitle, margin: 0 }}>Photos</h2>
-                {canEdit && <button type="button" disabled={uploadingGallery || profilePhotos.length >= 25} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
+                {canEdit && <button type="button" disabled={uploadingGallery || galleryPhotos.length >= 10} onClick={() => galleryInputRef.current?.click()} style={{ ...s.toggleBtn, background: '#39348a', color: '#fff', opacity: uploadingGallery || profilePhotos.length >= 25 ? .5 : 1 }}>{uploadingGallery ? 'Uploading…' : 'Add photo'}</button>}
               </div>
-              {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{galleryPhotos.length}/25 photos · max 200 KB each · 5 MB total · WebP only</p>}
+              {canEdit && <p style={{ color: '#777', fontSize: 11, margin: '0 0 12px' }}>{galleryPhotos.length}/10 photos · max 50 KB each · 500 KB total · WebP only</p>}
               {canEdit && msg && <p style={{ color: msg.includes('saved') || msg.includes('deleted') ? '#4caf50' : '#f44336', fontSize: 12 }}>{msg}</p>}
               {photosLoading || postsLoading ? <p style={{ color: '#777', fontSize: 13 }}>Loading photos…</p> :
                 galleryPhotos.length === 0 ? <p style={{ color: '#777', fontSize: 13 }}>No photos yet.</p> :

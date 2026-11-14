@@ -162,6 +162,7 @@ export default function WebApp() {
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'terms' | 'dob' | 'name' | 'bio' | null>(null);
   const [onboardingTourActive, setOnboardingTourActive] = useState(false);
+  const [showOnboardingThankYou, setShowOnboardingThankYou] = useState(false);
   const [onboardingTourStep, setOnboardingTourStep] = useState<OnboardingStep>('profile_photo');
   const [onboardingTourDone, setOnboardingTourDone] = useState<string[]>([]);
   const [welcomeResume, setWelcomeResume] = useState<{ step: string; completed: string[]; completedAt: string | null } | null>(null);
@@ -1600,9 +1601,41 @@ export default function WebApp() {
             await handleTourStepChange('complete', Array.from(new Set([...onboardingTourDone, 'safety', 'complete'])));
             setOnboardingTourActive(false);
             handleNav('profile');
+            setShowOnboardingThankYou(true);
+            window.setTimeout(() => setShowOnboardingThankYou(false), 6500);
           }}
         />
         </>
+      )}
+
+      {showOnboardingThankYou && page === 'profile' && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Thank you for joining LiveMe"
+          onClick={() => setShowOnboardingThankYou(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 10050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(5,5,18,.78)', backdropFilter: 'blur(5px)' }}
+        >
+          <style>{`
+            @keyframes livmeCannonPop { 0% { transform: translateY(45px) scale(.35) rotate(-18deg); opacity: 0; } 65% { transform: translateY(-8px) scale(1.12) rotate(5deg); opacity: 1; } 100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; } }
+            @keyframes livmeCelebrationBurst { 0% { transform: translate(0,0) scale(.2) rotate(0); opacity: 0; } 18% { opacity: 1; } 100% { transform: translate(var(--burst-x),var(--burst-y)) scale(1.15) rotate(220deg); opacity: 0; } }
+            @keyframes livmeThankYouGlow { 0%,100% { text-shadow: 0 0 12px rgba(125,105,255,.25); } 50% { text-shadow: 0 0 28px rgba(0,212,255,.8); } }
+          `}</style>
+          <div onClick={e => e.stopPropagation()} style={{ position: 'relative', width: 'min(100%,420px)', textAlign: 'center', padding: '34px 24px 28px', borderRadius: 24, border: '1px solid rgba(151,139,255,.55)', background: 'linear-gradient(155deg,#24213f,#111321 72%)', boxShadow: '0 0 70px rgba(108,99,255,.28),0 22px 70px rgba(0,0,0,.6)', overflow: 'hidden' }}>
+            <div style={{ position: 'relative', height: 150, display: 'grid', placeItems: 'center' }}>
+              <div style={{ position: 'absolute', fontSize: 76, lineHeight: 1, animation: 'livmeCannonPop .65s cubic-bezier(.2,.8,.2,1) both', filter: 'drop-shadow(0 0 22px rgba(0,212,255,.45))' }}>🎉</div>
+              {Array.from({ length: 18 }, (_, i) => {
+                const angle = (i / 18) * Math.PI * 2;
+                const distance = 88 + (i % 3) * 22;
+                return <span key={i} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: i % 2 ? 9 : 12, height: i % 2 ? 13 : 8, borderRadius: 3, background: ['#9b8cff','#00d4ff','#ffd166','#ff6b9d','#70e1a1'][i % 5], ['--burst-x' as any]: `${Math.cos(angle) * distance}px`, ['--burst-y' as any]: `${Math.sin(angle) * distance}px`, animation: `livmeCelebrationBurst 1.35s ${(i % 6) * .055}s ease-out both` }} />;
+              })}
+            </div>
+            <p style={{ color: '#aaa5ff', fontSize: 11, fontWeight: 800, letterSpacing: 2.2, margin: '0 0 9px' }}>YOU'RE OFFICIALLY IN</p>
+            <h2 style={{ color: '#fff', fontSize: 29, lineHeight: 1.15, fontWeight: 850, margin: '0 0 12px', animation: 'livmeThankYouGlow 2s ease-in-out infinite' }}>Thank you for joining us!</h2>
+            <p style={{ color: '#c7c7d8', fontSize: 14, lineHeight: 1.6, margin: '0 0 22px' }}>Welcome to LiveMe. Your journey starts here — make connections, share your story, and enjoy the community.</p>
+            <button type="button" onClick={() => setShowOnboardingThankYou(false)} style={{ ...mobileBtn, width: '100%', background: 'linear-gradient(100deg,#6258e8,#2676ed)' }}>Let's go!</button>
+          </div>
+        </div>
       )}
 
       {(onboardingStep === 'welcome' || onboardingStep === 'terms') && (

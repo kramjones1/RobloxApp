@@ -708,7 +708,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(255,255,255,.07)', paddingTop: 10 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button type="button" onClick={() => postImagesInputRef.current?.click()} disabled={postImages.length >= 5 || posting} style={{ border: 0, borderRadius: 9, padding: '9px 11px', background: 'rgba(108,99,255,.16)', color: '#b7b2ff', cursor: 'pointer', fontSize: 12 }}>＋ Photo {postImages.length ? `(${postImages.length}/5)` : ''}</button>
-                  <span style={{ color: '#777', fontSize: 10 }}>Max 5 photos · 200 KB each</span>
+                  <span style={{ color: '#777', fontSize: 10 }}>Max 5 photos · 50 KB each</span>
                 </div>
                 <span style={{ color: '#777', fontSize: 11 }}>{postText.length}/500</span>
               </div>

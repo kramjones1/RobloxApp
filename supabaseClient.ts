@@ -479,13 +479,13 @@ async function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToke
 function startOAuthSignIn(provider: 'google' | 'github', captchaToken: string): boolean {
   if (!captchaToken) return false;
   // Open synchronously during the click to avoid popup blockers while PKCE is prepared.
-  try { sessionStorage.setItem('liveme-oauth-pending', '1'); } catch {}
+  try { localStorage.setItem('liveme-oauth-pending', '1'); } catch {}
   const popup = window.open('about:blank', provider + '-oauth', 'width=600,height=700,popup=1');
   void buildOAuthAuthorizeUrl(provider, captchaToken).then(url => {
     if (popup && !popup.closed) popup.location.href = url;
     else window.location.href = url;
   }).catch(() => {
-    try { sessionStorage.removeItem('liveme-oauth-pending'); } catch {}
+    try { localStorage.removeItem('liveme-oauth-pending'); } catch {}
     if (popup && !popup.closed) popup.close();
   });
   return true;

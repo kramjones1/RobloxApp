@@ -6,6 +6,8 @@ type Page = 'profile' | 'terms' | 'privacy' | 'home';
 interface Props {
   onNav: (p: Page) => void;
   user: any;
+  onAvatarSaved?: () => Promise<void> | void;
+  onboardingPhotoRequired?: boolean;
   onMessage?: (userId: string) => void;
   viewUserId?: string | null;
   onViewProfile?: (userId: string) => void;
@@ -72,7 +74,7 @@ if (!document.getElementById('profile-hover-styles')) {
   document.head.appendChild(hoverStyles);
 }
 
-export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView }: Props) {
+export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView, onAvatarSaved, onboardingPhotoRequired = false }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
   const [bio, setBio] = useState('');
   const [shareName, setShareName] = useState(false);
@@ -134,15 +136,22 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 500 * 1024) { setMsg('Image must be under 500KB'); return; }
+    if (file.size > 500 * 1024) { setMsg('Image must be under 500KB'); e.target.value = ''; return; }
     setUploadingAvatar(true);
+    setMsg('');
     try {
       const url = await readFileAsDataURL(file);
+      const result = await upsertChatProfile({ display_name: displayName, bio, avatar_url: url, cover_url: coverUrl, share_name: shareName, share_bio: shareBio });
+      if (result.error) { setMsg(result.error); return; }
       setAvatarUrl(url);
       localStorage.setItem('profile_avatar', url);
-      upsertChatProfile({ display_name: displayName, bio, avatar_url: url, cover_url: coverUrl, share_name: shareName, share_bio: shareBio }).catch(() => {});
-    } catch { setMsg('Failed to read avatar'); }
-    setUploadingAvatar(false);
+      await onAvatarSaved?.();
+    } catch (error: any) {
+      setMsg(error?.message || 'Could not save your profile picture. Please try again.');
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
   }
 
   async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -222,16 +231,19 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
         <div className="profile-avatar-wrap" style={s.avatarWrap}>
           <div className="avatar-circle profile-avatar" style={s.avatar}
+            data-onboarding-allow-profile-photo="true"
+            role="button" aria-label="Change profile picture" tabIndex={0}
             onTouchStart={() => startLongPress(() => avatarInputRef.current?.click())}
             onTouchEnd={cancelLongPress} onTouchCancel={cancelLongPress}
             onMouseDown={() => startLongPress(() => avatarInputRef.current?.click())}
             onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
-            onClick={(e) => { if (window.innerWidth >= 700) { e.preventDefault(); avatarInputRef.current?.click(); } }}>
+            onClick={(e) => { e.preventDefault(); avatarInputRef.current?.click(); }}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); avatarInputRef.current?.click(); } }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
             <span className="av-overlay" style={s.avatarOverlay}>{uploadingAvatar ? '...' : 'Edit'}</span>
           </div>
         </div>
-        <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
+        <input ref={avatarInputRef} data-onboarding-allow-profile-photo="true" type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
 
         <div className="profile-name-section" style={s.nameSection}>
           <h1 style={s.name}>{displayName}</h1>

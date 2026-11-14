@@ -814,8 +814,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     // Profile and cover changes are ordinary photo posts. The post's image
     // path is the canonical file used by both the profile header and Photos tab.
     const existingImageCount = posts.reduce((total, post) => total + (post.image_paths?.length || 0), 0) + profilePhotos.length;
-    const replacingExistingSlot = Boolean(slot === 'avatar' ? avatarUrl : coverUrl);
-    if (!replacingExistingSlot && existingImageCount >= 10) {
+    if (existingImageCount >= 10) {
       throw new Error('Storage limit reached: maximum 10 stored images per account, including profile and cover photos.');
     }
     const uploadFile = file.type === 'image/webp' && file.size > 0 && file.size <= 50 * 1024

@@ -144,6 +144,7 @@ interface Props {
   onBackToSignIn?: () => void;
   onGoogleSignIn?: () => void;
   onGitHubSignIn?: () => void;
+  captchaWidget?: React.ReactNode;
 }
 
 export default function LandingPage({
@@ -151,7 +152,7 @@ export default function LandingPage({
   onEmailChange, onPasswordChange, showPassword, onTogglePassword, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
-  onGoogleSignIn, onGitHubSignIn,
+  onGoogleSignIn, onGitHubSignIn, captchaWidget,
 }: Props) {
   const showAuth = !!onSubmit;
   return (
@@ -187,6 +188,7 @@ export default function LandingPage({
                     </>
                   ) : (
                     <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {captchaWidget}
                       <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
                       <button type="submit" disabled={submitting || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
                         {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
@@ -201,6 +203,7 @@ export default function LandingPage({
                   <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
                   <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
                   <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {captchaWidget}
                     <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
                     <div style={{ position: 'relative', width: '100%' }}>
                       <input style={{ ...s.input, paddingRight: 64 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />

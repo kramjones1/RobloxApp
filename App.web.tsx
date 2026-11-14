@@ -13,7 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
 import TurnstileCaptcha from './components/TurnstileCaptcha';
 import OnboardingTour, { type OnboardingStep } from './components/OnboardingTour';
-import { getOnboardingProgress, saveOnboardingProgress } from './onboardingClient';
+import { getOnboardingProgress, saveOnboardingProgress, acknowledgeWelcome, WELCOME_ACK_MARKER } from './onboardingClient';
 
 // Keep preview/local testing isolated on the staging Worker. Production Pages
 // must use the migrated production Worker so it receives the production fixes.
@@ -245,8 +245,8 @@ export default function WebApp() {
     if (getSession()?.id !== requestUserId) return;
     if (error) { setAuthMsg(error); return; }
     const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
-    if (!progress || progress.version < 3) {
-      // Version 3 records explicit acceptance of the Welcome screen; tour completion is independent.
+    if (!progress || !progress.completed_steps?.includes(WELCOME_ACK_MARKER)) {
+      // Explicit Welcome acknowledgement is stored as its own marker, separate from tour version/progress.
       // Preserve any saved tour position so accepting Welcome resumes exactly where the user stopped.
       setWelcomeResume(progress ? {
         step: validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step : 'profile_photo',
@@ -552,15 +552,15 @@ export default function WebApp() {
     setAuthMsg('');
     if (onboardingStep === 'welcome') {
       if (!agreedToTerms) { setAuthMsg('You must agree to the terms to continue.'); return; }
+      // Record acceptance independently of the tour's version and completion state.
+      setSubmitting(true);
+      const acknowledgement = await acknowledgeWelcome();
+      setSubmitting(false);
+      if (acknowledgement.error) { setAuthMsg(acknowledgement.error); return; }
       if (myProfile) {
-        // Preserve an existing account's saved tour position while recording the Welcome acknowledgement.
         const resumeStep = welcomeResume?.step || 'profile_photo';
         const completed = welcomeResume?.completed || [];
         const alreadyCompleted = Boolean(welcomeResume?.completedAt) || resumeStep === 'complete';
-        setSubmitting(true);
-        const result = await saveOnboardingProgress(alreadyCompleted ? 'complete' : resumeStep, completed);
-        setSubmitting(false);
-        if (result.error) { setAuthMsg(result.error); return; }
         setWelcomeResume(null);
         setOnboardingTourDone(completed);
         setOnboardingTourStep(alreadyCompleted ? 'complete' : resumeStep as OnboardingStep);

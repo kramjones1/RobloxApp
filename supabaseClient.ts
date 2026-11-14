@@ -1589,6 +1589,50 @@ export async function deleteProfilePhoto(name: string): Promise<{ error?: string
 }
 
 
+export interface AdminPhotoRecord {
+  path: string;
+  user_id: string;
+  file_name: string;
+  category: string;
+  size: number;
+  created_at: string | null;
+  signed_url: string;
+  display_name: string;
+}
+
+async function adminPhotoModeration(body: any): Promise<any> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Not authenticated' };
+  if (!(await isAdmin())) return { error: 'Unauthorized: operator access required.' };
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/operator-photo-moderation`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) return { error: result.error || `Photo moderation failed (HTTP ${response.status}).` };
+    return result;
+  } catch (e: any) {
+    return { error: e?.message || 'Photo moderation request failed.' };
+  }
+}
+
+export async function adminGetPhotos(): Promise<{ photos?: AdminPhotoRecord[]; error?: string }> {
+  const result = await adminPhotoModeration({ action: 'list' });
+  return { photos: Array.isArray(result.photos) ? result.photos : [], error: result.error };
+}
+
+export async function adminDeletePhoto(path: string, reason: string): Promise<{ error?: string }> {
+  const result = await adminPhotoModeration({ action: 'delete', path, reason });
+  return result?.error ? { error: result.error } : {};
+}
+
+
 // ── LivMe customer support ────────────────────────────────────────────────
 export interface SupportConversation {
   id: string;

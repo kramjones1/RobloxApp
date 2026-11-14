@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AdminSupportInbox from './AdminSupportInbox';
 import { watchOperatorSessionCount } from '../chatPresence';
-import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins } from '../supabaseClient';
+import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins, adminGetPhotos, adminDeletePhoto } from '../supabaseClient';
 
 const s = {
   page: { background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', padding: 24, overflowY: 'auto' as const },
@@ -23,7 +23,7 @@ const s = {
   badge: { background: '#f44336', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700, marginLeft: 6 },
 };
 
-type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs' | 'support';
+type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs' | 'photos' | 'support';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -48,6 +48,10 @@ export default function AdminPage() {
   const [reports, setReports] = useState<any[]>([]);
   const [reportSearch, setReportSearch] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [photoFilter, setPhotoFilter] = useState('all');
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [photoReason, setPhotoReason] = useState('Nudity or sexual content');
   const [logSearch, setLogSearch] = useState('');
   const [logActionFilter, setLogActionFilter] = useState('all');
   const [loading, setLoading] = useState(false);
@@ -66,6 +70,7 @@ export default function AdminPage() {
     if (tab === 'bans') loadBans();
     if (tab === 'reports') loadReports();
     if (tab === 'logs') loadLogs();
+    if (tab === 'photos') loadPhotos();
   }, [tab, userPage]);
 
   async function loadStats() {
@@ -95,6 +100,33 @@ export default function AdminPage() {
     } catch (e: any) { setError(e?.message || 'Unable to load reports.'); }
     finally { setLoading(false); }
   }
+  async function loadPhotos() {
+    setLoading(true); setError('');
+    try {
+      const result = await adminGetPhotos();
+      if (result.error) setError(result.error);
+      else setPhotos(result.photos || []);
+    } catch (e: any) { setError(e?.message || 'Unable to load stored photos.'); }
+    finally { setLoading(false); }
+  }
+
+  async function removeSelectedPhoto() {
+    if (!selectedPhoto) return;
+    setLoading(true); setError(''); setNotice('');
+    try {
+      const result = await adminDeletePhoto(selectedPhoto.path, photoReason);
+      if (result.error) { setError(result.error); return; }
+      setNotice('Photo removed and action recorded in the operator audit log.');
+      setSelectedPhoto(null);
+      const refreshed = await adminGetPhotos();
+      if (refreshed.error) setError(refreshed.error);
+      else setPhotos(refreshed.photos || []);
+      const logsResult = await adminGetLogs();
+      if (!logsResult.error) setLogs(logsResult.logs || []);
+    } catch (e: any) { setError(e?.message || 'Unable to remove this photo.'); }
+    finally { setLoading(false); }
+  }
+
   async function loadLogs() {
     setLoading(true); setError('');
     try {
@@ -280,6 +312,7 @@ export default function AdminPage() {
       { id: 'reports', label: `Reports${reports.filter(r => !r.dismissed).length > 0 ? ` (${reports.filter(r => !r.dismissed).length})` : ''}` },
       { id: 'bans', label: 'Bans' },
       { id: 'logs', label: 'Logs' },
+      { id: 'photos', label: 'Photos' },
       { id: 'support', label: 'Support' },
     ];
     return <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)', overflowX: 'auto' as const }}>
@@ -733,6 +766,78 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>}
+          </div>
+        )}
+
+        {/* PHOTO MODERATION */}
+        {tab === 'photos' && (
+          <div>
+            <div style={{ ...s.card, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <div>
+                  <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Photo moderation</h2>
+                  <p style={{ color: '#888', fontSize: 12, marginTop: 3 }}>Review profile, cover, gallery, and post images. Deletions are permanent and audited.</p>
+                </div>
+                <button style={s.btn} onClick={loadPhotos} disabled={loading}>Refresh photos</button>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <strong style={{ color: '#fff', fontSize: 22 }}>{photos.length}</strong>
+                <span style={{ color: '#888', fontSize: 12 }}>stored images</span>
+                <select aria-label="Filter photos" style={{ ...s.input, width: 'auto', minWidth: 170, marginBottom: 0 }} value={photoFilter} onChange={e => setPhotoFilter(e.target.value)}>
+                  <option value="all">All photos</option>
+                  <option value="Profile picture">Profile pictures</option>
+                  <option value="Cover photo">Cover photos</option>
+                  <option value="Gallery photo">Gallery photos</option>
+                  <option value="Post photo">Post photos</option>
+                </select>
+              </div>
+            </div>
+            {loading && photos.length === 0 ? <p style={{ color: '#888', fontSize: 13 }}>Loading stored photos…</p> :
+              photos.filter(photo => photoFilter === 'all' || photo.category === photoFilter).length === 0
+                ? <div style={s.card}><p style={{ color: '#888', fontSize: 13 }}>No photos found in this category.</p></div>
+                : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12 }}>
+                  {photos.filter(photo => photoFilter === 'all' || photo.category === photoFilter).map(photo => (
+                    <div key={photo.path} style={{ ...s.card, padding: 10, marginBottom: 0, minWidth: 0 }}>
+                      <button type="button" aria-label={`Open photo from ${photo.display_name}`} onClick={() => setSelectedPhoto(photo)} style={{ display: 'block', width: '100%', padding: 0, border: 'none', background: '#111', borderRadius: 8, overflow: 'hidden', cursor: 'pointer' }}>
+                        <img src={photo.signed_url} alt={`${photo.category} uploaded by ${photo.display_name}`} loading="lazy" style={{ display: 'block', width: '100%', height: 190, objectFit: 'cover' }} />
+                      </button>
+                      <div style={{ marginTop: 9 }}>
+                        <div style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{photo.display_name}</div>
+                        <div style={{ color: '#999', fontSize: 11, marginTop: 3 }}>{photo.category} · {(Number(photo.size || 0) / 1024).toFixed(1)} KB</div>
+                        <div style={{ color: '#666', fontSize: 10, marginTop: 3, wordBreak: 'break-all' }}>{photo.user_id}</div>
+                        <button style={{ ...s.btnDanger, marginTop: 9, width: '100%', padding: '7px 10px' }} disabled={loading} onClick={() => { setSelectedPhoto(photo); setPhotoReason('Nudity or sexual content'); }}>Review / remove</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+            }
+          </div>
+        )}
+
+        {selectedPhoto && (
+          <div role="presentation" onClick={() => !loading && setSelectedPhoto(null)} style={{ position: 'fixed', inset: 0, zIndex: 10020, background: 'rgba(0,0,0,.82)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div role="dialog" aria-modal="true" aria-labelledby="photo-review-title" onClick={e => e.stopPropagation()} style={{ width: 'min(560px, 100%)', maxHeight: '92vh', overflowY: 'auto', background: '#1f1f1f', border: '1px solid rgba(255,255,255,.12)', borderRadius: 14, padding: 16, boxShadow: '0 20px 80px rgba(0,0,0,.55)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <h2 id="photo-review-title" style={{ color: '#fff', fontSize: 17 }}>Review photo</h2>
+                <button style={s.btnSm} disabled={loading} onClick={() => setSelectedPhoto(null)}>Close</button>
+              </div>
+              <img src={selectedPhoto.signed_url} alt="Selected user upload for moderation review" style={{ display: 'block', width: '100%', maxHeight: '48vh', objectFit: 'contain', background: '#101010', borderRadius: 8 }} />
+              <p style={{ color: '#fff', fontSize: 13, marginTop: 12 }}>{selectedPhoto.display_name} · {selectedPhoto.category}</p>
+              <p style={{ color: '#888', fontSize: 11, marginTop: 4, wordBreak: 'break-all' }}>{selectedPhoto.path}</p>
+              <label htmlFor="photo-removal-reason" style={{ display: 'block', color: '#ccc', fontSize: 12, marginTop: 14, marginBottom: 6 }}>Reason for removal</label>
+              <select id="photo-removal-reason" style={s.input} value={photoReason} onChange={e => setPhotoReason(e.target.value)} disabled={loading}>
+                <option>Nudity or sexual content</option>
+                <option>Explicit or adult content</option>
+                <option>Violence or disturbing content</option>
+                <option>Harassment or hateful content</option>
+                <option>Other policy violation</option>
+              </select>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button style={{ ...s.btn, background: '#444' }} disabled={loading} onClick={() => setSelectedPhoto(null)}>Cancel</button>
+                <button style={{ ...s.btnDanger, padding: '9px 14px' }} disabled={loading} onClick={removeSelectedPhoto}>{loading ? 'Removing…' : 'Permanently delete photo'}</button>
+              </div>
+              <p style={{ color: '#777', fontSize: 10, marginTop: 10 }}>The original file will be deleted from Storage. The operator and reason will be recorded in the audit log.</p>
+            </div>
           </div>
         )}
       </div>

@@ -494,6 +494,7 @@ export interface ChatProfile {
   date_of_birth?: string;
   terms_accepted_at?: string;
   terms_version?: string;
+  new_member_badge_expires_at?: string | null;
 }
 
 export async function getUserProfile(userId: string): Promise<{ profile?: ChatProfile; error?: string }> {
@@ -540,6 +541,7 @@ export async function getUserProfile(userId: string): Promise<{ profile?: ChatPr
         cover_url: p.cover_url || '',
         share_name: Boolean(p.share_name),
         share_bio: Boolean(p.share_bio),
+        new_member_badge_expires_at: p.new_member_badge_expires_at || null,
         work: details.work || '',
         education: details.education || '',
         share_details: details.share_details !== false,

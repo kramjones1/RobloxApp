@@ -339,6 +339,9 @@ export default function WebApp() {
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
+    // Menu navigation to Messages always opens the inbox list. Profile's
+    // explicit "Message" action sets messagePartner directly and bypasses this.
+    if (p === 'messages') setMessagePartner('');
     setPage(p);
   }
 

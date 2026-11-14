@@ -1,5 +1,4 @@
 import React from 'react';
-import TurnstileCaptcha from '../components/TurnstileCaptcha';
 type Page = 'home' | 'privacy' | 'terms' | 'profile' | 'messages';
 
 const s = {
@@ -145,9 +144,8 @@ interface Props {
   onBackToSignIn?: () => void;
   onGoogleSignIn?: () => void;
   onGitHubSignIn?: () => void;
-  captchaToken?: string;
-  captchaResetKey?: number;
-  onCaptchaVerify?: (token: string) => void;
+  captchaWidget?: React.ReactNode;
+  captchaVerified?: boolean;
 }
 
 export default function LandingPage({
@@ -155,7 +153,7 @@ export default function LandingPage({
   onEmailChange, onPasswordChange, showPassword, onTogglePassword, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
-  onGoogleSignIn, onGitHubSignIn, captchaToken, captchaResetKey, onCaptchaVerify,
+  onGoogleSignIn, onGitHubSignIn, captchaWidget, captchaVerified,
 }: Props) {
   const showAuth = !!onSubmit;
   return (
@@ -191,9 +189,9 @@ export default function LandingPage({
                     </>
                   ) : (
                     <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} resetKey={captchaResetKey} />
+                      {captchaWidget}
                       <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
-                      <button type="submit" disabled={submitting || !captchaToken || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
+                      <button type="submit" disabled={submitting || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
                         {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                       </button>
                       <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onBackToSignIn}>← Back to Sign In</p>
@@ -211,10 +209,10 @@ export default function LandingPage({
                       <input style={{ ...s.input, paddingRight: 64 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                       <button type="button" onClick={onTogglePassword} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 0, color: '#aaa', cursor: 'pointer', padding: 8, fontSize: 12 }}>{showPassword ? 'Hide' : 'Show'}</button>
                     </div>
-                    <TurnstileCaptcha onVerify={onCaptchaVerify || (() => {})} resetKey={captchaResetKey} />
-                    <button type="submit" disabled={submitting || !captchaToken} style={{...s.submitBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>
+                    <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1, cursor: submitting ? 'not-allowed' : 'pointer'}}>
                       {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>
+                    {captchaWidget}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
                       <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
                       <span style={{ color: '#666', fontSize: 12 }}>OR</span>

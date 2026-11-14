@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, exchangeRecoveryCode, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
+import TurnstileCaptcha from './components/TurnstileCaptcha';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, exchangeRecoveryCode, exchangeOAuthCode, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import { startUserPresence, startOperatorSessionPresence } from './chatPresence';
 import Navbar from './components/Navbar';
@@ -11,7 +12,6 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
-import TurnstileCaptcha from './components/TurnstileCaptcha';
 import OnboardingTour, { type OnboardingStep } from './components/OnboardingTour';
 import { getOnboardingProgress, saveOnboardingProgress, acknowledgeWelcome, activateNewMemberBadge, WELCOME_ACK_MARKER } from './onboardingClient';
 
@@ -214,6 +214,12 @@ export default function WebApp() {
 
   function addLog(msg: string) { setLog(msg); }
 
+  function handleOAuthSignIn(provider: 'google' | 'github') {
+    setAuthMsg('');
+    if (provider === 'github') signInWithGitHub();
+    else signInWithGoogle();
+  }
+
   useEffect(() => {
     async function fetchLive() {
       const token = await getValidAccessToken();
@@ -345,6 +351,42 @@ export default function WebApp() {
     const recoveryQuery = new URLSearchParams(window.location.search);
     const recoveryHash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const recoveryCode = recoveryQuery.get('code');
+    let oauthPending = false;
+    try {
+      oauthPending = localStorage.getItem('liveme-oauth-pending') === '1';
+      if (oauthPending) localStorage.removeItem('liveme-oauth-pending');
+    } catch {}
+    if (recoveryCode && (oauthPending || recoveryQuery.get('auth_flow') === 'oauth' || Boolean(window.opener))) {
+      history.replaceState(null, '', window.location.pathname);
+      setAuthLoading(true);
+      void (async () => {
+        const exchanged = await exchangeOAuthCode(recoveryCode);
+        if (exchanged.error || !exchanged.access_token) {
+          setAuthMsg(exchanged.error || 'Social sign-in could not be completed. Please try again.');
+          setAuthLoading(false);
+          return;
+        }
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'oauth_token',
+            access_token: exchanged.access_token,
+            refresh_token: exchanged.refresh_token,
+            oauthType: 'login',
+          }, window.location.origin);
+          window.close();
+          return;
+        }
+        const result = await setSessionToken(exchanged.access_token, exchanged.refresh_token);
+        if (result.error) {
+          setAuthMsg(result.error);
+          setAuthLoading(false);
+          return;
+        }
+        try { sessionStorage.setItem('liveme-oauth-login', '1'); } catch {}
+        window.location.reload();
+      })();
+      return;
+    }
     if (recoveryCode) {
       history.replaceState(null, '', window.location.pathname);
       setAuthLoading(true);
@@ -512,7 +554,7 @@ export default function WebApp() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (!captchaToken) { setAuthMsg('Please complete the security check first.'); return; }
+    if (!captchaToken) { setAuthMsg('Please complete the security check before continuing.'); return; }
     if (authMode === 'register') {
       if (!isValidSignupPassword(password)) {
         setAuthMsg('Use at least 10 characters with at least one uppercase letter, one lowercase letter, and one number.');
@@ -572,7 +614,7 @@ export default function WebApp() {
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (!captchaToken) { setAuthMsg('Please complete the security check first.'); return; }
+    if (!captchaToken) { setAuthMsg('Please complete the security check before continuing.'); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(forgotEmail)) { setAuthMsg('Please enter a valid email address (e.g. name@domain.com)'); return; }
     setSubmitting(true);
@@ -1441,8 +1483,9 @@ export default function WebApp() {
                   </>
                 ) : (
                   <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
-                    <TurnstileCaptcha onVerify={setCaptchaToken} resetKey={captchaResetKey} /><input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
-                    <button type="submit" disabled={submitting || !captchaToken || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || !captchaToken || forgotCooldown > 0 ? 0.5 : 1}}>
+                    <TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} viewport="mobile" />
+                    <input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
+                    <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
                       {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                     </button>
                     {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
@@ -1462,15 +1505,17 @@ export default function WebApp() {
                     <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
-                  <TurnstileCaptcha onVerify={setCaptchaToken} resetKey={captchaResetKey} />
-                  <button type="submit" disabled={submitting || !captchaToken} style={{...mobileBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+                  <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1, cursor: submitting ? 'not-allowed' : 'pointer'}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
+                <div style={{ width: '100%', maxWidth: 360, marginTop: 8 }}>
+                  <TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} viewport="mobile" />
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
                   <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
                   <span style={{ color: '#666', fontSize: 12 }}>OR</span>
                   <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
                 </div>
-                <button type="button" onClick={() => signInWithGoogle()} style={{
+                <button type="button" onClick={() => handleOAuthSignIn('google')} style={{
                   background: '#4285F4', color: '#fff', border: 'none', padding: '12px', borderRadius: 10,
                   fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%', maxWidth: 360,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1478,7 +1523,7 @@ export default function WebApp() {
                   <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#fff" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#fff" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#fff" d="M10.54 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.98-5.97z"/><path fill="#fff" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z"/></svg>
                   Sign {authMode === 'login' ? 'in' : 'up'} with Google
                 </button>
-                <button type="button" onClick={() => signInWithGitHub()} style={{
+                <button type="button" onClick={() => handleOAuthSignIn('github')} style={{
                   background: '#24292e', color: '#fff', border: 'none', padding: '12px', borderRadius: 10,
                   fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%', maxWidth: 360,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -1525,11 +1570,10 @@ export default function WebApp() {
                 onForgotSubmit={handleForgotPassword}
                 onShowForgot={() => { setShowForgot(true); setAuthMsg(''); }}
                 onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
-                onGoogleSignIn={() => { setAuthMsg(''); signInWithGoogle(); }}
-                onGitHubSignIn={() => { setAuthMsg(''); signInWithGitHub(); }}
-                captchaToken={captchaToken}
-                captchaResetKey={captchaResetKey}
-                onCaptchaVerify={setCaptchaToken}
+                onGoogleSignIn={() => handleOAuthSignIn('google')}
+                onGitHubSignIn={() => handleOAuthSignIn('github')}
+                captchaWidget={<TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} viewport="desktop" />}
+                captchaVerified={!!captchaToken}
               />
             </div>
             <Footer setPage={handleNav} />

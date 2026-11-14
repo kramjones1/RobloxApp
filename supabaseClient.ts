@@ -251,13 +251,13 @@ export async function setSessionToken(token: string | null, refreshToken?: strin
   return {};
 }
 
-export async function signUp(email: string, password: string, captchaToken?: string): Promise<{ error?: string }> {
+export async function signUp(email: string, password: string, captchaToken: string): Promise<{ error?: string }> {
   try {
     const normalizedEmail = email.trim().toLowerCase();
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email: normalizedEmail, password, ...(captchaToken ? { captcha_token: captchaToken } : {}) }),
+      body: JSON.stringify({ email: normalizedEmail, password, gotrue_meta_security: { captcha_token: captchaToken } }),
     });
     if (data.error) return { error: data.error };
     // Do not establish a session until the email OTP has been verified.
@@ -307,12 +307,12 @@ export async function resendSignupOtp(email: string): Promise<{ error?: string }
   }
 }
 
-export async function signIn(email: string, password: string, captchaToken?: string): Promise<{ error?: string }> {
+export async function signIn(email: string, password: string, captchaToken: string): Promise<{ error?: string }> {
   try {
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password, ...(captchaToken ? { captcha_token: captchaToken } : {}) }),
+      body: JSON.stringify({ email, password, gotrue_meta_security: { captcha_token: captchaToken } }),
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
@@ -329,9 +329,9 @@ export async function signIn(email: string, password: string, captchaToken?: str
   }
 }
 
-export async function resetPassword(email: string, redirectTo?: string, captchaToken?: string): Promise<{ error?: string }> {
+export async function resetPassword(email: string, redirectTo: string | undefined, captchaToken: string): Promise<{ error?: string }> {
   try {
-    const body: any = { email, ...(captchaToken ? { captcha_token: captchaToken } : {}) };
+    const body: any = { email, gotrue_meta_security: { captcha_token: captchaToken } };
     if (redirectTo) body.redirect_to = redirectTo;
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/recover`, {
       method: 'POST',
@@ -345,7 +345,7 @@ export async function resetPassword(email: string, redirectTo?: string, captchaT
   }
 }
 
-export async function exchangeRecoveryCode(code: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
+export async function exchangeOAuthCode(code: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
   try {
     // Supabase PKCE redirects store the verifier in localStorage under the
     // project's auth storage key. Accept the standard key and compatible
@@ -360,18 +360,24 @@ export async function exchangeRecoveryCode(code: string): Promise<{ access_token
         if (stored) { verifier = stored.split('/')[0]; break; }
       }
     } catch {}
-    if (!verifier) return { error: 'This password reset link is missing its security verifier. Please request a new reset email.' };
+    if (!verifier) return { error: 'This sign-in link is missing its security verifier. Please start sign-in again.' };
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
     });
     if (data.error) return { error: data.error };
-    if (!data.access_token) return { error: 'This password reset link is invalid or has expired. Request a new one.' };
+    if (!data.access_token) return { error: 'This sign-in link is invalid or has expired. Please start sign-in again.' };
     return { access_token: data.access_token, refresh_token: data.refresh_token || '' };
   } catch (e: any) {
-    return { error: e.message || 'Could not exchange password reset code.' };
+    return { error: e.message || 'Could not complete social sign-in.' };
   }
+}
+
+export async function exchangeRecoveryCode(code: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
+  const result = await exchangeOAuthCode(code);
+  if (result.error) return { ...result, error: result.error.replace('sign-in', 'password reset').replace('start sign-in again', 'request a new reset email') };
+  return result;
 }
 
 export async function verifyRecoveryToken(tokenHash: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
@@ -445,18 +451,50 @@ export async function signOut() {
   notify(null);
 }
 
+function base64Url(bytes: Uint8Array): string {
+  let binary = '';
+  bytes.forEach(value => { binary += String.fromCharCode(value); });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+async function buildOAuthAuthorizeUrl(provider: 'google' | 'github'): Promise<string> {
+  const random = new Uint8Array(32);
+  crypto.getRandomValues(random);
+  const verifier = base64Url(random);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const challenge = base64Url(new Uint8Array(digest));
+  // Supabase's PKCE callback uses this verifier to exchange the returned code.
+  localStorage.setItem('sb-btkcubibosbtpxcronnd-auth-token-code-verifier', verifier + '/' + Date.now());
+  const params = new URLSearchParams({
+    provider,
+    redirect_to: `${window.location.origin}/?auth_flow=oauth`,
+    code_challenge: challenge,
+    code_challenge_method: 's256',
+  });
+  if (provider === 'google') params.set('prompt', 'select_account');
+  return `${SUPABASE_URL}/auth/v1/authorize?${params.toString()}`;
+}
+
+function startOAuthSignIn(provider: 'google' | 'github'): boolean {
+  // Open synchronously during the click to avoid popup blockers while PKCE is prepared.
+  try { localStorage.setItem('liveme-oauth-pending', '1'); } catch {}
+  const popup = window.open('about:blank', provider + '-oauth', 'width=600,height=700,popup=1');
+  void buildOAuthAuthorizeUrl(provider).then(url => {
+    if (popup && !popup.closed) popup.location.href = url;
+    else window.location.href = url;
+  }).catch(() => {
+    try { localStorage.removeItem('liveme-oauth-pending'); } catch {}
+    if (popup && !popup.closed) popup.close();
+  });
+  return true;
+}
+
 export function signInWithGoogle() {
-  const redirectTo = window.location.origin;
-  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&prompt=select_account`;
-  const w = window.open(url, 'google-oauth', 'width=600,height=700,popup=1');
-  if (!w) { window.location.href = url; return; }
+  return startOAuthSignIn('google');
 }
 
 export function signInWithGitHub() {
-  const redirectTo = window.location.origin;
-  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
-  const w = window.open(url, 'github-oauth', 'width=600,height=700,popup=1');
-  if (!w) { window.location.href = url; return; }
+  return startOAuthSignIn('github');
 }
 
 export function getSession(): SupabaseUser | null {

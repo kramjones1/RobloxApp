@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/turnstile-auth
+      - preview/onboarding-trigger
   pull_request:
     branches:
       - production

@@ -245,8 +245,8 @@ export default function WebApp() {
     if (getSession()?.id !== requestUserId) return;
     if (error) { setAuthMsg(error); return; }
     const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
-    if (!progress || progress.version < 2) {
-      // Version 2 introduces a one-time Welcome acknowledgement for existing accounts.
+    if (!progress || progress.version < 3) {
+      // Version 3 records explicit acceptance of the Welcome screen; tour completion is independent.
       // Preserve any saved tour position so accepting Welcome resumes exactly where the user stopped.
       setWelcomeResume(progress ? {
         step: validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step : 'profile_photo',

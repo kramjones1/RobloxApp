@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 declare global {
   interface Window {
@@ -18,6 +18,7 @@ export default function TurnstileCaptcha({ onToken, resetKey, viewport }: Props)
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const callbackRef = useRef(onToken);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const previousResetRef = useRef(resetKey);
   useEffect(() => { callbackRef.current = onToken; }, [onToken]);
 
@@ -32,9 +33,14 @@ export default function TurnstileCaptcha({ onToken, resetKey, viewport }: Props)
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: SITE_KEY,
         theme: 'dark',
-        callback: (token: string) => callbackRef.current(token),
-        'expired-callback': () => callbackRef.current(''),
-        'error-callback': () => { callbackRef.current(''); return true; },
+        callback: (token: string) => { setErrorCode(null); callbackRef.current(token); },
+        'expired-callback': () => { setErrorCode(null); callbackRef.current(''); },
+        'error-callback': (code: string) => {
+          callbackRef.current('');
+          setErrorCode(String(code || 'unknown'));
+          console.error('[LivMe] Turnstile verification error:', code);
+          return false;
+        },
       });
     };
     const onViewportChange = () => {
@@ -77,5 +83,14 @@ export default function TurnstileCaptcha({ onToken, resetKey, viewport }: Props)
     previousResetRef.current = resetKey;
   }, [resetKey]);
 
-  return <div ref={containerRef} style={{ minHeight: 65, display: 'flex', justifyContent: 'center', alignItems: 'center' }} />;
+  return (
+    <div>
+      <div ref={containerRef} style={{ minHeight: 65, display: 'flex', justifyContent: 'center', alignItems: 'center' }} />
+      {errorCode && (
+        <div role="alert" style={{ marginTop: 6, textAlign: 'center', color: '#fca5a5', fontSize: 12 }}>
+          Verification failed (code: {errorCode}). Please refresh and try again.
+        </div>
+      )}
+    </div>
+  );
 }

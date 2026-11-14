@@ -1658,7 +1658,7 @@ export default function WebApp() {
             <p style={{ color: '#aaa5ff', fontSize: 11, fontWeight: 800, letterSpacing: 2.2, margin: '0 0 9px' }}>YOU'RE OFFICIALLY IN</p>
             <h2 style={{ color: '#fff', fontSize: 29, lineHeight: 1.15, fontWeight: 850, margin: '0 0 12px', animation: 'livmeThankYouGlow 2s ease-in-out infinite' }}>Thank you for joining us!</h2>
             <p style={{ color: '#c7c7d8', fontSize: 14, lineHeight: 1.6, margin: '0 0 22px' }}>Welcome to LiveMe. Your journey starts here — make connections, share your story, and enjoy the community.</p>
-            <button type="button" onClick={() => setShowOnboardingThankYou(false)} style={{ ...mobileBtn, width: '100%', background: 'linear-gradient(100deg,#6258e8,#2676ed)' }}>Let's go!</button>
+            <button type="button" onClick={() => dismissOnboardingThankYou()} style={{ ...mobileBtn, width: '100%', background: 'linear-gradient(100deg,#6258e8,#2676ed)' }}>Let's go!</button>
           </div>
         </div>
       )}

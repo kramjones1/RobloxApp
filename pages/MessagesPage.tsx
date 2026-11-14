@@ -497,15 +497,12 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     }
     const partnerIds = presencePartnerKey.split('|').filter(Boolean);
     return watchUserPresence(myId, partnerIds, setOnlinePartners);
-  }, [myId, presencePartnerKey]);
+  }, [myId, conversationPartnerKey]);
 
   useEffect(() => {
     if (!myId) return;
     let active = true;
-    // Listen for calls from every user in the inbox directory, not only
-    // existing conversation partners, so first-time callers can reach users
-    // anywhere in the app.
-    const partners = presencePartnerKey.split('|').filter(Boolean);
+    const partners = Array.from(new Set(presencePartnerIds)).filter(Boolean);
     setCallSignalingReady(false);
     callSignalingRef.current?.close();
     callSignalingRef.current = null;

@@ -551,6 +551,10 @@ export default function WebApp() {
     e.preventDefault();
     setAuthMsg('');
     if (onboardingStep === 'welcome') {
+      // Welcome is an introduction only. Terms acceptance is a separate screen.
+      setAuthMsg('');
+      setOnboardingStep('terms');
+    } else if (onboardingStep === 'terms') {
       if (!agreedToTerms) { setAuthMsg('You must agree to the terms to continue.'); return; }
       // Record acceptance independently of the tour's version and completion state.
       setSubmitting(true);
@@ -1601,40 +1605,54 @@ export default function WebApp() {
         </>
       )}
 
-      {onboardingStep === 'welcome' && (
+      {(onboardingStep === 'welcome' || onboardingStep === 'terms') && (
         <>
-        <OnboardingConfetti />
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#1a1a1a', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}>
-            <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, marginBottom: 4, textAlign: 'center', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
-            <p style={{ color: '#888', fontSize: 14, marginBottom: 12, textAlign: 'center' }}>Welcome! Before you start...</p>
-            <div style={{ color: '#ccc', fontSize: 13, textAlign: 'left', lineHeight: 1.6, marginBottom: 12 }}>
-              <p style={{ marginBottom: 10 }}>Meet people through Random Chat, build your profile, and continue conversations with private messages.</p>
-              <p style={{ marginBottom: 8, color: '#6c63ff', fontWeight: 600 }}>Quick start tips</p>
-              <p style={{ marginBottom: 6 }}>• Random Chat: allow camera and microphone access when you are ready to meet someone.</p>
-              <p style={{ marginBottom: 6 }}>• Messaging: use your inbox to continue conversations with people you choose.</p>
-              <p style={{ marginBottom: 6 }}>• Your profile: choose what name and bio details you share publicly.</p>
-              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Stay safe</p>
-              <p style={{ marginBottom: 6 }}>• Never share passwords, financial details, or your home address with strangers.</p>
-              <p style={{ marginBottom: 6 }}>• Use report and block tools if someone behaves abusively or makes you uncomfortable.</p>
-              <p style={{ marginBottom: 6 }}>• Be respectful and remember that people you meet online may not be who they claim to be.</p>
-              <p style={{ marginBottom: 10, color: '#6c63ff', fontWeight: 600 }}>Age Requirement</p>
-              <p style={{ marginBottom: 6 }}>• Live video chat is restricted to users aged 18 and older.</p>
-              <p style={{ marginBottom: 6 }}>• If you are under 18, you can still use the text messaging system to chat with other users.</p>
-              <p style={{ marginTop: 10, padding: 10, background: 'rgba(108,99,255,0.1)', borderRadius: 8, border: '1px solid rgba(108,99,255,0.2)' }}>
-                By continuing, you confirm that you have read and understand the above. You agree to use LiveMe responsibly and in accordance with our terms.
-              </p>
+          <OnboardingConfetti />
+          <div style={{ position: 'fixed', inset: 0, zIndex: 10010, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ position: 'relative', background: 'linear-gradient(155deg,#202039,#15151e 65%)', border: '1px solid rgba(132,122,255,.48)', borderRadius: 20, padding: '28px 24px', maxWidth: 460, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 0 0 1px rgba(108,99,255,.12), 0 18px 60px rgba(0,0,0,.65), 0 0 36px rgba(108,99,255,.2)' }}>
+              <div style={{ width: 54, height: 5, borderRadius: 9, background: 'linear-gradient(90deg,#6c63ff,#00d4ff)', margin: '0 auto 20px', boxShadow: '0 0 18px rgba(108,99,255,.75)' }} />
+              {onboardingStep === 'welcome' ? (
+                <>
+                  <p style={{ color: '#aaa5ff', fontSize: 11, fontWeight: 800, letterSpacing: 2, textAlign: 'center', margin: '0 0 10px' }}>YOUR LIVME JOURNEY STARTS HERE</p>
+                  <h1 style={{ fontSize: 34, fontWeight: 850, margin: 0, textAlign: 'center', background: 'linear-gradient(135deg,#9a91ff,#55b7ff,#00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Welcome to LiveMe</h1>
+                  <p style={{ color: '#ddd', fontSize: 15, lineHeight: 1.65, textAlign: 'center', margin: '14px 0 22px' }}>Meet new people, make your profile yours, and keep meaningful conversations going.</p>
+                  <div style={{ display: 'grid', gap: 10, marginBottom: 22 }}>
+                    {[['01','Discover','Explore member profiles and find people you would like to connect with.'],['02','Connect','Use Random Chat when you are ready to meet someone live.'],['03','Stay in touch','Continue conversations through private messages.']].map(([n,title,body]) => (
+                      <div key={n} style={{ display: 'flex', gap: 12, alignItems: 'center', padding: 13, borderRadius: 13, background: 'rgba(108,99,255,.10)', border: '1px solid rgba(132,122,255,.24)' }}>
+                        <div style={{ flex: '0 0 34px', height: 34, borderRadius: 10, display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800, background: 'linear-gradient(135deg,#6c63ff,#278cff)', boxShadow: '0 0 15px rgba(108,99,255,.35)' }}>{n}</div>
+                        <div><p style={{ color: '#fff', fontWeight: 750, fontSize: 14, margin: '0 0 3px' }}>{title}</p><p style={{ color: '#bcbccc', fontSize: 12, lineHeight: 1.45, margin: 0 }}>{body}</p></div>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ color: '#a9a9bb', fontSize: 12, lineHeight: 1.55, textAlign: 'center', margin: '0 0 18px' }}>We'll guide you through setting up your profile and the main features. Your progress is saved as you go.</p>
+                  <button type="button" onClick={handleOnboardingSubmit} disabled={submitting} style={{...mobileBtn, width: '100%', background: 'linear-gradient(100deg,#6258e8,#2676ed)', boxShadow: '0 0 24px rgba(108,99,255,.3)'}}>Continue to Terms & Conditions</button>
+                </>
+              ) : (
+                <>
+                  <p style={{ color: '#aaa5ff', fontSize: 11, fontWeight: 800, letterSpacing: 2, textAlign: 'center', margin: '0 0 10px' }}>BEFORE YOU CONTINUE</p>
+                  <h1 style={{ color: '#fff', fontSize: 26, fontWeight: 800, margin: '0 0 8px', textAlign: 'center' }}>Terms & Conditions</h1>
+                  <p style={{ color: '#aaa', fontSize: 13, textAlign: 'center', margin: '0 0 18px' }}>Please review these important community and safety rules.</p>
+                  <div style={{ color: '#ccc', fontSize: 13, textAlign: 'left', lineHeight: 1.6, marginBottom: 16 }}>
+                    <p style={{ color: '#aaa5ff', fontWeight: 700, margin: '0 0 6px' }}>Use LivMe responsibly</p>
+                    <p style={{ margin: '0 0 12px' }}>Be respectful. Never share passwords, verification codes, financial details, or your home address with strangers. Use report and block tools if someone behaves abusively.</p>
+                    <p style={{ color: '#aaa5ff', fontWeight: 700, margin: '0 0 6px' }}>Age requirement</p>
+                    <p style={{ margin: '0 0 12px' }}>Live video chat is restricted to users aged 18 and older. Users under 18 may use text messaging features where permitted.</p>
+                    <p style={{ color: '#aaa5ff', fontWeight: 700, margin: '0 0 6px' }}>Privacy and community</p>
+                    <p style={{ margin: 0 }}>Choose what profile information you share publicly. People you meet online may not be who they claim to be. Read the full Terms & Conditions and Privacy Policy for the complete rules.</p>
+                  </div>
+                  <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: '#eee', fontSize: 13, lineHeight: 1.5, cursor: 'pointer', padding: 12, borderRadius: 12, border: '1px solid rgba(132,122,255,.4)', background: 'rgba(108,99,255,.10)' }}>
+                      <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ width: 19, height: 19, marginTop: 1, accentColor: '#756cff', flex: '0 0 auto' }} />
+                      I have read and agree to the Terms & Conditions and the safety rules above.
+                    </label>
+                    <button type="submit" disabled={submitting || !agreedToTerms} style={{...mobileBtn, width: '100%', background: 'linear-gradient(100deg,#6258e8,#2676ed)', opacity: submitting || !agreedToTerms ? .5 : 1}}>{submitting ? 'Saving…' : 'Agree & Continue'}</button>
+                    <button type="button" onClick={() => { setAuthMsg(''); setOnboardingStep('welcome'); }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,.16)', color: '#bbb', borderRadius: 10, padding: 11, cursor: 'pointer' }}>Back to Welcome</button>
+                  </form>
+                </>
+              )}
+              {authMsg && <p role="alert" style={{ color: '#ff9b9b', fontSize: 12, marginTop: 12, textAlign: 'center' }}>{authMsg}</p>}
             </div>
-            <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#ccc', fontSize: 13, cursor: 'pointer' }}>
-                <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} style={{ width: 18, height: 18, cursor: 'pointer' }} />
-                I agree to the terms above
-              </label>
-              <button type="submit" disabled={submitting || !agreedToTerms} style={{...mobileBtn, opacity: submitting || !agreedToTerms ? 0.5 : 1}}>Continue</button>
-            </form>
-            {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 10, textAlign: 'center' }}>{authMsg}</p>}
           </div>
-        </div>
         </>
       )}
     </div>

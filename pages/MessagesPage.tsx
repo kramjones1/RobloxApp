@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getConversations, getInboxUserDirectory, getMessages, sendMessage, markMessagesRead, getUserProfile, hideConversation, ChatMessage } from '../supabaseClient';
 import { watchUserPresence, createChatCallSignaling, ChatCallSignal, ChatCallSignaling } from '../chatPresence';
 import OnlineDot from '../components/OnlineDot';
@@ -17,6 +18,7 @@ const inp = {
 export default function MessagesPage({ onNav, user, messagePartner, onViewProfile, onChatOpened }: { onNav: (p: any) => void; user: any; messagePartner?: string; onViewProfile?: (userId: string) => void; onChatOpened?: () => void }) {
   const [conversations, setConversations] = useState<{ partnerId: string; lastMessage: ChatMessage; unread: number }[]>([]);
   const [selectedId, setSelectedId] = useState(messagePartner || '');
+  useEffect(() => { if (messagePartner) setSelectedId(messagePartner); }, [messagePartner]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -753,7 +755,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
           </div>
         </div>
         {callError && <div role="status" style={{ color: '#ff9b9b', background: '#251919', fontSize: 12, padding: '7px 14px' }}>{callError}</div>}
-        {renderCallPanel()}
+        {callSession && createPortal(renderCallPanel(), document.body)}
         <div style={{ flex: '1 1 0%', minHeight: 0, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           {renderMessages(true)}
           <div ref={bottomRef} />
@@ -870,7 +872,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
               </div>
             </div>
             {callError && <div role="status" style={{ color: '#ff9b9b', background: '#251919', fontSize: 12, padding: '7px 16px' }}>{callError}</div>}
-            {renderCallPanel()}
+            {callSession && createPortal(renderCallPanel(), document.body)}
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               {messages.map((m, i) => {
                 if (parseCallLog(m.content)) return renderCallLog(m.id, m.content);

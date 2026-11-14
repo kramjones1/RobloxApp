@@ -18,7 +18,7 @@ const inp = {
 export default function MessagesPage({ onNav, user, messagePartner, onViewProfile, onChatOpened }: { onNav: (p: any) => void; user: any; messagePartner?: string; onViewProfile?: (userId: string) => void; onChatOpened?: () => void }) {
   const [conversations, setConversations] = useState<{ partnerId: string; lastMessage: ChatMessage; unread: number }[]>([]);
   const [selectedId, setSelectedId] = useState(messagePartner || '');
-  useEffect(() => { if (messagePartner) setSelectedId(messagePartner); }, [messagePartner]);
+  useEffect(() => { setSelectedId(messagePartner || ''); }, [messagePartner]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -81,6 +81,68 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   const localCallVideoRef = useRef<HTMLVideoElement>(null);
   const remoteCallVideoRef = useRef<HTMLVideoElement>(null);
   const remoteCallAudioRef = useRef<HTMLAudioElement>(null);
+  const callAudioContextRef = useRef<AudioContext | null>(null);
+  const callToneTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  function stopCallTone() {
+    if (callToneTimerRef.current) clearInterval(callToneTimerRef.current);
+    callToneTimerRef.current = null;
+  }
+
+  function playCallTone(frequency: number) {
+    const context = callAudioContextRef.current;
+    if (!context || context.state !== 'running') return;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.035);
+    gain.gain.setValueAtTime(0.12, context.currentTime + 0.22);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.34);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.36);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+  }
+
+  // Browsers require a user gesture before Web Audio can play. Unlock once
+  // on the first interaction, then use short synthesized tones for call alerts.
+  useEffect(() => {
+    const unlockAudio = () => {
+      if (!callAudioContextRef.current) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) callAudioContextRef.current = new AudioContextClass();
+      }
+      if (callAudioContextRef.current?.state === 'suspended') {
+        void callAudioContextRef.current.resume().catch(() => {});
+      }
+    };
+    window.addEventListener('pointerdown', unlockAudio, { once: true, capture: true });
+    return () => window.removeEventListener('pointerdown', unlockAudio, true);
+  }, []);
+
+  useEffect(() => {
+    stopCallTone();
+    const session = callSession;
+    if (!session || (session.status !== 'incoming' && session.status !== 'outgoing')) return;
+    const frequency = session.direction === 'incoming' ? 880 : 620;
+    playCallTone(frequency);
+    callToneTimerRef.current = setInterval(() => {
+      playCallTone(frequency);
+      if (session.direction === 'incoming') {
+        window.setTimeout(() => playCallTone(660), 260);
+      }
+    }, session.direction === 'incoming' ? 1450 : 2100);
+    return () => stopCallTone();
+  }, [callSession?.callId, callSession?.status, callSession?.direction]);
+
+  useEffect(() => () => {
+    stopCallTone();
+    void callAudioContextRef.current?.close();
+    callAudioContextRef.current = null;
+  }, []);
 
   function updateCallSession(next: CallSession | null) {
     callSessionRef.current = next;
@@ -88,6 +150,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   function endLocalCall() {
+    stopCallTone();
     const finishedSession = callSessionRef.current;
     const startedAt = callStartedAtRef.current;
     callStartedAtRef.current = null;
@@ -157,6 +220,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected' && callSessionRef.current?.callId === session.callId) {
           if (session.direction === 'outgoing' && callStartedAtRef.current === null) callStartedAtRef.current = Date.now();
+          stopCallTone();
           updateCallSession({ ...session, status: 'active' });
         } else if (pc.connectionState === 'failed' && callSessionRef.current?.callId === session.callId) {
           setCallError('The call connection failed. Please try again.');

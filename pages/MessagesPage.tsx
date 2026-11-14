@@ -15,10 +15,10 @@ const inp = {
   outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' as const,
 };
 
-export default function MessagesPage({ onNav, user, messagePartner, onViewProfile, onChatOpened }: { onNav: (p: any) => void; user: any; messagePartner?: string; onViewProfile?: (userId: string) => void; onChatOpened?: () => void }) {
+export default function MessagesPage({ onNav, user, messagePartner, inboxResetKey, onViewProfile, onChatOpened }: { onNav: (p: any) => void; user: any; messagePartner?: string; inboxResetKey?: number; onViewProfile?: (userId: string) => void; onChatOpened?: () => void }) {
   const [conversations, setConversations] = useState<{ partnerId: string; lastMessage: ChatMessage; unread: number }[]>([]);
   const [selectedId, setSelectedId] = useState(messagePartner || '');
-  useEffect(() => { setSelectedId(messagePartner || ''); }, [messagePartner]);
+  useEffect(() => { setSelectedId(messagePartner || ''); }, [messagePartner, inboxResetKey]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);

@@ -1259,7 +1259,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         <div className="cover-wrap" style={{ ...s.coverWrap, cursor: 'pointer' }} onClick={() => coverInputRef.current?.click()} role="button" aria-label="Change cover photo">
           {coverUrl ? <img src={coverUrl} alt="" style={s.coverImg} /> : null}
         </div>
-        <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverUpload} style={s.hiddenInput} />
+        <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" onChange={handleCoverUpload} style={s.hiddenInput} />
 
 
         <div className="profile-avatar-wrap" style={{ ...s.avatarWrap, position: 'relative' }}>
@@ -1267,9 +1267,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           <div className={`avatar-circle profile-avatar${newSignupGlowActive ? " new-member-glow" : ""}`} style={s.avatar} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} onClick={() => avatarInputRef.current?.click()} role="button" aria-label="Change profile picture" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') avatarInputRef.current?.click(); }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
           </div>
+          {onboardingPhotoRequired && (uploadingAvatar || msg) && <p role={uploadingAvatar ? 'status' : 'alert'} aria-live="polite" style={{ maxWidth: 320, margin: '10px 0 0', color: uploadingAvatar ? '#aaa5ff' : (msg.toLowerCase().includes('saved') ? '#75d58a' : '#ff9b9b'), fontSize: 12, lineHeight: 1.5, textAlign: 'center' }}>{uploadingAvatar ? (avatarSaveStage || 'Preparing your photo…') : msg}</p>}
         </div>
-        <input ref={avatarInputRef} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} style={s.hiddenInput} />
-        <input ref={galleryInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleGalleryUpload} style={s.hiddenInput} />
+        <input ref={avatarInputRef} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" onChange={handleAvatarUpload} style={s.hiddenInput} />
+        <input ref={galleryInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" onChange={handleGalleryUpload} style={s.hiddenInput} />
 
         <div className="profile-name-section" style={s.nameSection}>
           <div style={{ minWidth: 0, flex: 1 }}>

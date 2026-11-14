@@ -163,6 +163,7 @@ export default function WebApp() {
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'terms' | 'dob' | 'name' | 'bio' | null>(null);
   const [onboardingTourActive, setOnboardingTourActive] = useState(false);
   const [showOnboardingThankYou, setShowOnboardingThankYou] = useState(false);
+  const [newSignupGlowActive, setNewSignupGlowActive] = useState(false);
   const [onboardingTourStep, setOnboardingTourStep] = useState<OnboardingStep>('profile_photo');
   const [onboardingTourDone, setOnboardingTourDone] = useState<string[]>([]);
   const [welcomeResume, setWelcomeResume] = useState<{ step: string; completed: string[]; completedAt: string | null } | null>(null);
@@ -265,6 +266,30 @@ export default function WebApp() {
     setOnboardingTourStep(step);
     setOnboardingTourActive(true);
   }
+
+  function dismissOnboardingThankYou() {
+    setShowOnboardingThankYou(false);
+    const createdAt = user?.created_at ? new Date(user.created_at).getTime() : NaN;
+    const expiresAt = createdAt + 7 * 24 * 60 * 60 * 1000;
+    if (!user?.id || !Number.isFinite(createdAt) || Date.now() >= expiresAt) return;
+    try {
+      localStorage.setItem(`livme-new-signup-glow:${user.id}`, String(expiresAt));
+      setNewSignupGlowActive(true);
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (!user?.id) { setNewSignupGlowActive(false); return; }
+    try {
+      const key = `livme-new-signup-glow:${user.id}`;
+      const expiresAt = Number(localStorage.getItem(key));
+      const createdAt = user.created_at ? new Date(user.created_at).getTime() : NaN;
+      const validSignupWindow = Number.isFinite(createdAt) && Date.now() < createdAt + 7 * 24 * 60 * 60 * 1000;
+      const active = validSignupWindow && Number.isFinite(expiresAt) && Date.now() < expiresAt;
+      setNewSignupGlowActive(active);
+      if (!active && expiresAt) localStorage.removeItem(key);
+    } catch { setNewSignupGlowActive(false); }
+  }, [user?.id, user?.created_at]);
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
@@ -1476,7 +1501,7 @@ export default function WebApp() {
           {page === 'profile' && (
             <div className="page-content profile-page-shell" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} onAvatarSaved={handleAvatarSaved} onboardingPhotoRequired={onboardingTourActive && onboardingTourStep === 'profile_photo'} />
+              <ProfilePage onNav={setPage as any} user={user} newSignupGlowActive={newSignupGlowActive} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} onAvatarSaved={handleAvatarSaved} onboardingPhotoRequired={onboardingTourActive && onboardingTourStep === 'profile_photo'} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1602,7 +1627,7 @@ export default function WebApp() {
             setOnboardingTourActive(false);
             handleNav('profile');
             setShowOnboardingThankYou(true);
-            window.setTimeout(() => setShowOnboardingThankYou(false), 6500);
+            window.setTimeout(() => dismissOnboardingThankYou(), 6500);
           }}
         />
         </>
@@ -1613,7 +1638,7 @@ export default function WebApp() {
           role="dialog"
           aria-modal="true"
           aria-label="Thank you for joining LiveMe"
-          onClick={() => setShowOnboardingThankYou(false)}
+          onClick={() => dismissOnboardingThankYou()}
           style={{ position: 'fixed', inset: 0, zIndex: 10050, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(5,5,18,.78)', backdropFilter: 'blur(5px)' }}
         >
           <style>{`

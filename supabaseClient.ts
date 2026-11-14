@@ -251,13 +251,13 @@ export async function setSessionToken(token: string | null, refreshToken?: strin
   return {};
 }
 
-export async function signUp(email: string, password: string): Promise<{ error?: string }> {
+export async function signUp(email: string, password: string, captchaToken: string): Promise<{ error?: string }> {
   try {
     const normalizedEmail = email.trim().toLowerCase();
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email: normalizedEmail, password }),
+      body: JSON.stringify({ email: normalizedEmail, password, captcha_token: captchaToken }),
     });
     if (data.error) return { error: data.error };
     // Do not establish a session until the email OTP has been verified.
@@ -307,12 +307,12 @@ export async function resendSignupOtp(email: string): Promise<{ error?: string }
   }
 }
 
-export async function signIn(email: string, password: string): Promise<{ error?: string }> {
+export async function signIn(email: string, password: string, captchaToken: string): Promise<{ error?: string }> {
   try {
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, captcha_token: captchaToken }),
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
@@ -329,9 +329,9 @@ export async function signIn(email: string, password: string): Promise<{ error?:
   }
 }
 
-export async function resetPassword(email: string, redirectTo?: string): Promise<{ error?: string }> {
+export async function resetPassword(email: string, redirectTo: string | undefined, captchaToken: string): Promise<{ error?: string }> {
   try {
-    const body: any = { email };
+    const body: any = { email, captcha_token: captchaToken };
     if (redirectTo) body.redirect_to = redirectTo;
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/recover`, {
       method: 'POST',

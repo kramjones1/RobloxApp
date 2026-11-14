@@ -231,19 +231,19 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
         <div className="profile-avatar-wrap" style={s.avatarWrap}>
           <div className="avatar-circle profile-avatar" style={s.avatar}
-            data-onboarding-allow-profile-photo="true"
+            data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined}
             role="button" aria-label="Change profile picture" tabIndex={0}
-            onTouchStart={() => startLongPress(() => avatarInputRef.current?.click())}
+            onTouchStart={() => { if (!onboardingPhotoRequired) startLongPress(() => avatarInputRef.current?.click()); }}
             onTouchEnd={cancelLongPress} onTouchCancel={cancelLongPress}
-            onMouseDown={() => startLongPress(() => avatarInputRef.current?.click())}
+            onMouseDown={() => { if (!onboardingPhotoRequired) startLongPress(() => avatarInputRef.current?.click()); }}
             onMouseUp={cancelLongPress} onMouseLeave={cancelLongPress}
-            onClick={(e) => { e.preventDefault(); avatarInputRef.current?.click(); }}
+            onClick={(e) => { if (onboardingPhotoRequired || window.innerWidth >= 700) { e.preventDefault(); avatarInputRef.current?.click(); } }}
             onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); avatarInputRef.current?.click(); } }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
             <span className="av-overlay" style={s.avatarOverlay}>{uploadingAvatar ? '...' : 'Edit'}</span>
           </div>
         </div>
-        <input ref={avatarInputRef} data-onboarding-allow-profile-photo="true" type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
+        <input ref={avatarInputRef} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} type="file" accept="image/*" onChange={handleAvatarUpload} style={s.hiddenInput} />
 
         <div className="profile-name-section" style={s.nameSection}>
           <h1 style={s.name}>{displayName}</h1>

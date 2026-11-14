@@ -131,15 +131,20 @@ export default function OnboardingTour({ initialStep = 'profile_photo', complete
     };
   }, [photoOnlyMode]);
 
-  // Keep the required avatar accessible without adding a spotlight, outline,
-  // pulse, or screen-dimming effect that competes with the prompt.
+  // Clearly identify the required upload target only after the intro prompt
+  // has been dismissed. The avatar gets a restrained pulsing outline and a
+  // small floating label; the rest of the page is not dimmed or obscured.
   useEffect(() => {
     if (!photoOnlyMode) return;
     const target = findTarget(['.profile-avatar[aria-label="Change profile picture"]', '.profile-avatar']);
     if (!target) return;
     target.setAttribute('aria-describedby', 'livme-tour-photo-hint');
-    return () => target.removeAttribute('aria-describedby');
-  }, [photoOnlyMode]);
+    target.classList.add('livme-tour-photo-target');
+    return () => {
+      target.removeAttribute('aria-describedby');
+      target.classList.remove('livme-tour-photo-target');
+    };
+  }, [photoOnlyMode, profileReady]);
 
   useEffect(() => {
     setStep(initialStep);
@@ -264,12 +269,20 @@ export default function OnboardingTour({ initialStep = 'profile_photo', complete
     <div role="region" aria-label="LivMe guided tour" aria-live="polite" style={{ position: 'fixed', inset: 0, zIndex: 10000, width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: step === 'profile_photo' && !profileIntroComplete ? 0 : 'max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))', fontFamily: 'system-ui,sans-serif', pointerEvents: 'none' }}>
       <style>{`
         @keyframes livmeTourPop { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes livmePhotoTargetPulse {
+          0%,100% { outline: 3px solid rgba(255,213,79,.9); outline-offset: 5px; box-shadow: 0 0 0 9px rgba(255,213,79,.13), 0 0 24px 8px rgba(255,213,79,.35); }
+          50% { outline: 4px solid rgba(0,212,255,1); outline-offset: 8px; box-shadow: 0 0 0 13px rgba(0,212,255,.15), 0 0 34px 12px rgba(108,99,255,.48); }
+        }
+        .livme-tour-photo-target { position: relative; z-index: 10002 !important; animation: livmePhotoTargetPulse 1.5s ease-in-out infinite; }
         .livme-tour-photo-hint { position: fixed; z-index: 10003; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(440px, calc(100vw - 28px)); box-sizing: border-box; padding: 12px 16px; border: 1px solid rgba(150,140,255,.55); border-radius: 14px; color: #fff; background: rgba(23,23,34,.97); box-shadow: 0 10px 34px rgba(0,0,0,.45); text-align: center; font-size: 13px; line-height: 1.45; pointer-events: none; }
         .livme-tour-card.livme-tour-card--intro { width: 100%; max-width: none; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; display: flex; flex-direction: column; justify-content: center; padding: clamp(24px, 6vw, 48px); }
         .livme-tour-card { pointer-events: auto; position: relative; box-sizing: border-box; width: min(440px, 100%); max-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))); margin: auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; border: 1px solid rgba(255,255,255,.16); border-radius: 20px; padding: 18px; color: white; background: #171722; box-shadow: 0 18px 60px rgba(0,0,0,.52); animation: livmeTourPop .28s ease both; }
         .livme-tour-btn { border: 0; border-radius: 11px; padding: 11px 14px; min-height: 42px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
         .livme-tour-actions { position: sticky; bottom: -18px; padding: 12px 0 0; background: #171722; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
         .livme-tour-resume { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%); pointer-events: auto; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 12px 20px; color: #fff; background: linear-gradient(110deg,#6258e8,#2676ed); font-weight: 750; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+        @media (prefers-reduced-motion: reduce) {
+          .livme-tour-photo-target { animation: none; outline: 3px solid #ffd54f; outline-offset: 6px; box-shadow: 0 0 0 10px rgba(255,213,79,.2); }
+        }
         @media (max-width: 520px) {
           .livme-tour-card { width: 100%; max-width: 440px; padding: 15px; max-height: calc(100dvh - max(24px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))); }
           .livme-tour-card h2 { font-size: 19px !important; }

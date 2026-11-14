@@ -188,11 +188,11 @@ export default function LandingPage({
                     </>
                   ) : (
                     <form onSubmit={onForgotSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {captchaWidget}
                       <input style={s.input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => onForgotEmailChange?.(e.target.value)} required />
                       <button type="submit" disabled={submitting || (forgotCooldown || 0) > 0} style={{...s.submitBtn, opacity: submitting || (forgotCooldown || 0) > 0 ? 0.5 : 1}}>
                         {submitting ? 'Sending...' : (forgotCooldown || 0) > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                       </button>
-                      {captchaWidget}
                       <p style={{ color: '#666', fontSize: 13, textAlign: 'center', cursor: 'pointer', margin: 0 }} onClick={onBackToSignIn}>← Back to Sign In</p>
                     </form>
                   )}
@@ -203,6 +203,7 @@ export default function LandingPage({
                   <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
                   <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
                   <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {captchaWidget}
                     <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
                     <div style={{ position: 'relative', width: '100%' }}>
                       <input style={{ ...s.input, paddingRight: 64 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
@@ -211,7 +212,6 @@ export default function LandingPage({
                     <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
                       {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>
-                    {captchaWidget}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
                       <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
                       <span style={{ color: '#666', fontSize: 12 }}>OR</span>

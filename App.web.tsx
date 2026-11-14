@@ -748,6 +748,7 @@ export default function WebApp() {
 
   async function handleLogout() {
     setOnboardingTourActive(false);
+    setOnboardingIsReplay(false);
     await signOut();
     wsRef.current?.close();
     cleanup();

@@ -269,9 +269,9 @@ export default function WebApp() {
 
   function dismissOnboardingThankYou() {
     setShowOnboardingThankYou(false);
-    const createdAt = user?.created_at ? new Date(user.created_at).getTime() : NaN;
-    const expiresAt = createdAt + 7 * 24 * 60 * 60 * 1000;
-    if (!user?.id || !Number.isFinite(createdAt) || Date.now() >= expiresAt) return;
+    if (!user?.id) return;
+    // Start the full seven-day welcome period when the member dismisses the thank-you screen.
+    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
     try {
       localStorage.setItem(`livme-new-signup-glow:${user.id}`, String(expiresAt));
       setNewSignupGlowActive(true);
@@ -280,16 +280,23 @@ export default function WebApp() {
 
   useEffect(() => {
     if (!user?.id) { setNewSignupGlowActive(false); return; }
+    const key = `livme-new-signup-glow:${user.id}`;
+    let expiryTimer: number | undefined;
     try {
-      const key = `livme-new-signup-glow:${user.id}`;
       const expiresAt = Number(localStorage.getItem(key));
-      const createdAt = user.created_at ? new Date(user.created_at).getTime() : NaN;
-      const validSignupWindow = Number.isFinite(createdAt) && Date.now() < createdAt + 7 * 24 * 60 * 60 * 1000;
-      const active = validSignupWindow && Number.isFinite(expiresAt) && Date.now() < expiresAt;
+      const active = Number.isFinite(expiresAt) && expiresAt > Date.now();
       setNewSignupGlowActive(active);
-      if (!active && expiresAt) localStorage.removeItem(key);
+      if (active) {
+        expiryTimer = window.setTimeout(() => {
+          setNewSignupGlowActive(false);
+          try { localStorage.removeItem(key); } catch {}
+        }, Math.min(expiresAt - Date.now(), 2147483647));
+      } else if (localStorage.getItem(key)) {
+        localStorage.removeItem(key);
+      }
     } catch { setNewSignupGlowActive(false); }
-  }, [user?.id, user?.created_at]);
+    return () => { if (expiryTimer !== undefined) window.clearTimeout(expiryTimer); };
+  }, [user?.id]);
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);

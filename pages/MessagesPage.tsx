@@ -497,12 +497,14 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     }
     const partnerIds = presencePartnerKey.split('|').filter(Boolean);
     return watchUserPresence(myId, partnerIds, setOnlinePartners);
-  }, [myId, presencePartnerKey]);
+  }, [myId, conversationPartnerKey, selectedId]);
 
   useEffect(() => {
     if (!myId) return;
     let active = true;
-    const partners = Array.from(new Set(presencePartnerIds)).filter(Boolean);
+    // Keep existing conversation listeners and also prepare the currently selected
+    // directory user. A globally-online user may not yet be in the loaded inbox list.
+    const partners = Array.from(new Set([...presencePartnerIds, selectedId])).filter(Boolean);
     setCallSignalingReady(false);
     callSignalingRef.current?.close();
     callSignalingRef.current = null;

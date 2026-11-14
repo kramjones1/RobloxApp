@@ -8,6 +8,7 @@ export type OnboardingProgress = {
   completed_steps: string[];
   completed_at: string | null;
   updated_at: string;
+  new_member_badge_expires_at?: string | null;
 };
 
 export async function getOnboardingProgress(): Promise<{ progress?: OnboardingProgress; error?: string }> {
@@ -16,7 +17,7 @@ export async function getOnboardingProgress(): Promise<{ progress?: OnboardingPr
   if (!token || !user?.id) return { error: 'Not authenticated' };
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/onboarding_progress?user_id=eq.${encodeURIComponent(user.id)}&select=version,current_step,completed_steps,completed_at,updated_at&limit=1`,
+      `${SUPABASE_URL}/rest/v1/onboarding_progress?user_id=eq.${encodeURIComponent(user.id)}&select=version,current_step,completed_steps,completed_at,updated_at,new_member_badge_expires_at&limit=1`,
       { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } }
     );
     if (!response.ok) return { error: `Could not load onboarding progress (HTTP ${response.status}).` };
@@ -73,4 +74,24 @@ export async function acknowledgeWelcome(): Promise<{ error?: string }> {
   const validSteps = new Set(['profile_photo','discover','random_call','conversation','coins','safety','complete']);
   const step = progress && validSteps.has(progress.current_step) ? progress.current_step : 'profile_photo';
   return saveOnboardingProgress(step, progress?.completed_steps || []);
+}
+
+
+export async function activateNewMemberBadge(requestedExpiresAt?: string): Promise<{ expiresAt?: string; error?: string }> {
+  const token = await getValidAccessToken();
+  const user = getSession();
+  if (!token || !user?.id) return { error: 'Not authenticated' };
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/activate_new_member_badge`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_requested_expires_at: requestedExpiresAt || null }),
+    });
+    if (!response.ok) return { error: (await response.text()) || `Could not activate new-member badge (HTTP ${response.status}).` };
+    const value = await response.json();
+    const expiresAt = typeof value === 'string' ? value : (Array.isArray(value) && typeof value[0] === 'string' ? value[0] : undefined);
+    return expiresAt ? { expiresAt } : { error: 'The new-member badge is not eligible for activation yet.' };
+  } catch (error: any) {
+    return { error: error?.message || 'Could not activate new-member badge.' };
+  }
 }

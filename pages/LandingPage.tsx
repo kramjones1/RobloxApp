@@ -162,7 +162,7 @@ export default function LandingPage({
     <section style={{ ...s.section, ...s.hero }}>
       <div style={s.row}>
         <div style={s.left}>
-          <h1 style={s.heroTitle}>LiveMe</h1>
+          <h1 data-onboarding-target="discover" style={s.heroTitle}>LiveMe</h1>
           <p style={s.heroTagline}>Random video chat. Meet new people.</p>
           {!showAuth && (
             underage ? (
@@ -170,7 +170,7 @@ export default function LandingPage({
                 Video chat is restricted to users 18+.<br/>Browse profiles or send messages instead.
               </p>
             ) : (
-              <button style={s.cta} onClick={onStart}>Start Chatting</button>
+              <button data-onboarding-target="random-call" style={s.cta} onClick={onStart}>Start Chatting</button>
             )
           )}
         </div>

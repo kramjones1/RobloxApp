@@ -151,6 +151,7 @@ export default function WebApp() {
   const [authMsg, setAuthMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [captchaToken, setCaptchaToken] = useState('');
+  const captchaTokenRef = useRef('');
   const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -213,6 +214,13 @@ export default function WebApp() {
   const [bannedReason, setBannedReason] = useState('');
 
   function addLog(msg: string) { setLog(msg); }
+
+  function handleCaptchaVerify(token: string) {
+    // Keep the token synchronously available to submit handlers; React state
+    // remains the source for button enabled/disabled rendering.
+    captchaTokenRef.current = token;
+    setCaptchaToken(token);
+  }
 
   function handleOAuthSignIn(provider: 'google' | 'github') {
     setAuthMsg('');
@@ -621,11 +629,13 @@ export default function WebApp() {
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (!captchaToken) { setAuthMsg('Please complete the security check first.'); return; }
+    const verifiedCaptchaToken = captchaTokenRef.current.trim();
+    if (!verifiedCaptchaToken) { setAuthMsg('Please complete the security check again before requesting a reset link.'); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(forgotEmail)) { setAuthMsg('Please enter a valid email address (e.g. name@domain.com)'); return; }
     setSubmitting(true);
-    const { error } = await resetPassword(forgotEmail, window.location.origin, captchaToken);
+    const { error } = await resetPassword(forgotEmail, window.location.origin, verifiedCaptchaToken);
+    captchaTokenRef.current = '';
     setCaptchaToken('');
     setCaptchaResetKey(v => v + 1);
     setSubmitting(false);
@@ -1490,7 +1500,7 @@ export default function WebApp() {
                   </>
                 ) : (
                   <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
-                    <TurnstileCaptcha onVerify={setCaptchaToken} resetKey={captchaResetKey} /><input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
+                    <TurnstileCaptcha onVerify={handleCaptchaVerify} resetKey={captchaResetKey} /><input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
                     <button type="submit" disabled={submitting || !captchaToken || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || !captchaToken || forgotCooldown > 0 ? 0.5 : 1}}>
                       {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                     </button>
@@ -1511,7 +1521,7 @@ export default function WebApp() {
                     <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
-                  <TurnstileCaptcha onVerify={setCaptchaToken} resetKey={captchaResetKey} />
+                  <TurnstileCaptcha onVerify={handleCaptchaVerify} resetKey={captchaResetKey} />
                   <button type="submit" disabled={submitting || !captchaToken} style={{...mobileBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>

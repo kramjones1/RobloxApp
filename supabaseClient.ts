@@ -467,7 +467,7 @@ async function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToke
   localStorage.setItem('sb-btkcubibosbtpxcronnd-auth-token-code-verifier', verifier + '/' + Date.now());
   const params = new URLSearchParams({
     provider,
-    redirect_to: window.location.origin,
+    redirect_to: `${window.location.origin}/?auth_flow=oauth`,
     captcha_token: captchaToken,
     code_challenge: challenge,
     code_challenge_method: 's256',

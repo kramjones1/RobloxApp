@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, exchangeRecoveryCode, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, exchangeRecoveryCode, exchangeOAuthCode, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import { startUserPresence, startOperatorSessionPresence } from './chatPresence';
 import Navbar from './components/Navbar';
@@ -358,6 +358,42 @@ export default function WebApp() {
     const recoveryQuery = new URLSearchParams(window.location.search);
     const recoveryHash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const recoveryCode = recoveryQuery.get('code');
+    let oauthPending = false;
+    try {
+      oauthPending = sessionStorage.getItem('liveme-oauth-pending') === '1';
+      if (oauthPending) sessionStorage.removeItem('liveme-oauth-pending');
+    } catch {}
+    if (recoveryCode && (oauthPending || Boolean(window.opener))) {
+      history.replaceState(null, '', window.location.pathname);
+      setAuthLoading(true);
+      void (async () => {
+        const exchanged = await exchangeOAuthCode(recoveryCode);
+        if (exchanged.error || !exchanged.access_token) {
+          setAuthMsg(exchanged.error || 'Social sign-in could not be completed. Please try again.');
+          setAuthLoading(false);
+          return;
+        }
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'oauth_token',
+            access_token: exchanged.access_token,
+            refresh_token: exchanged.refresh_token,
+            oauthType: 'login',
+          }, window.location.origin);
+          window.close();
+          return;
+        }
+        const result = await setSessionToken(exchanged.access_token, exchanged.refresh_token);
+        if (result.error) {
+          setAuthMsg(result.error);
+          setAuthLoading(false);
+          return;
+        }
+        try { sessionStorage.setItem('liveme-oauth-login', '1'); } catch {}
+        window.location.reload();
+      })();
+      return;
+    }
     if (recoveryCode) {
       history.replaceState(null, '', window.location.pathname);
       setAuthLoading(true);

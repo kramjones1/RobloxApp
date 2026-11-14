@@ -166,7 +166,7 @@ export default function LandingPage({
           <p style={s.heroTagline}>Random video chat. Meet new people.</p>
           {!showAuth && (
             underage ? (
-              <p style={{ color: '#f44336', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 360, lineHeight: 1.5 }}>
+              <p data-onboarding-target="random-call" style={{ color: '#f44336', fontSize: 14, marginTop: 16, textAlign: 'center', maxWidth: 360, lineHeight: 1.5 }}>
                 Video chat is restricted to users 18+.<br/>Browse profiles or send messages instead.
               </p>
             ) : (

@@ -160,7 +160,7 @@ export default function WebApp() {
   const [recoveryAccessToken, setRecoveryAccessToken] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
-  const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'dob' | 'name' | 'bio' | null>(null);
+  const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'terms' | 'dob' | 'name' | 'bio' | null>(null);
   const [onboardingTourActive, setOnboardingTourActive] = useState(false);
   const [onboardingTourStep, setOnboardingTourStep] = useState<OnboardingStep>('profile_photo');
   const [onboardingTourDone, setOnboardingTourDone] = useState<string[]>([]);
@@ -1608,7 +1608,7 @@ export default function WebApp() {
       {(onboardingStep === 'welcome' || onboardingStep === 'terms') && (
         <>
           <OnboardingConfetti />
-          <div style={{ position: 'fixed', inset: 0, zIndex: 10010, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div style={{ position: 'relative', background: 'linear-gradient(155deg,#202039,#15151e 65%)', border: '1px solid rgba(132,122,255,.48)', borderRadius: 20, padding: '28px 24px', maxWidth: 460, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 0 0 1px rgba(108,99,255,.12), 0 18px 60px rgba(0,0,0,.65), 0 0 36px rgba(108,99,255,.2)' }}>
               <div style={{ width: 54, height: 5, borderRadius: 9, background: 'linear-gradient(90deg,#6c63ff,#00d4ff)', margin: '0 auto 20px', boxShadow: '0 0 18px rgba(108,99,255,.75)' }} />
               {onboardingStep === 'welcome' ? (

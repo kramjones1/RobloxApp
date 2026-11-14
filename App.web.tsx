@@ -162,6 +162,7 @@ export default function WebApp() {
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'terms' | 'dob' | 'name' | 'bio' | null>(null);
   const [onboardingTourActive, setOnboardingTourActive] = useState(false);
+  const [onboardingIsReplay, setOnboardingIsReplay] = useState(false);
   const [showOnboardingThankYou, setShowOnboardingThankYou] = useState(false);
   const [newSignupGlowActive, setNewSignupGlowActive] = useState(false);
   const [newSignupGlowExpiresAt, setNewSignupGlowExpiresAt] = useState<string | null>(null);
@@ -234,8 +235,12 @@ export default function WebApp() {
 
 
   async function handleTourStepChange(step: OnboardingStep, completed: string[]) {
-    const result = await saveOnboardingProgress(step, completed);
-    if (result.error) throw new Error(result.error);
+    // Replaying is a local tutorial preview. Never rewrite the member's original
+    // completion record or badge eligibility while a replay is in progress.
+    if (!onboardingIsReplay) {
+      const result = await saveOnboardingProgress(step, completed);
+      if (result.error) throw new Error(result.error);
+    }
     setOnboardingTourStep(step);
     setOnboardingTourDone(completed);
   }
@@ -743,6 +748,7 @@ export default function WebApp() {
 
   async function handleLogout() {
     setOnboardingTourActive(false);
+    setOnboardingIsReplay(false);
     await signOut();
     wsRef.current?.close();
     cleanup();
@@ -1600,7 +1606,7 @@ export default function WebApp() {
           {page === 'settings' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <SettingsPage userId={user?.id || ''} onReplayOnboarding={async () => { const completed = ['profile_photo']; const result = await saveOnboardingProgress('discover', completed); if (result.error) { setAuthMsg(result.error); return; } setOnboardingTourStep('discover'); setOnboardingTourDone(completed); setOnboardingTourActive(true); }} />
+              <SettingsPage userId={user?.id || ''} onReplayOnboarding={() => { const completed = ['profile_photo']; setOnboardingIsReplay(true); setOnboardingTourStep('discover'); setOnboardingTourDone(completed); setOnboardingTourActive(true); }} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1714,6 +1720,10 @@ export default function WebApp() {
           onFinish={async () => {
             await handleTourStepChange('complete', Array.from(new Set([...onboardingTourDone, 'safety', 'complete'])));
             setOnboardingTourActive(false);
+            if (onboardingIsReplay) {
+              setOnboardingIsReplay(false);
+              return;
+            }
             handleNav('profile');
             setShowOnboardingThankYou(true);
             window.setTimeout(() => dismissOnboardingThankYou(), 6500);

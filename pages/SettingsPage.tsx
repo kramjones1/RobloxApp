@@ -79,7 +79,7 @@ export default function SettingsPage({ userId, onReplayOnboarding }: { userId: s
 
   const status = (value: string) => value === 'granted' ? '#4caf50' : value === 'denied' ? '#f44336' : '#ffb74d';
   return <main style={{ ...panel, color: light ? '#20232a' : '#fff' }}>
-    <h1 style={{ fontSize: 26, margin: '0 0 6px' }}>Settings</h1>
+    <h1 data-onboarding-target="settings" style={{ fontSize: 26, margin: '0 0 6px' }}>Settings</h1>
     <p style={{ color: light ? '#626875' : '#999', fontSize: 14, lineHeight: 1.5 }}>Manage your appearance and camera/microphone access.</p>
     {onReplayOnboarding && <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}><h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Getting started</h2><p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.5, margin: '0 0 12px' }}>Replay the interactive introduction to LivMe.</p><button type="button" onClick={onReplayOnboarding} style={{ background: '#6c63ff', color: '#fff', border: 0, borderRadius: 8, padding: '11px 16px', fontWeight: 600, cursor: 'pointer' }}>Replay onboarding</button></section>}
     <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>

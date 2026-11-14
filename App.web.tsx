@@ -116,6 +116,18 @@ themeStyle.textContent = `
 `;
 document.head.appendChild(themeStyle);
 
+function OnboardingConfetti() {
+  const pieces = Array.from({ length: 24 }, (_, i) => ({
+    left: `${(i * 37) % 100}%`, delay: `${(i % 8) * 0.35}s`, duration: `${5 + (i % 5)}s`,
+    color: ['#8b7cff', '#20c8e8', '#ffd166', '#ff70a6', '#61d095'][i % 5],
+    rotate: `${(i * 41) % 360}deg`, width: i % 3 === 0 ? 7 : 5,
+  }));
+  return <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: 9998, overflow: 'hidden', pointerEvents: 'none' }}>
+    <style>{`@keyframes livmeConfettiFall { 0% { transform: translate3d(0,-12vh,0) rotate(0deg); opacity: 0; } 10% { opacity: .9; } 90% { opacity: .8; } 100% { transform: translate3d(28px,112vh,0) rotate(720deg); opacity: 0; } }`}</style>
+    {pieces.map((piece, i) => <span key={i} style={{ position: 'absolute', top: -18, left: piece.left, width: piece.width, height: 11, borderRadius: 3, background: piece.color, transform: `rotate(${piece.rotate})`, animation: `livmeConfettiFall ${piece.duration} linear ${piece.delay} infinite`, opacity: .85 }} />)}
+  </div>;
+}
+
 function isValidSignupPassword(value: string): boolean {
   // Count Unicode code points and check each required character class explicitly.
   const chars = Array.from(value);
@@ -220,14 +232,18 @@ export default function WebApp() {
   async function handleAvatarSaved() {
     const completed = Array.from(new Set([...onboardingTourDone, 'profile_photo']));
     const result = await saveOnboardingProgress('discover', completed);
-    if (result.error) { setAuthMsg('Your photo was saved, but onboarding progress could not be saved. Please try again.'); return; }
+    if (result.error) { const message = 'Your photo was saved, but onboarding progress could not be saved. Please try again.'; setAuthMsg(message); throw new Error(message); }
     setOnboardingTourDone(completed);
     setOnboardingTourStep('discover');
   }
 
   async function resumeOnboardingIfNeeded() {
+    const requestUserId = getSession()?.id;
+    if (!requestUserId) return;
     const { progress, error } = await getOnboardingProgress();
-    if (error || !progress || progress.completed_at) return;
+    if (getSession()?.id !== requestUserId) return;
+    if (error) { setAuthMsg(error); return; }
+    if (!progress || progress.completed_at) { setOnboardingTourActive(false); return; }
     const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
     const step = validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step as OnboardingStep : 'profile_photo';
     setOnboardingTourDone(progress.completed_steps || []);
@@ -369,8 +385,20 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile, error }) => { if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; } if (profile) { setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); void resumeOnboardingIfNeeded(); } else setOnboardingStep('welcome'); }); }
-      else { setAdmin(false); setMyProfile(null); }
+      if (u2?.id) {
+        isAdmin().then(setAdmin);
+        getChatProfile().then(({ profile, error }) => {
+          if (error) { setAuthMsg('We could not verify your profile. Please refresh and try again.'); return; }
+          if (profile) {
+            setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            void resumeOnboardingIfNeeded();
+          } else setOnboardingStep('welcome');
+        });
+      } else {
+        setAdmin(false);
+        setMyProfile(null);
+        setOnboardingTourActive(false);
+      }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
   }, []);
@@ -540,21 +568,33 @@ export default function WebApp() {
         setOnboardingStep('name');
       }
     } else if (onboardingStep === 'name') {
-      if (!onboardingName || onboardingName.length < 1) { setAuthMsg('Display name is required'); return; }
+      if (onboardingName.trim().length < 3) { setAuthMsg('Your display name must be at least 3 characters long.'); return; }
       // Keep the profile absent until the full onboarding flow is completed.
       // Otherwise a partially completed registration could look like an old account on reload.
       setOnboardingStep('bio');
     } else {
+      if (onboardingBio.trim().length < 10) { setAuthMsg('Your bio must be at least 10 characters long.'); return; }
       setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob, terms_accepted_at: new Date().toISOString(), terms_version: '2026-11-11' } as any);
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio.trim(), avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob, terms_accepted_at: new Date().toISOString(), terms_version: '2026-11-11' } as any);
       setSubmitting(false);
       if (error) setAuthMsg(error);
-      else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); setOnboardingTourDone([]); setOnboardingTourStep('profile_photo'); setOnboardingTourActive(true); void saveOnboardingProgress('profile_photo', []); }
+      else {
+        setUnderage(calcAge(onboardingDob) < 18);
+        setCamError('');
+        setOnboardingStep(null);
+        setPage('profile');
+        const progressResult = await saveOnboardingProgress('profile_photo', []);
+        if (progressResult.error) { setAuthMsg('Your profile was created, but onboarding progress could not be saved. Please refresh and try again.'); return; }
+        setOnboardingTourDone([]);
+        setOnboardingTourStep('profile_photo');
+        setOnboardingTourActive(true);
+      }
     }
   }
 
   async function handleLogout() {
-    signOut();
+    setOnboardingTourActive(false);
+    await signOut();
     wsRef.current?.close();
     cleanup();
     setPage('home');
@@ -1065,29 +1105,27 @@ export default function WebApp() {
   if (onboardingStep && onboardingStep !== 'welcome') {
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <OnboardingConfetti />
         <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
         <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
-          {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}
+          {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Set up your bio'}
         </p>
         <form onSubmit={handleOnboardingSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 360 }}>
           {onboardingStep === 'dob' ? (
             <input style={input} type="date" value={onboardingDob} onChange={e => setOnboardingDob(e.target.value)} required />
           ) : onboardingStep === 'name' ? (
-            <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
+            <input style={input} type="text" placeholder="Display name (3–9 letters or numbers)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} minLength={3} maxLength={9} pattern="[a-zA-Z0-9]{3,9}" required />
           ) : (
             <>
               <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>Display name: <b style={{ color: '#fff' }}>{onboardingName}</b></p>
-              <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} maxLength={200} />
+              <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (10–200 characters)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} minLength={10} maxLength={200} required />
             </>
           )}
-          <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
+          <button type="submit" disabled={submitting || (onboardingStep === 'name' && onboardingName.trim().length < 3) || (onboardingStep === 'bio' && onboardingBio.trim().length < 10)} style={{...mobileBtn, opacity: submitting || (onboardingStep === 'name' && onboardingName.trim().length < 3) || (onboardingStep === 'bio' && onboardingBio.trim().length < 10) ? 0.5 : 1}}>
             {submitting ? 'Saving...' : onboardingStep === 'dob' ? 'Next' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
           </button>
         </form>
         {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
-        {onboardingStep === 'bio' && (
-          <p style={{ color: '#6c63ff', fontSize: 12, marginTop: 12, cursor: 'pointer' }} onClick={handleOnboardingSubmit}>Skip</p>
-        )}
       </div>
     );
   }
@@ -1403,7 +1441,7 @@ export default function WebApp() {
           {page === 'profile' && (
             <div className="page-content profile-page-shell" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} onAvatarSaved={handleAvatarSaved} />
+              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} onAvatarSaved={handleAvatarSaved} onboardingPhotoRequired={onboardingTourActive && onboardingTourStep === 'profile_photo'} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1411,7 +1449,7 @@ export default function WebApp() {
           {page === 'settings' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <SettingsPage userId={user?.id || ''} onReplayOnboarding={() => { setOnboardingTourStep('discover'); setOnboardingTourDone(['profile_photo']); setOnboardingTourActive(true); }} />
+              <SettingsPage userId={user?.id || ''} onReplayOnboarding={async () => { const completed = ['profile_photo']; const result = await saveOnboardingProgress('discover', completed); if (result.error) { setAuthMsg(result.error); return; } setOnboardingTourStep('discover'); setOnboardingTourDone(completed); setOnboardingTourActive(true); }} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1511,26 +1549,31 @@ export default function WebApp() {
 
 
       {onboardingTourActive && user?.id && (
+        <>
+        <OnboardingConfetti />
         <OnboardingTour
           initialStep={onboardingTourStep}
           completedSteps={onboardingTourDone}
           onStepChange={handleTourStepChange}
-          onNavigate={(destination) => setPage(destination)}
+          onNavigate={handleNav}
           onStartCallDemo={() => {
             window.alert(underage
               ? 'Random video calls are restricted to adults. This introduction will continue without starting a call.'
               : 'Demo call: this is a tutorial preview only. No real person is connected and you are not placed in the matching queue.');
           }}
-          onStartConversation={() => setPage('messages')}
-          onFinish={() => {
-            void handleTourStepChange('complete', Array.from(new Set([...onboardingTourDone, 'safety', 'complete'])))
-              .then(() => setOnboardingTourActive(false))
-              .catch(error => setAuthMsg(error?.message || 'Could not finish onboarding.'));
+          onStartConversation={() => handleNav('messages')}
+          onFinish={async () => {
+            await handleTourStepChange('complete', Array.from(new Set([...onboardingTourDone, 'safety', 'complete'])));
+            setOnboardingTourActive(false);
+            handleNav('profile');
           }}
         />
+        </>
       )}
 
       {onboardingStep === 'welcome' && (
+        <>
+        <OnboardingConfetti />
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#1a1a1a', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}>
             <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, marginBottom: 4, textAlign: 'center', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
@@ -1562,6 +1605,7 @@ export default function WebApp() {
             {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 10, textAlign: 'center' }}>{authMsg}</p>}
           </div>
         </div>
+        </>
       )}
     </div>
   );

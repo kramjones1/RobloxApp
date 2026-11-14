@@ -14,7 +14,8 @@ interface Props {
   viewUserId?: string | null;
   onViewProfile?: (userId: string) => void;
   onClearView?: () => void;
-  onAvatarSaved?: () => void;
+  onAvatarSaved?: () => Promise<void> | void;
+  onboardingPhotoRequired?: boolean;
 }
 
 function formatCommentTimestamp(value: string): string {
@@ -306,7 +307,7 @@ if (!document.getElementById('profile-hover-styles')) {
   document.head.appendChild(hoverStyles);
 }
 
-export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView, onAvatarSaved }: Props) {
+export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView, onAvatarSaved, onboardingPhotoRequired = false }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
   const [bio, setBio] = useState('');
   const [work, setWork] = useState('');
@@ -848,7 +849,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     setMsg('');
     try {
       await saveProfilePhoto(file, 'avatar', setAvatarSaveStage);
-      onAvatarSaved?.();
+      await onAvatarSaved?.();
     } catch (error: any) {
       setAvatarSaveStage('Save stopped');
       setMsg(error.message || 'Could not save this profile picture.');
@@ -1075,9 +1076,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               <h2 style={s.cardTitle}>About</h2>
               <form onSubmit={handleSave}>
                 <label style={s.label}>Display Name {displayName !== 'Anonymous' && displayName !== '' && <span style={{ color: '#666', fontSize: 12, fontWeight: 400 }}>(locked — set at signup)</span>}</label>
-                <input style={{ ...s.input, opacity: displayName !== 'Anonymous' && displayName !== '' ? 0.6 : 1, cursor: displayName !== 'Anonymous' && displayName !== '' ? 'not-allowed' : 'text' }} value={displayName} readOnly={displayName !== 'Anonymous' && displayName !== ''} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
+                <input style={{ ...s.input, opacity: displayName !== 'Anonymous' && displayName !== '' ? 0.6 : 1, cursor: displayName !== 'Anonymous' && displayName !== '' ? 'not-allowed' : 'text' }} value={displayName} readOnly={displayName !== 'Anonymous' && displayName !== ''} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} minLength={3} maxLength={9} pattern="[a-zA-Z0-9]{3,9}" placeholder="3–9 letters or numbers" />
                 <label style={s.label}>Bio</label>
-                <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} placeholder="Tell people about yourself..." />
+                <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} minLength={10} maxLength={200} placeholder="Bio (10–200 characters)" />
                 <h3 style={{ ...s.cardTitle, marginTop: 10, marginBottom: 12 }}>Work & Education</h3>
                 <label style={s.label}>Work</label>
                 <input style={s.input} value={work} onChange={e => setWork(e.target.value)} maxLength={120} placeholder="e.g. Designer at ABC Studio" />
@@ -1086,7 +1087,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
                 <div style={s.toggleRow}><span style={s.toggleLabel}>Show work and education on my profile</span><button type="button" style={{ ...s.toggleBtn, background: shareDetails ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareDetails(!shareDetails)}>{shareDetails ? 'ON' : 'OFF'}</button></div>
                 <div style={s.toggleRow}><span style={s.toggleLabel}>Show name to partner</span><button type="button" style={{ ...s.toggleBtn, background: shareName ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareName(!shareName)}>{shareName ? 'ON' : 'OFF'}</button></div>
                 <div style={s.toggleRow}><span style={s.toggleLabel}>Show bio to partner</span><button type="button" style={{ ...s.toggleBtn, background: shareBio ? '#4caf50' : '#444', color: '#fff' }} onClick={() => setShareBio(!shareBio)}>{shareBio ? 'ON' : 'OFF'}</button></div>
-                <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+                <button type="submit" disabled={saving || displayName.trim().length < 3 || !/^[a-zA-Z0-9]{3,9}$/.test(displayName.trim()) || bio.trim().length < 10} style={{ ...s.saveBtn, opacity: saving || displayName.trim().length < 3 || !/^[a-zA-Z0-9]{3,9}$/.test(displayName.trim()) || bio.trim().length < 10 ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
               </form>
               {msg && <p style={{ ...s.msg, color: msg === 'Saved!' || msg === 'Photo saved.' || msg === 'Photo deleted.' ? '#4caf50' : '#f44336' }}>{msg}</p>}
             </div>
@@ -1170,7 +1171,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!displayName || displayName.length < 1) { setMsg('Display name is required'); return; }
+    if (displayName.trim().length < 3) { setMsg('Display name must be at least 3 characters long.'); return; }
+    if (!/^[a-zA-Z0-9]{3,9}$/.test(displayName.trim())) { setMsg('Display name must use 3–9 letters or numbers.'); return; }
+    if (bio.trim().length < 10) { setMsg('Bio must be at least 10 characters long.'); return; }
     setSaving(true);
     setMsg('');
     const { error } = await upsertChatProfile({ display_name: displayName, bio, avatar_url: avatarUrl, cover_url: coverUrl, share_name: shareName, share_bio: shareBio, work, education, share_details: shareDetails });
@@ -1223,11 +1226,11 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
 
         <div className="profile-avatar-wrap" style={s.avatarWrap}>
-          <div className="avatar-circle profile-avatar" style={s.avatar} onClick={() => avatarInputRef.current?.click()} role="button" aria-label="Change profile picture" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') avatarInputRef.current?.click(); }}>
+          <div className="avatar-circle profile-avatar" style={s.avatar} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} onClick={() => avatarInputRef.current?.click()} role="button" aria-label="Change profile picture" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') avatarInputRef.current?.click(); }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
           </div>
         </div>
-        <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} style={s.hiddenInput} />
+        <input ref={avatarInputRef} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarUpload} style={s.hiddenInput} />
         <input ref={galleryInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleGalleryUpload} style={s.hiddenInput} />
 
         <div className="profile-name-section" style={s.nameSection}>

@@ -1,0 +1,44 @@
+name: Deploy LivMe staging to Cloudflare Pages
+
+on:
+  push:
+    branches:
+      - preview/onboarding-trigger
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: livme-staging-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging source
+        uses: actions/checkout@v4
+        with:
+          ref: preview/onboarding-trigger
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Expo web app
+        run: npm run build
+
+      - name: Deploy existing staging Pages project
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ffb9edd51f405ffd8029c14155f6e3e0
+          command: pages deploy dist --project-name=livme-onboarding-preview --branch=main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

@@ -160,7 +160,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
         {/* Conversation list */}
         <div style={{ flex: isMobile ? 1 : undefined, width: isMobile ? '100%' : 320, borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <h2 style={{ color: '#fff', fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
+            <h2 data-onboarding-target="messages" style={{ color: '#fff', fontSize: 20, fontWeight: 700, margin: 0 }}>Inbox</h2>
           </div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {conversations.length === 0 ? (

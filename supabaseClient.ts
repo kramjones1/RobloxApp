@@ -331,7 +331,12 @@ export async function signIn(email: string, password: string, captchaToken?: str
 
 export async function resetPassword(email: string, redirectTo?: string, captchaToken?: string): Promise<{ error?: string }> {
   try {
-    const body: any = { email, ...(captchaToken ? { captcha_token: captchaToken } : {}) };
+    const verifiedCaptchaToken = captchaToken?.trim();
+    // Never send a password-recovery request without the Turnstile response.
+    // Supabase rejects /recover when CAPTCHA protection is enabled and this
+    // field is absent.
+    if (!verifiedCaptchaToken) return { error: 'Security verification expired. Please complete the security check again.' };
+    const body: any = { email, captcha_token: verifiedCaptchaToken };
     if (redirectTo) body.redirect_to = redirectTo;
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/recover`, {
       method: 'POST',

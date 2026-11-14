@@ -232,7 +232,7 @@ export default function WebApp() {
   async function handleAvatarSaved() {
     const completed = Array.from(new Set([...onboardingTourDone, 'profile_photo']));
     const result = await saveOnboardingProgress('discover', completed);
-    if (result.error) { setAuthMsg('Your photo was saved, but onboarding progress could not be saved. Please try again.'); return; }
+    if (result.error) { const message = 'Your photo was saved, but onboarding progress could not be saved. Please try again.'; setAuthMsg(message); throw new Error(message); }
     setOnboardingTourDone(completed);
     setOnboardingTourStep('discover');
   }

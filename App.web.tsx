@@ -243,7 +243,13 @@ export default function WebApp() {
     const { progress, error } = await getOnboardingProgress();
     if (getSession()?.id !== requestUserId) return;
     if (error) { setAuthMsg(error); return; }
-    if (!progress || progress.completed_at) { setOnboardingTourActive(false); return; }
+    if (!progress) {
+      // Existing profiles without an onboarding record still need to see the new welcome introduction once.
+      setOnboardingTourActive(false);
+      setOnboardingStep('welcome');
+      return;
+    }
+    if (progress.completed_at) { setOnboardingTourActive(false); return; }
     const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
     const step = validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step as OnboardingStep : 'profile_photo';
     setOnboardingTourDone(progress.completed_steps || []);
@@ -538,6 +544,19 @@ export default function WebApp() {
     setAuthMsg('');
     if (onboardingStep === 'welcome') {
       if (!agreedToTerms) { setAuthMsg('You must agree to the terms to continue.'); return; }
+      if (myProfile) {
+        // Returning profiles skip registration fields, but persist the welcome acknowledgement
+        // by creating their guided-tour progress before dismissing the introduction.
+        setSubmitting(true);
+        const result = await saveOnboardingProgress('profile_photo', []);
+        setSubmitting(false);
+        if (result.error) { setAuthMsg(result.error); return; }
+        setOnboardingTourDone([]);
+        setOnboardingTourStep('profile_photo');
+        setOnboardingStep(null);
+        setOnboardingTourActive(true);
+        return;
+      }
       setOnboardingStep('dob');
     } else if (onboardingStep === 'dob') {
       if (!onboardingDob) { setAuthMsg('Please enter your date of birth'); return; }

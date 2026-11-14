@@ -454,7 +454,7 @@ export async function signOut() {
 function base64Url(bytes: Uint8Array): string {
   let binary = '';
   bytes.forEach(value => { binary += String.fromCharCode(value); });
-  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 async function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToken: string): Promise<string> {

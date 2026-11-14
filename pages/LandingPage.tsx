@@ -145,6 +145,7 @@ interface Props {
   onGoogleSignIn?: () => void;
   onGitHubSignIn?: () => void;
   captchaWidget?: React.ReactNode;
+  captchaVerified?: boolean;
 }
 
 export default function LandingPage({
@@ -152,7 +153,7 @@ export default function LandingPage({
   onEmailChange, onPasswordChange, showPassword, onTogglePassword, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
-  onGoogleSignIn, onGitHubSignIn, captchaWidget,
+  onGoogleSignIn, onGitHubSignIn, captchaWidget, captchaVerified,
 }: Props) {
   const showAuth = !!onSubmit;
   return (
@@ -203,31 +204,31 @@ export default function LandingPage({
                   <p style={s.authTitle}>{authMode === 'login' ? 'Welcome back' : 'Join LiveMe'}</p>
                   <p style={s.authSub}>{authMode === 'login' ? 'Sign in to continue' : 'Create your free account'}</p>
                   <form onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {captchaWidget}
                     <input style={s.input} type="email" placeholder="Email" value={email} onChange={e => onEmailChange?.(e.target.value)} required />
                     <div style={{ position: 'relative', width: '100%' }}>
                       <input style={{ ...s.input, paddingRight: 64 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                       <button type="button" onClick={onTogglePassword} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 0, color: '#aaa', cursor: 'pointer', padding: 8, fontSize: 12 }}>{showPassword ? 'Hide' : 'Show'}</button>
                     </div>
-                    <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1}}>
-                      {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
+                    <button type="submit" disabled={submitting || !captchaVerified} style={{...s.submitBtn, opacity: submitting || !captchaVerified ? 0.5 : 1, cursor: submitting || !captchaVerified ? 'not-allowed' : 'pointer'}}>
+                      {submitting ? 'Please wait...' : !captchaVerified ? 'Waiting for security check…' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>
+                    {captchaWidget}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>
                       <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
                       <span style={{ color: '#666', fontSize: 12 }}>OR</span>
                       <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
                     </div>
-                    <button type="button" onClick={onGoogleSignIn} style={{
+                    <button type="button" onClick={onGoogleSignIn} disabled={!captchaVerified} style={{
                       background: '#4285F4', color: '#fff', border: 'none', padding: '12px', borderRadius: 10,
-                      fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+                      fontSize: 15, fontWeight: 600, cursor: captchaVerified ? 'pointer' : 'not-allowed', opacity: captchaVerified ? 1 : 0.5, fontFamily: 'inherit', width: '100%',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     }}>
                       <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#fff" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#fff" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#fff" d="M10.54 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.87 7.35 2.56 10.56l7.98-5.97z"/><path fill="#fff" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.97C6.51 42.62 14.62 48 24 48z"/></svg>
                       Sign {authMode === 'login' ? 'in' : 'up'} with Google
                     </button>
-                    <button type="button" onClick={onGitHubSignIn} style={{
+                    <button type="button" onClick={onGitHubSignIn} disabled={!captchaVerified} style={{
                       background: '#24292e', color: '#fff', border: 'none', padding: '12px', borderRadius: 10,
-                      fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', width: '100%',
+                      fontSize: 15, fontWeight: 600, cursor: captchaVerified ? 'pointer' : 'not-allowed', opacity: captchaVerified ? 1 : 0.5, fontFamily: 'inherit', width: '100%',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     }}>
                       <svg width="20" height="20" viewBox="0 0 16 16" fill="white"><path fillRule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>

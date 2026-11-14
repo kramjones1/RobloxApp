@@ -209,8 +209,8 @@ export default function LandingPage({
                       <input style={{ ...s.input, paddingRight: 64 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => onPasswordChange?.(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                       <button type="button" onClick={onTogglePassword} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 0, color: '#aaa', cursor: 'pointer', padding: 8, fontSize: 12 }}>{showPassword ? 'Hide' : 'Show'}</button>
                     </div>
-                    <button type="submit" disabled={submitting || !captchaVerified} style={{...s.submitBtn, opacity: submitting || !captchaVerified ? 0.5 : 1, cursor: submitting || !captchaVerified ? 'not-allowed' : 'pointer'}}>
-                      {submitting ? 'Please wait...' : !captchaVerified ? 'Waiting for security check…' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
+                    <button type="submit" disabled={submitting} style={{...s.submitBtn, opacity: submitting ? 0.5 : 1, cursor: submitting ? 'not-allowed' : 'pointer'}}>
+                      {submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}
                     </button>
                     {captchaWidget}
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '4px 0' }}>

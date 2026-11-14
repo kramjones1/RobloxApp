@@ -360,8 +360,8 @@ export default function WebApp() {
     const recoveryCode = recoveryQuery.get('code');
     let oauthPending = false;
     try {
-      oauthPending = sessionStorage.getItem('liveme-oauth-pending') === '1';
-      if (oauthPending) sessionStorage.removeItem('liveme-oauth-pending');
+      oauthPending = localStorage.getItem('liveme-oauth-pending') === '1';
+      if (oauthPending) localStorage.removeItem('liveme-oauth-pending');
     } catch {}
     if (recoveryCode && (oauthPending || Boolean(window.opener))) {
       history.replaceState(null, '', window.location.pathname);

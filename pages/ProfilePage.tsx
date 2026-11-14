@@ -16,6 +16,7 @@ interface Props {
   onClearView?: () => void;
   onAvatarSaved?: () => Promise<void> | void;
   onboardingPhotoRequired?: boolean;
+  newSignupGlowActive?: boolean;
 }
 
 function formatCommentTimestamp(value: string): string {
@@ -245,6 +246,9 @@ const hoverStyles = document.createElement('style');
 hoverStyles.textContent = `
   .profile-content-area { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 24px; align-items: start; }
   .profile-avatar, .profile-avatar > img { border-radius: 50% !important; }
+  @keyframes livmeNewMemberAvatarGlow { 0%,100% { box-shadow: 0 0 0 3px rgba(108,99,255,.62), 0 0 14px 5px rgba(108,99,255,.42), 0 0 28px 8px rgba(0,212,255,.18); } 50% { box-shadow: 0 0 0 4px rgba(0,212,255,.85), 0 0 22px 9px rgba(0,212,255,.55), 0 0 42px 13px rgba(108,99,255,.3); } }
+  .profile-avatar.new-member-glow { animation: livmeNewMemberAvatarGlow 2.8s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .profile-avatar.new-member-glow { animation: none; box-shadow: 0 0 0 3px rgba(108,99,255,.72), 0 0 20px 7px rgba(0,212,255,.35); } }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   .profile-main-content { min-width: 0; }
@@ -307,7 +311,7 @@ if (!document.getElementById('profile-hover-styles')) {
   document.head.appendChild(hoverStyles);
 }
 
-export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView, onAvatarSaved, onboardingPhotoRequired = false }: Props) {
+export default function ProfilePage({ onNav, user, onMessage, viewUserId, onViewProfile, onClearView, onAvatarSaved, onboardingPhotoRequired = false, newSignupGlowActive = false }: Props) {
   const [displayName, setDisplayName] = useState('Anonymous');
   const [bio, setBio] = useState('');
   const [work, setWork] = useState('');
@@ -1226,7 +1230,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
 
         <div className="profile-avatar-wrap" style={s.avatarWrap}>
-          <div className="avatar-circle profile-avatar" style={s.avatar} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} onClick={() => avatarInputRef.current?.click()} role="button" aria-label="Change profile picture" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') avatarInputRef.current?.click(); }}>
+          <div className={`avatar-circle profile-avatar${newSignupGlowActive ? " new-member-glow" : ""}`} style={s.avatar} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} onClick={() => avatarInputRef.current?.click()} role="button" aria-label="Change profile picture" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') avatarInputRef.current?.click(); }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
           </div>
         </div>

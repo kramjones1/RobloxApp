@@ -13,7 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
 import TurnstileCaptcha from './components/TurnstileCaptcha';
 import OnboardingTour, { type OnboardingStep } from './components/OnboardingTour';
-import { getOnboardingProgress, saveOnboardingProgress, acknowledgeWelcome, WELCOME_ACK_MARKER } from './onboardingClient';
+import { getOnboardingProgress, saveOnboardingProgress, acknowledgeWelcome, activateNewMemberBadge, WELCOME_ACK_MARKER } from './onboardingClient';
 
 // Keep preview/local testing isolated on the staging Worker. Production Pages
 // must use the migrated production Worker so it receives the production fixes.
@@ -164,6 +164,7 @@ export default function WebApp() {
   const [onboardingTourActive, setOnboardingTourActive] = useState(false);
   const [showOnboardingThankYou, setShowOnboardingThankYou] = useState(false);
   const [newSignupGlowActive, setNewSignupGlowActive] = useState(false);
+  const [newSignupGlowExpiresAt, setNewSignupGlowExpiresAt] = useState<string | null>(null);
   const [onboardingTourStep, setOnboardingTourStep] = useState<OnboardingStep>('profile_photo');
   const [onboardingTourDone, setOnboardingTourDone] = useState<string[]>([]);
   const [welcomeResume, setWelcomeResume] = useState<{ step: string; completed: string[]; completedAt: string | null } | null>(null);
@@ -276,34 +277,59 @@ export default function WebApp() {
   function dismissOnboardingThankYou() {
     setShowOnboardingThankYou(false);
     if (!user?.id) return;
-    // Start the full seven-day welcome period when the member dismisses the thank-you screen.
-    const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
-    // Activate immediately in this session even if browser storage is blocked.
+    // Persist the seven-day window centrally so every authenticated viewer sees the same badge.
     setNewSignupGlowActive(true);
-    try {
-      localStorage.setItem(`livme-new-signup-glow:${user.id}`, String(expiresAt));
-    } catch {}
+    void activateNewMemberBadge().then(({ expiresAt, error }) => {
+      if (expiresAt) {
+        setNewSignupGlowExpiresAt(expiresAt);
+        setNewSignupGlowActive(Date.parse(expiresAt) > Date.now());
+      } else {
+        setNewSignupGlowActive(false);
+        console.error('[LiveMe new-member badge]', error || 'Activation failed');
+      }
+    });
   }
 
   useEffect(() => {
-    if (!user?.id) { setNewSignupGlowActive(false); return; }
-    const key = `livme-new-signup-glow:${user.id}`;
-    let expiryTimer: number | undefined;
-    try {
-      const expiresAt = Number(localStorage.getItem(key));
-      const active = Number.isFinite(expiresAt) && expiresAt > Date.now();
-      setNewSignupGlowActive(active);
-      if (active) {
-        expiryTimer = window.setTimeout(() => {
-          setNewSignupGlowActive(false);
-          try { localStorage.removeItem(key); } catch {}
-        }, Math.min(expiresAt - Date.now(), 2147483647));
-      } else if (localStorage.getItem(key)) {
-        localStorage.removeItem(key);
+    if (!user?.id) {
+      setNewSignupGlowActive(false);
+      setNewSignupGlowExpiresAt(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { progress } = await getOnboardingProgress();
+      if (cancelled) return;
+      let expiresAt = progress?.new_member_badge_expires_at || null;
+      // Migrate an unexpired badge created by the previous browser-local implementation.
+      if (!expiresAt) {
+        try {
+          const legacy = Number(localStorage.getItem(`livme-new-signup-glow:${user.id}`));
+          if (Number.isFinite(legacy) && legacy > Date.now()) {
+            const migrated = await activateNewMemberBadge(new Date(legacy).toISOString());
+            if (cancelled) return;
+            expiresAt = migrated.expiresAt || null;
+            if (expiresAt) localStorage.removeItem(`livme-new-signup-glow:${user.id}`);
+          } else {
+            localStorage.removeItem(`livme-new-signup-glow:${user.id}`);
+          }
+        } catch {}
       }
-    } catch { setNewSignupGlowActive(false); }
-    return () => { if (expiryTimer !== undefined) window.clearTimeout(expiryTimer); };
+      if (cancelled) return;
+      setNewSignupGlowExpiresAt(expiresAt);
+      setNewSignupGlowActive(Boolean(expiresAt && Date.parse(expiresAt) > Date.now()));
+    })();
+    return () => { cancelled = true; };
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!newSignupGlowExpiresAt) return;
+    const remaining = Date.parse(newSignupGlowExpiresAt) - Date.now();
+    if (remaining <= 0) { setNewSignupGlowActive(false); return; }
+    setNewSignupGlowActive(true);
+    const timer = window.setTimeout(() => setNewSignupGlowActive(false), Math.min(remaining, 2147483647));
+    return () => window.clearTimeout(timer);
+  }, [newSignupGlowExpiresAt]);
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);

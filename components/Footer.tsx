@@ -56,8 +56,7 @@ export default function Footer({ setPage }: FooterProps) {
         <button style={styles.link} onClick={() => setPage('privacy')}>Privacy</button>
         <button style={styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>
-      <div style={styles.copyright}>&copy; {new Date().getFullYear()} LiveMe. All rights reserved.</div>
-      <div style={{ color: '#666', fontSize: 10, letterSpacing: '.35px', marginTop: 8, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>v{APP_VERSION}</div>
+      <div style={styles.copyright}>&copy; {new Date().getFullYear()} LiveMe. All rights reserved. <span style={{ color: '#666', fontSize: 11, marginLeft: 6, whiteSpace: 'nowrap' }}>v{APP_VERSION}</span></div>
     </footer>
   );
 }

@@ -161,7 +161,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (!displayName || displayName.length < 1) { setMsg('Display name is required'); return; }
+    if (displayName.trim().length < 3) { setMsg('Display name must be at least 3 characters long.'); return; }
+    if (bio.trim().length < 10) { setMsg('Bio must be at least 10 characters long.'); return; }
     setSaving(true);
     setMsg('');
     const { error } = await upsertChatProfile({ display_name: displayName, bio, avatar_url: avatarUrl, cover_url: coverUrl, share_name: shareName, share_bio: shareBio });
@@ -242,10 +243,10 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           <h2 style={s.cardTitle}>About</h2>
           <form onSubmit={handleSave}>
             <label style={s.label}>Display Name {displayName !== 'Anonymous' && displayName !== '' && <span style={{ color: '#666', fontSize: 12, fontWeight: 400 }}>(locked — set at signup)</span>}</label>
-            <input style={{ ...s.input, opacity: displayName !== 'Anonymous' && displayName !== '' ? 0.6 : 1, cursor: displayName !== 'Anonymous' && displayName !== '' ? 'not-allowed' : 'text' }} value={displayName} readOnly={displayName !== 'Anonymous' && displayName !== ''} onChange={e => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} placeholder="e.g. CoolUser1" />
+            <input style={{ ...s.input, opacity: displayName !== 'Anonymous' && displayName !== '' ? 0.6 : 1, cursor: displayName !== 'Anonymous' && displayName !== '' ? 'not-allowed' : 'text' }} value={displayName} readOnly={displayName !== 'Anonymous' && displayName !== ''} onChange={e => { setDisplayName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9)); setMsg(''); }} minLength={3} maxLength={9} pattern="[a-zA-Z0-9]{3,9}" placeholder="3–9 letters or numbers" />
 
             <label style={s.label}>Bio</label>
-            <textarea style={s.textarea} value={bio} onChange={e => setBio(e.target.value)} maxLength={200} placeholder="Tell people about yourself..." />
+            <textarea style={s.textarea} value={bio} onChange={e => { setBio(e.target.value); setMsg(''); }} minLength={10} maxLength={200} placeholder="Bio (10–200 characters)" />
 
             <div style={s.toggleRow}>
               <span style={s.toggleLabel}>Show name to partner</span>
@@ -261,7 +262,7 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
               </button>
             </div>
 
-            <button type="submit" disabled={saving} style={{ ...s.saveBtn, opacity: saving ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
+            <button type="submit" disabled={saving || displayName.trim().length < 3 || bio.trim().length < 10} style={{ ...s.saveBtn, opacity: saving || displayName.trim().length < 3 || bio.trim().length < 10 ? 0.5 : 1 }}>{saving ? 'Saving...' : 'Save Changes'}</button>
           </form>
           {msg && <p style={{ ...s.msg, color: msg === 'Saved!' ? '#4caf50' : '#f44336' }}>{msg}</p>}
         </div>

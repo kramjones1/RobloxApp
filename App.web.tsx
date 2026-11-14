@@ -346,15 +346,16 @@ export default function WebApp() {
         setOnboardingStep('name');
       }
     } else if (onboardingStep === 'name') {
-      if (!onboardingName || onboardingName.length < 1) { setAuthMsg('Display name is required'); return; }
+      if (onboardingName.trim().length < 3) { setAuthMsg('Your display name must be at least 3 characters long.'); return; }
       setSubmitting(true);
       const { error } = await upsertChatProfile({ display_name: onboardingName, bio: '', avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
       setSubmitting(false);
       if (error) setAuthMsg(error);
       else setOnboardingStep('bio');
     } else {
+      if (onboardingBio.trim().length < 10) { setAuthMsg('Your bio must be at least 10 characters long.'); return; }
       setSubmitting(true);
-      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio, avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
+      const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio.trim(), avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
       setSubmitting(false);
       if (error) setAuthMsg(error);
       else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); }
@@ -683,21 +684,18 @@ export default function WebApp() {
           {onboardingStep === 'dob' ? (
             <input style={input} type="date" value={onboardingDob} onChange={e => setOnboardingDob(e.target.value)} required />
           ) : onboardingStep === 'name' ? (
-            <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9))} maxLength={9} required />
+            <input style={input} type="text" placeholder="Display name (a-Z, 0-9, max 9 chars)" value={onboardingName} onChange={e => { setOnboardingName(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 9)); setAuthMsg(''); }} minLength={3} maxLength={9} pattern="[a-zA-Z0-9]{3,9}" required />
           ) : (
             <>
               <p style={{ color: '#aaa', fontSize: 14, textAlign: 'center', wordBreak: 'break-word', margin: 0 }}>Display name: <b style={{ color: '#fff' }}>{onboardingName}</b></p>
-              <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => setOnboardingBio(e.target.value)} maxLength={200} />
+              <textarea style={{ ...input, resize: 'vertical', minHeight: 80, fontFamily: 'inherit' }} placeholder="Tell people about yourself (optional)" value={onboardingBio} onChange={e => { setOnboardingBio(e.target.value); setAuthMsg(''); }} minLength={10} maxLength={200} />
             </>
           )}
-          <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>
+          <button type="submit" disabled={submitting || (onboardingStep === 'name' && onboardingName.trim().length < 3) || (onboardingStep === 'bio' && onboardingBio.trim().length < 10)} style={{...mobileBtn, opacity: submitting || (onboardingStep === 'name' && onboardingName.trim().length < 3) || (onboardingStep === 'bio' && onboardingBio.trim().length < 10) ? 0.5 : 1}}>
             {submitting ? 'Saving...' : onboardingStep === 'dob' ? 'Next' : onboardingStep === 'name' ? 'Next' : 'Go to Profile'}
           </button>
         </form>
         {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
-        {onboardingStep === 'bio' && (
-          <p style={{ color: '#6c63ff', fontSize: 12, marginTop: 12, cursor: 'pointer' }} onClick={handleOnboardingSubmit}>Skip</p>
-        )}
       </div>
     );
   }

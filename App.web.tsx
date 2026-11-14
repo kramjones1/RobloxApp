@@ -1505,7 +1505,7 @@ export default function WebApp() {
                     <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
-                  <button type="submit" disabled={submitting || !captchaToken} style={{...mobileBtn, opacity: submitting || !captchaToken ? 0.5 : 1, cursor: submitting || !captchaToken ? 'not-allowed' : 'pointer'}}>{submitting ? 'Please wait...' : !captchaToken ? 'Waiting for security check…' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+                  <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1, cursor: submitting ? 'not-allowed' : 'pointer'}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ width: '100%', maxWidth: 360, marginTop: 8 }}>
                   <TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} viewport="mobile" />

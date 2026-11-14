@@ -341,7 +341,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarSaveStage, setAvatarSaveStage] = useState('');
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string; work: string; education: string; shareDetails: boolean } | null>(null);
+  const [viewedUser, setViewedUser] = useState<{ name: string; bio: string; avatar: string; cover: string; work: string; education: string; shareDetails: boolean; newMemberBadgeExpiresAt: string | null } | null>(null);
+  const [badgeClock, setBadgeClock] = useState(Date.now());
   const [loadingViewed, setLoadingViewed] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [posts, setPosts] = useState<ChatPost[]>([]);
@@ -793,10 +794,19 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
     if (!isViewingOther) { setViewedUser(null); return; }
     setLoadingViewed(true);
     getUserProfile(viewUserId).then(({ profile }) => {
-      if (profile) setViewedUser({ name: profile.display_name || 'User', bio: profile.bio || '', avatar: profile.avatar_url || '', cover: profile.cover_url || '', work: profile.work || '', education: profile.education || '', shareDetails: profile.share_details !== false });
+      if (profile) setViewedUser({ name: profile.display_name || 'User', bio: profile.bio || '', avatar: profile.avatar_url || '', cover: profile.cover_url || '', work: profile.work || '', education: profile.education || '', shareDetails: profile.share_details !== false, newMemberBadgeExpiresAt: profile.new_member_badge_expires_at || null });
       setLoadingViewed(false);
     });
   }, [viewUserId, user?.id]);
+
+  useEffect(() => {
+    const expiry = viewedUser?.newMemberBadgeExpiresAt;
+    if (!expiry) return;
+    const remaining = Date.parse(expiry) - Date.now();
+    if (remaining <= 0) { setBadgeClock(Date.now()); return; }
+    const timer = window.setTimeout(() => setBadgeClock(Date.now()), Math.min(remaining, 2147483647));
+    return () => window.clearTimeout(timer);
+  }, [viewedUser?.newMemberBadgeExpiresAt]);
 
   async function saveProfilePhoto(file: File, slot: 'avatar' | 'cover', onStage?: (stage: string) => void) {
     // Profile and cover changes are ordinary photo posts. The post's image
@@ -1211,8 +1221,9 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
           <div className="cover-wrap" style={s.coverWrap}>
             {viewedUser.cover ? <img src={viewedUser.cover} alt="" style={s.coverImg} /> : null}
           </div>
-          <div className="profile-avatar-wrap" style={s.avatarWrap}>
-            <div className="profile-avatar" style={{ ...s.avatar, cursor: 'default' }}>
+          <div className="profile-avatar-wrap" style={{ ...s.avatarWrap, position: 'relative' }}>
+            {viewedUser.newMemberBadgeExpiresAt && Date.parse(viewedUser.newMemberBadgeExpiresAt) > badgeClock && <span className="new-member-sparkle" aria-label="New member sparkle" role="img">✨</span>}
+            <div className={`profile-avatar${viewedUser.newMemberBadgeExpiresAt && Date.parse(viewedUser.newMemberBadgeExpiresAt) > badgeClock ? ' new-member-glow' : ''}`} style={{ ...s.avatar, cursor: 'default' }}>
               {viewedUser.avatar ? <img src={viewedUser.avatar} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
               <OnlineDot online={onlineUserIds.has(profileOwnerId)} size={18} borderColor="#1a1a1a" style={{ right: 7, bottom: 7 }} />
             </div>

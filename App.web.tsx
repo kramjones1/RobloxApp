@@ -272,9 +272,10 @@ export default function WebApp() {
     if (!user?.id) return;
     // Start the full seven-day welcome period when the member dismisses the thank-you screen.
     const expiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
+    // Activate immediately in this session even if browser storage is blocked.
+    setNewSignupGlowActive(true);
     try {
       localStorage.setItem(`livme-new-signup-glow:${user.id}`, String(expiresAt));
-      setNewSignupGlowActive(true);
     } catch {}
   }
 

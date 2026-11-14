@@ -4,7 +4,7 @@ import SupportChatPanel from './SupportChatPanel';
 const panel: React.CSSProperties = { maxWidth: 720, margin: '0 auto', padding: '28px 18px 48px', color: '#fff', fontFamily: 'system-ui, sans-serif' };
 const card: React.CSSProperties = { background: '#151515', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 14, padding: 18, marginTop: 14 };
 
-export default function SettingsPage({ userId }: { userId: string }) {
+export default function SettingsPage({ userId, onReplayOnboarding }: { userId: string; onReplayOnboarding?: () => void }) {
   const key = 'liveme-media-auto-request:' + userId;
   const [autoRequest, setAutoRequest] = useState(true);
   const [camera, setCamera] = useState('Checking…');
@@ -78,7 +78,7 @@ export default function SettingsPage({ userId }: { userId: string }) {
   }
 
   const status = (value: string) => value === 'granted' ? '#4caf50' : value === 'denied' ? '#f44336' : '#ffb74d';
-  return <main style={{ ...panel, color: light ? '#20232a' : '#fff' }}>
+  return <main data-onboarding-target="settings" style={{ ...panel, color: light ? '#20232a' : '#fff' }}>
     <h1 style={{ fontSize: 26, margin: '0 0 6px' }}>Settings</h1>
     <p style={{ color: light ? '#626875' : '#999', fontSize: 14, lineHeight: 1.5 }}>Manage your appearance and camera/microphone access.</p>
     <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>
@@ -104,6 +104,11 @@ export default function SettingsPage({ userId }: { userId: string }) {
       {message && <p role="status" style={{ color: light ? '#4d5563' : '#ccc', fontSize: 13, lineHeight: 1.5, margin: '12px 0 0' }}>{message}</p>}
       <p style={{ color: light ? '#737987' : '#777', fontSize: 12, lineHeight: 1.5, margin: '14px 0 0' }}>Note: Browser permissions are controlled by your browser or device. This setting cannot override a denial or force Always Allow. If access is blocked, open your browser site settings and change Camera and Microphone to Allow.</p>
     </section>
+    {onReplayOnboarding && <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>
+      <h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Guided tour</h2>
+      <p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.5, margin: '0 0 12px' }}>Review the main LivMe features and safety tips at any time.</p>
+      <button type="button" onClick={onReplayOnboarding} style={{ background: '#6c63ff', color: '#fff', border: 0, borderRadius: 8, padding: '11px 16px', fontWeight: 650, cursor: 'pointer' }}>Replay guided tour</button>
+    </section>}
     <section style={{ ...card, background: light ? '#fff' : '#151515', borderColor: light ? '#e2e5ec' : 'rgba(255,255,255,0.09)' }}>
       <h2 style={{ fontSize: 17, margin: '0 0 8px', color: light ? '#20232a' : '#fff' }}>Help & Support</h2>
       <p style={{ color: light ? '#626875' : '#aaa', fontSize: 13, lineHeight: 1.5, margin: '0 0 12px' }}>Contact the LivMe team and follow your support conversations here.</p>

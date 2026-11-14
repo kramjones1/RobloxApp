@@ -1487,8 +1487,8 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
   if (!token) return { error: 'Not authenticated' };
   const user = parseJwt(token);
   if (!user) return { error: 'Invalid token' };
-  if (file.type !== 'image/webp' || file.size < 1 || file.size > 200 * 1024) {
-    return { error: 'Photos must be WebP and no larger than 200 KB.' };
+  if (file.type !== 'image/webp' || file.size < 1 || file.size > 50 * 1024) {
+    return { error: 'Photos must be WebP and no larger than 50 KB.' };
   }
   const name = slot === 'avatar' ? 'avatar.webp' : slot === 'cover' ? 'cover.webp' : slot === 'post' ? `posts/post-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.webp` : `gallery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
   const path = `${user.id}/${name}`;
@@ -1511,9 +1511,9 @@ export async function uploadProfilePhoto(file: File, slot: 'avatar' | 'cover' | 
       const body = await response.text();
       let message = body;
       try { const parsed = JSON.parse(body); message = parsed.message || parsed.error || parsed.msg || body; } catch {}
-      if (response.status === 413) return { error: 'This photo is over the 200 KB limit.' };
+      if (response.status === 413) return { error: 'This photo is over the 50 KB limit.' };
       if (/quota|profile_photo_quota_ok|row-level security|policy/i.test(message)) {
-        return { error: 'Photo storage limit reached: maximum 25 images and 5 MB total per account.' };
+        return { error: 'Photo storage limit reached: maximum 10 images and 500 KB total per account.' };
       }
       return { error: message || 'Photo upload failed.' };
     }

@@ -11,7 +11,6 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
-import TurnstileCaptcha from './components/TurnstileCaptcha';
 import OnboardingTour, { type OnboardingStep } from './components/OnboardingTour';
 import { getOnboardingProgress, saveOnboardingProgress, acknowledgeWelcome, activateNewMemberBadge, WELCOME_ACK_MARKER } from './onboardingClient';
 
@@ -150,9 +149,6 @@ export default function WebApp() {
   const [showPassword, setShowPassword] = useState(false);
   const [authMsg, setAuthMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState('');
-  const captchaTokenRef = useRef('');
-  const [captchaResetKey, setCaptchaResetKey] = useState(0);
   const [showForgot, setShowForgot] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
@@ -215,24 +211,10 @@ export default function WebApp() {
 
   function addLog(msg: string) { setLog(msg); }
 
-  function handleCaptchaVerify(token: string) {
-    // Keep the token synchronously available to submit handlers; React state
-    // remains the source for button enabled/disabled rendering.
-    captchaTokenRef.current = token;
-    setCaptchaToken(token);
-  }
-
   function handleOAuthSignIn(provider: 'google' | 'github') {
     setAuthMsg('');
-    if (!captchaToken) {
-      setAuthMsg('Please complete the security check before signing in with ' + (provider === 'github' ? 'GitHub.' : 'Google.'));
-      return;
-    }
-    if (provider === 'github') signInWithGitHub(captchaToken);
-    else signInWithGoogle(captchaToken);
-    // Turnstile tokens are single-use; clear and render a fresh challenge after handoff.
-    setCaptchaToken('');
-    setCaptchaResetKey(value => value + 1);
+    if (provider === 'github') signInWithGitHub();
+    else signInWithGoogle();
   }
 
   useEffect(() => {
@@ -569,7 +551,6 @@ export default function WebApp() {
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    if (!captchaToken) { setAuthMsg('Please complete the security check first.'); return; }
     if (authMode === 'register') {
       if (!isValidSignupPassword(password)) {
         setAuthMsg('Use at least 10 characters with at least one uppercase letter, one lowercase letter, and one number.');
@@ -578,9 +559,7 @@ export default function WebApp() {
       const normalizedEmail = email.trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) { setAuthMsg('Enter a valid email address.'); return; }
       setSubmitting(true);
-      const res = await signUp(normalizedEmail, password, captchaToken);
-      setCaptchaToken('');
-      setCaptchaResetKey(v => v + 1);
+      const res = await signUp(normalizedEmail, password);
       setSubmitting(false);
       if (res.error) { setAuthMsg(res.error); return; }
       setEmail(normalizedEmail);
@@ -593,9 +572,7 @@ export default function WebApp() {
     }
     if (password.length < 8) { setAuthMsg('Password must be at least 8 characters'); return; }
     setSubmitting(true);
-    const { error } = await signIn(email, password, captchaToken);
-    setCaptchaToken('');
-    setCaptchaResetKey(v => v + 1);
+    const { error } = await signIn(email, password);
     setSubmitting(false);
     if (error) setAuthMsg(error);
     else setPage('profile');
@@ -629,15 +606,10 @@ export default function WebApp() {
   async function handleForgotPassword(e: React.FormEvent) {
     e.preventDefault();
     setAuthMsg('');
-    const verifiedCaptchaToken = captchaTokenRef.current.trim();
-    if (!verifiedCaptchaToken) { setAuthMsg('Please complete the security check again before requesting a reset link.'); return; }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(forgotEmail)) { setAuthMsg('Please enter a valid email address (e.g. name@domain.com)'); return; }
     setSubmitting(true);
-    const { error } = await resetPassword(forgotEmail, window.location.origin, verifiedCaptchaToken);
-    captchaTokenRef.current = '';
-    setCaptchaToken('');
-    setCaptchaResetKey(v => v + 1);
+    const { error } = await resetPassword(forgotEmail, window.location.origin);
     setSubmitting(false);
     if (error) {
       setAuthMsg(error);
@@ -1500,8 +1472,8 @@ export default function WebApp() {
                   </>
                 ) : (
                   <form onSubmit={handleForgotPassword} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 360 }}>
-                    <TurnstileCaptcha onVerify={handleCaptchaVerify} resetKey={captchaResetKey} /><input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
-                    <button type="submit" disabled={submitting || !captchaToken || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || !captchaToken || forgotCooldown > 0 ? 0.5 : 1}}>
+                    <input style={input} type="email" placeholder="Your email address" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} required />
+                    <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
                       {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                     </button>
                     {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
@@ -1521,8 +1493,7 @@ export default function WebApp() {
                     <input style={{ ...input, paddingRight: 58 }} type={showPassword ? 'text' : 'password'} placeholder={authMode === 'register' ? '10+ chars, upper/lowercase + number' : 'Password'} value={password} onChange={e => setPassword(e.target.value)} required minLength={authMode === 'register' ? 10 : 8} autoComplete={authMode === 'register' ? 'new-password' : 'current-password'} />
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
-                  <TurnstileCaptcha onVerify={handleCaptchaVerify} resetKey={captchaResetKey} />
-                  <button type="submit" disabled={submitting || !captchaToken} style={{...mobileBtn, opacity: submitting || !captchaToken ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
+                  <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
                   <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
@@ -1586,9 +1557,6 @@ export default function WebApp() {
                 onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
                 onGoogleSignIn={() => handleOAuthSignIn('google')}
                 onGitHubSignIn={() => handleOAuthSignIn('github')}
-                captchaToken={captchaToken}
-                captchaResetKey={captchaResetKey}
-                onCaptchaVerify={setCaptchaToken}
               />
             </div>
             <Footer setPage={handleNav} />

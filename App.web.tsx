@@ -363,7 +363,7 @@ export default function WebApp() {
       oauthPending = localStorage.getItem('liveme-oauth-pending') === '1';
       if (oauthPending) localStorage.removeItem('liveme-oauth-pending');
     } catch {}
-    if (recoveryCode && (oauthPending || Boolean(window.opener))) {
+    if (recoveryCode && (oauthPending || recoveryQuery.get('auth_flow') === 'oauth' || Boolean(window.opener))) {
       history.replaceState(null, '', window.location.pathname);
       setAuthLoading(true);
       void (async () => {

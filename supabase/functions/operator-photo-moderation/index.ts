@@ -113,8 +113,9 @@ Deno.serve(async (req: Request) => {
       const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
       const parts = path.split("/");
       const userId = parts[0] || "";
-      if (parts.length !== 2 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
-        || !parts[1] || parts[1].includes("..") || path.includes("\\") || path.length > 500) {
+      if ((parts.length !== 2 && parts.length !== 3) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+        || parts.slice(1).some((part: string) => !part || part === "." || part === ".." || !/^[a-zA-Z0-9._-]+$/.test(part))
+        || path.includes("\\") || path.length > 500) {
         return json({ error: "Invalid photo path." }, 400);
       }
       const allowedReasons = ["Nudity or sexual content", "Explicit or adult content", "Violence or disturbing content", "Harassment or hateful content", "Other policy violation"];

@@ -122,7 +122,7 @@ function OnboardingConfetti() {
     color: ['#8b7cff', '#20c8e8', '#ffd166', '#ff70a6', '#61d095'][i % 5],
     rotate: `${(i * 41) % 360}deg`, width: i % 3 === 0 ? 7 : 5,
   }));
-  return <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: 9998, overflow: 'hidden', pointerEvents: 'none' }}>
+  return <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: 10001, overflow: 'hidden', pointerEvents: 'none' }}>
     <style>{`@keyframes livmeConfettiFall { 0% { transform: translate3d(0,-12vh,0) rotate(0deg); opacity: 0; } 10% { opacity: .9; } 90% { opacity: .8; } 100% { transform: translate3d(28px,112vh,0) rotate(720deg); opacity: 0; } }`}</style>
     {pieces.map((piece, i) => <span key={i} style={{ position: 'absolute', top: -18, left: piece.left, width: piece.width, height: 11, borderRadius: 3, background: piece.color, transform: `rotate(${piece.rotate})`, animation: `livmeConfettiFall ${piece.duration} linear ${piece.delay} infinite`, opacity: .85 }} />)}
   </div>;

@@ -55,10 +55,11 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     input: '#2a2a2a', inputText: '#ffffff', online: '#31d17c', dotBorder: '#161616',
     message: '#1f1f1f', timestamp: '#777777',
   };
-  // Keep the global presence roster and call-signal roster independent. The former
-  // includes every directory user; the latter only includes inbox peers + selection.
+  // Presence covers the full directory; private call signaling is restricted to
+  // users with an existing conversation, as required by the Realtime RLS policy.
   const presencePartnerKey = Array.from(new Set([...presencePartnerIds, ...directoryUsers.map(person => person.user_id)])).sort().join('|');
-  const callPartnerKey = Array.from(new Set([...presencePartnerIds, selectedId])).filter(Boolean).sort().join('|');
+  const callPartnerKey = conversations.map(conv => conv.partnerId).filter(Boolean).sort().join('|');
+  const selectedHasConversation = conversations.some(conv => conv.partnerId === selectedId);
   const [onlinePartners, setOnlinePartners] = useState<Set<string>>(new Set());
   type CallSession = { callId: string; partnerId: string; media: 'audio' | 'video'; direction: 'incoming' | 'outgoing'; status: 'incoming' | 'outgoing' | 'connecting' | 'active' };
   const [callSession, setCallSession] = useState<CallSession | null>(null);
@@ -241,6 +242,10 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
 
   async function beginCall(media: 'audio' | 'video') {
     if (!selectedId || !myId || callSessionRef.current) return;
+    if (!selectedHasConversation) {
+      setCallError('Send a message first to start a conversation before calling.');
+      return;
+    }
     if (!onlinePartners.has(selectedId)) {
       setCallError('This user is offline. Calls are available when they are online.');
       return;
@@ -428,11 +433,11 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   }
 
   function renderCallActions() {
-    const canCall = onlinePartners.has(selectedId) && callSignalingReady && !callSession;
+    const canCall = selectedHasConversation && onlinePartners.has(selectedId) && callSignalingReady && !callSession;
     return (
       <div aria-label="Call actions" style={{ display: 'flex', gap: 8, width: '100%', boxSizing: 'border-box', padding: '8px 12px 0', background: '#1a1a1a' }}>
-        <button type="button" aria-label="Start audio call" title={canCall ? 'Start audio call' : 'Calls are available when the user is online'} disabled={!canCall} onClick={() => void beginCall('audio')} style={{ ...btn, flex: 1, padding: '9px 12px', background: '#303047', opacity: canCall ? 1 : 0.45 }}>☎ Audio call</button>
-        <button type="button" aria-label="Invite video call" title={canCall ? 'Start video call' : 'Calls are available when the user is online'} disabled={!canCall} onClick={() => void beginCall('video')} style={{ ...btn, flex: 1, padding: '9px 12px', background: '#303047', opacity: canCall ? 1 : 0.45 }}>▣ Video call</button>
+        <button type="button" aria-label="Start audio call" title={selectedHasConversation ? (canCall ? 'Start audio call' : 'Calls are available when the user is online') : 'Send a message first to start a conversation'} disabled={!canCall} onClick={() => void beginCall('audio')} style={{ ...btn, flex: 1, padding: '9px 12px', background: '#303047', opacity: canCall ? 1 : 0.45 }}>☎ Audio call</button>
+        <button type="button" aria-label="Invite video call" title={selectedHasConversation ? (canCall ? 'Start video call' : 'Calls are available when the user is online') : 'Send a message first to start a conversation'} disabled={!canCall} onClick={() => void beginCall('video')} style={{ ...btn, flex: 1, padding: '9px 12px', background: '#303047', opacity: canCall ? 1 : 0.45 }}>▣ Video call</button>
       </div>
     );
   }
@@ -506,12 +511,16 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   useEffect(() => {
     if (!myId) return;
     let active = true;
-    // Keep existing conversation listeners and also prepare the currently selected
-    // directory user. A globally-online user may not yet be in the loaded inbox list.
     const partners = callPartnerKey.split('|').filter(Boolean);
     setCallSignalingReady(false);
     callSignalingRef.current?.close();
     callSignalingRef.current = null;
+    // No existing conversations means there are no authorized private call
+    // channels to subscribe to. Do not surface an RLS rejection in the chat UI.
+    if (partners.length === 0) {
+      setCallError('');
+      return () => { active = false; };
+    }
     createChatCallSignaling(myId, partners, handleCallSignal).then(controller => {
       if (!active) controller.close();
       else {
@@ -522,7 +531,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     }).catch(error => {
       if (active) {
         setCallSignalingReady(false);
-        setCallError(error?.message || 'Call signaling could not connect. Keep Inbox open and retry.');
+        setCallError(error?.message || 'Call signaling could not connect. Please try again.');
       }
     });
     return () => {

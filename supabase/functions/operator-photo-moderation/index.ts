@@ -52,23 +52,38 @@ Deno.serve(async (req: Request) => {
       const results: any[] = [];
       for (const folder of userFolders) {
         const userId = folder.name;
-        const { data: files, error: fileError } = await admin.storage.from("profile-photos").list(userId, {
+        const { data: rootFiles, error: fileError } = await admin.storage.from("profile-photos").list(userId, {
           limit: 1000, offset: 0, sortBy: { column: "name", order: "asc" },
         });
         if (fileError) throw fileError;
-        for (const file of files || []) {
-          if (!file.name || file.id === null) continue;
-          const path = `${userId}/${file.name}`;
+        const entries: Array<{ file: any; path: string }> = [];
+        for (const file of rootFiles || []) {
+          if (!file.name) continue;
+          if (file.id === null && file.name === "posts") {
+            const { data: postFiles, error: postError } = await admin.storage.from("profile-photos").list(`${userId}/posts`, {
+              limit: 1000, offset: 0, sortBy: { column: "name", order: "asc" },
+            });
+            if (postError) throw postError;
+            for (const postFile of postFiles || []) {
+              if (postFile.name && postFile.id !== null) entries.push({ file: postFile, path: `${userId}/posts/${postFile.name}` });
+            }
+          } else if (file.id !== null) {
+            entries.push({ file, path: `${userId}/${file.name}` });
+          }
+        }
+        for (const entry of entries) {
+          const file = entry.file;
+          const path = entry.path;
           const { data: signed, error: signedError } = await admin.storage.from("profile-photos").createSignedUrl(path, 300);
           if (signedError || !signed?.signedUrl) continue;
-          const lower = file.name.toLowerCase();
-          const category = lower === "avatar.webp" ? "Profile picture"
-            : lower === "cover.webp" ? "Cover photo"
-            : lower.startsWith("posts/") ? "Post photo" : "Gallery photo";
+          const lower = path.toLowerCase();
+          const category = lower.endsWith("/avatar.webp") ? "Profile picture"
+            : lower.endsWith("/cover.webp") ? "Cover photo"
+            : lower.includes("/posts/") ? "Post photo" : "Gallery photo";
           results.push({
             path,
             user_id: userId,
-            file_name: file.name,
+            file_name: path.slice(userId.length + 1),
             category,
             size: Number(file.metadata?.size || 0),
             created_at: file.created_at || file.updated_at || null,

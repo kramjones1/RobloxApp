@@ -10,6 +10,8 @@ import TermsPage from './pages/TermsPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
+import OnboardingTour, { type OnboardingStep } from './components/OnboardingTour';
+import { getOnboardingProgress, saveOnboardingProgress } from './onboardingClient';
 
 const WS_URL = 'wss://omegle-signaling-cloudflare.kafka9607.workers.dev';
 const API_URL = 'https://omegle-signaling-cloudflare.kafka9607.workers.dev';
@@ -22,6 +24,18 @@ document.head.appendChild(meta);
 const style = document.createElement('style');
 style.textContent = '*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#0a0a0a}@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes spin{to{transform:rotate(360deg)}}.page-content{padding-top:60px}.mobile-nav{display:none!important}.desktop-nav{display:none!important}@media(max-width:699px){.desktop-layout{display:none!important}.page-content{padding-top:calc(48px + env(safe-area-inset-top, 0px))}.mobile-nav{display:block!important}}@media(min-width:700px){.mobile-auth{display:none!important}.desktop-nav{display:flex!important}}';
 document.head.appendChild(style);
+
+function OnboardingConfetti() {
+  const pieces = Array.from({ length: 24 }, (_, i) => ({
+    left: `${(i * 37) % 100}%`, delay: `${(i % 8) * 0.35}s`, duration: `${5 + (i % 5)}s`,
+    color: ['#8b7cff', '#20c8e8', '#ffd166', '#ff70a6', '#61d095'][i % 5],
+    rotate: `${(i * 41) % 360}deg`, width: i % 3 === 0 ? 7 : 5,
+  }));
+  return <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: 9998, overflow: 'hidden', pointerEvents: 'none' }}>
+    <style>{`@keyframes livmeConfettiFall { 0% { transform: translate3d(0,-12vh,0) rotate(0deg); opacity: 0; } 10% { opacity: .9; } 90% { opacity: .8; } 100% { transform: translate3d(28px,112vh,0) rotate(720deg); opacity: 0; } }`}</style>
+    {pieces.map((piece, i) => <span key={i} style={{ position: 'absolute', top: -18, left: piece.left, width: piece.width, height: 11, borderRadius: 3, background: piece.color, transform: `rotate(${piece.rotate})`, animation: `livmeConfettiFall ${piece.duration} linear ${piece.delay} infinite`, opacity: .85 }} />)}
+  </div>;
+}
 
 export default function WebApp() {
   const [page, setPage] = useState('home');
@@ -42,6 +56,9 @@ export default function WebApp() {
   const [newPassword, setNewPassword] = useState('');
   const [passwordUpdated, setPasswordUpdated] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState<'welcome' | 'dob' | 'name' | 'bio' | null>(null);
+  const [onboardingTourActive, setOnboardingTourActive] = useState(false);
+  const [onboardingTourStep, setOnboardingTourStep] = useState<OnboardingStep>('profile_photo');
+  const [onboardingTourDone, setOnboardingTourDone] = useState<string[]>([]);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [liveUsers, setLiveUsers] = useState<{ id: string; user_id: string; name: string; avatar: string; bio: string }[]>([]);
   const [liveTs, setLiveTs] = useState(0);
@@ -93,6 +110,45 @@ export default function WebApp() {
     return () => clearInterval(iv);
   }, []);
 
+
+
+  async function handleTourStepChange(step: OnboardingStep, completed: string[]) {
+    const result = await saveOnboardingProgress(step, completed);
+    if (result.error) throw new Error(result.error);
+    setOnboardingTourStep(step);
+    setOnboardingTourDone(completed);
+  }
+
+  async function handleAvatarSaved() {
+    const completed = Array.from(new Set([...onboardingTourDone, 'profile_photo']));
+    const result = await saveOnboardingProgress('discover', completed);
+    if (result.error) throw new Error(result.error);
+    setOnboardingTourDone(completed);
+    setOnboardingTourStep('discover');
+  }
+
+  async function resumeOnboardingIfNeeded() {
+    const requestUserId = getSession()?.id;
+    if (!requestUserId) return;
+    const { progress, error } = await getOnboardingProgress();
+    if (getSession()?.id !== requestUserId) return;
+    if (error) { setAuthMsg(error); return; }
+    if (!progress || progress.completed_at) { setOnboardingTourActive(false); return; }
+    const validSteps: OnboardingStep[] = ['profile_photo', 'discover', 'random_call', 'conversation', 'safety', 'complete'];
+    const step = validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step as OnboardingStep : 'profile_photo';
+    setOnboardingTourDone(progress.completed_steps || []);
+    setOnboardingTourStep(step);
+    setOnboardingTourActive(true);
+  }
+
+  async function handleReplayOnboarding() {
+    const completed = ['profile_photo'];
+    const result = await saveOnboardingProgress('discover', completed);
+    if (result.error) { setAuthMsg(result.error); return; }
+    setOnboardingTourDone(completed);
+    setOnboardingTourStep('discover');
+    setOnboardingTourActive(true);
+  }
 
   function handleNav(p: string) {
     if (p === 'profile') setViewProfileId(null);
@@ -157,6 +213,7 @@ export default function WebApp() {
         getChatProfile().then(({ profile }) => {
           if (profile) {
             setMyProfile({ userId: u.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            if (profile.date_of_birth) void resumeOnboardingIfNeeded();
             if (!profile.date_of_birth && !onboardingSet) setOnboardingStep('dob');
           } else if (!onboardingSet) setOnboardingStep('welcome');
         });
@@ -190,6 +247,7 @@ export default function WebApp() {
         getChatProfile().then(({ profile }) => {
           if (profile) {
             setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            if (profile.date_of_birth) void resumeOnboardingIfNeeded();
             if (!profile.date_of_birth) setOnboardingStep('dob');
             else setPage('profile');
           } else {
@@ -201,8 +259,9 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth }); else setOnboardingStep('welcome'); }); }
-      else { setAdmin(false); setMyProfile(null); }
+      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            if (profile.date_of_birth) void resumeOnboardingIfNeeded(); else setOnboardingStep('welcome'); }); }
+      else { setAdmin(false); setMyProfile(null); setOnboardingTourActive(false); }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
   }, []);
@@ -358,12 +417,23 @@ export default function WebApp() {
       const { error } = await upsertChatProfile({ display_name: onboardingName, bio: onboardingBio.trim(), avatar_url: '', cover_url: '', share_name: true, share_bio: true, date_of_birth: onboardingDob });
       setSubmitting(false);
       if (error) setAuthMsg(error);
-      else { setUnderage(calcAge(onboardingDob) < 18); setCamError(''); setOnboardingStep(null); setPage('profile'); }
+      else {
+        setUnderage(calcAge(onboardingDob) < 18);
+        setCamError('');
+        setOnboardingStep(null);
+        setPage('profile');
+        const progressResult = await saveOnboardingProgress('profile_photo', []);
+        if (progressResult.error) { setAuthMsg('Your profile was created, but onboarding progress could not be saved. Please refresh and try again.'); return; }
+        setOnboardingTourDone([]);
+        setOnboardingTourStep('profile_photo');
+        setOnboardingTourActive(true);
+      }
     }
   }
 
   async function handleLogout() {
-    signOut();
+    setOnboardingTourActive(false);
+    await signOut();
     wsRef.current?.close();
     cleanup();
     setPage('home');
@@ -676,6 +746,7 @@ export default function WebApp() {
   if (onboardingStep && onboardingStep !== 'welcome') {
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+        <OnboardingConfetti />
         <h1 style={{ fontSize: 40, fontWeight: 800, margin: 0, marginBottom: 4, background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
         <p style={{ color: '#888', fontSize: 14, marginBottom: 24 }}>
           {onboardingStep === 'dob' ? 'Confirm your age' : onboardingStep === 'name' ? 'Choose your display name' : 'Add a bio (optional)'}
@@ -1007,7 +1078,7 @@ export default function WebApp() {
           {page === 'profile' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} />
+              <ProfilePage onNav={setPage as any} user={user} onMessage={(id) => { setMessagePartner(id); setPage('messages'); }} onViewProfile={(id) => setViewProfileId(id)} viewUserId={viewProfileId} onClearView={() => setViewProfileId(null)} onboardingPhotoRequired={onboardingTourActive && onboardingTourStep === 'profile_photo'} onAvatarSaved={handleAvatarSaved} />
               <Footer setPage={handleNav} />
             </div>
           )}
@@ -1015,13 +1086,13 @@ export default function WebApp() {
           {page === 'settings' && (
             <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-              <SettingsPage userId={user?.id || ''} />
+              <SettingsPage userId={user?.id || ''} onReplayOnboarding={handleReplayOnboarding} />
               <Footer setPage={handleNav} />
             </div>
           )}
 
           {page === 'messages' && (
-            <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div data-onboarding-target="messages" className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} onChatOpened={() => getConversations().then(({ conversations }) => { if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0)); })} />
               {window.innerWidth >= 700 && <Footer setPage={handleNav} />}
@@ -1104,7 +1175,33 @@ export default function WebApp() {
         </>
       )}
 
+
+      {onboardingTourActive && user?.id && (
+        <>
+          <OnboardingConfetti />
+          <OnboardingTour
+            initialStep={onboardingTourStep}
+            completedSteps={onboardingTourDone}
+            onStepChange={handleTourStepChange}
+            onNavigate={handleNav}
+            onStartCallDemo={() => {
+              window.alert(underage
+                ? 'Random video calls are restricted to adults. This introduction will continue without starting a call.'
+                : 'Demo call: this is a tutorial preview only. No real person is connected and you are not placed in the matching queue.');
+            }}
+            onStartConversation={() => handleNav('messages')}
+            onFinish={async () => {
+              await handleTourStepChange('complete', Array.from(new Set([...onboardingTourDone, 'safety', 'complete'])));
+              setOnboardingTourActive(false);
+              handleNav('profile');
+            }}
+          />
+        </>
+      )}
+
       {onboardingStep === 'welcome' && (
+        <>
+        <OnboardingConfetti />
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#1a1a1a', borderRadius: 16, padding: '28px 24px', maxWidth: 440, width: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,0.5)' }}>
             <h1 style={{ fontSize: 32, fontWeight: 800, margin: 0, marginBottom: 4, textAlign: 'center', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
@@ -1135,6 +1232,7 @@ export default function WebApp() {
             {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 10, textAlign: 'center' }}>{authMsg}</p>}
           </div>
         </div>
+        </>
       )}
     </div>
   );

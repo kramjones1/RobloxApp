@@ -172,6 +172,7 @@ export default function WebApp() {
   const [liveUsers, setLiveUsers] = useState<{ id: string; user_id: string; name: string; avatar: string; bio: string }[]>([]);
   const [liveTs, setLiveTs] = useState(0);
   const [messagePartner, setMessagePartner] = useState('');
+  const [messagesInboxResetKey, setMessagesInboxResetKey] = useState(0);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
   const [onboardingName, setOnboardingName] = useState('');
   const [onboardingBio, setOnboardingBio] = useState('');
@@ -341,7 +342,10 @@ export default function WebApp() {
     if (p === 'profile') setViewProfileId(null);
     // Menu navigation to Messages always opens the inbox list. Profile's
     // explicit "Message" action sets messagePartner directly and bypasses this.
-    if (p === 'messages') setMessagePartner('');
+    if (p === 'messages') {
+      setMessagePartner('');
+      setMessagesInboxResetKey(value => value + 1);
+    }
     setPage(p);
   }
 
@@ -1611,7 +1615,7 @@ export default function WebApp() {
 
           <div className="page-content" style={{ width: '100%', height: '100%', display: page === 'messages' ? 'flex' : 'none', flexDirection: 'column' }}>
             {page === 'messages' && <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />}
-            <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} onChatOpened={() => getConversations().then(({ conversations }) => { if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0)); })} />
+            <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} inboxResetKey={messagesInboxResetKey} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} onChatOpened={() => getConversations().then(({ conversations }) => { if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0)); })} />
             {page === 'messages' && window.innerWidth >= 700 && <Footer setPage={handleNav} />}
           </div>
 

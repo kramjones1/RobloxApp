@@ -259,9 +259,20 @@ export default function WebApp() {
     window.addEventListener('message', handleOAuthMessage);
     const unsub = onAuthChange(u2 => {
       setUser(u2);
-      if (u2?.id) { isAdmin().then(setAdmin); getChatProfile().then(({ profile }) => { if (profile) setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
-            if (profile.date_of_birth) void resumeOnboardingIfNeeded(); else setOnboardingStep('welcome'); }); }
-      else { setAdmin(false); setMyProfile(null); setOnboardingTourActive(false); }
+      if (u2?.id) {
+        isAdmin().then(setAdmin);
+        getChatProfile().then(({ profile }) => {
+          if (profile) {
+            setMyProfile({ userId: u2.id, name: profile.display_name, bio: profile.bio, avatar: profile.avatar_url, cover: profile.cover_url, share_name: profile.share_name, share_bio: profile.share_bio, date_of_birth: profile.date_of_birth });
+            if (profile.date_of_birth) void resumeOnboardingIfNeeded();
+            else setOnboardingStep('dob');
+          } else setOnboardingStep('welcome');
+        });
+      } else {
+        setAdmin(false);
+        setMyProfile(null);
+        setOnboardingTourActive(false);
+      }
     });
     return () => { window.removeEventListener('message', handleOAuthMessage); unsub(); };
   }, []);
@@ -1092,7 +1103,7 @@ export default function WebApp() {
           )}
 
           {page === 'messages' && (
-            <div data-onboarding-target="messages" className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
               <MessagesPage onNav={setPage as any} user={user} messagePartner={messagePartner} onViewProfile={(id) => { setViewProfileId(id); setPage('profile'); }} onChatOpened={() => getConversations().then(({ conversations }) => { if (conversations) setUnreadCount(conversations.reduce((sum, c) => sum + c.unread, 0)); })} />
               {window.innerWidth >= 700 && <Footer setPage={handleNav} />}

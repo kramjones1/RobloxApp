@@ -248,6 +248,18 @@ hoverStyles.textContent = `
   .profile-avatar, .profile-avatar > img { border-radius: 50% !important; }
   @keyframes livmeNewMemberAvatarGlow { 0%,100% { box-shadow: 0 0 0 3px rgba(108,99,255,.62), 0 0 14px 5px rgba(108,99,255,.42), 0 0 28px 8px rgba(0,212,255,.18); } 50% { box-shadow: 0 0 0 4px rgba(0,212,255,.85), 0 0 22px 9px rgba(0,212,255,.55), 0 0 42px 13px rgba(108,99,255,.3); } }
   .profile-avatar.new-member-glow { animation: livmeNewMemberAvatarGlow 2.8s ease-in-out infinite; }
+  .new-member-sparkle {
+    position: absolute; left: 84px; top: -22px; z-index: 5;
+    display: block; font-size: 32px; line-height: 1;
+    pointer-events: none; transform-origin: 50% 85%;
+    filter: drop-shadow(0 0 5px rgba(255,230,120,.95)) drop-shadow(0 0 13px rgba(108,99,255,.75));
+    animation: livmeWelcomeSparkleFloat 1.65s ease-in-out infinite;
+  }
+  @keyframes livmeWelcomeSparkleFloat {
+    0%,100% { transform: translateY(4px) rotate(-13deg) scale(.88); opacity: .72; }
+    50% { transform: translateY(-13px) rotate(13deg) scale(1.22); opacity: 1; }
+  }
+  @media (max-width: 699px) { .new-member-sparkle { left: 70px; top: -21px; } }
   @media (prefers-reduced-motion: reduce) { .profile-avatar.new-member-glow { animation: none; box-shadow: 0 0 0 3px rgba(108,99,255,.72), 0 0 20px 7px rgba(0,212,255,.35); } }
   .profile-sidebar { min-width: 0; position: sticky; top: 76px; max-height: calc(100vh - 92px); overflow-y: auto; scrollbar-width: thin; }
   .profile-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
@@ -1229,7 +1241,8 @@ export default function ProfilePage({ onNav, user, onMessage, viewUserId, onView
         <input ref={coverInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleCoverUpload} style={s.hiddenInput} />
 
 
-        <div className="profile-avatar-wrap" style={s.avatarWrap}>
+        <div className="profile-avatar-wrap" style={{ ...s.avatarWrap, position: 'relative' }}>
+          {newSignupGlowActive && <span className="new-member-sparkle" aria-label="New member sparkle" role="img">✨</span>}
           <div className={`avatar-circle profile-avatar${newSignupGlowActive ? " new-member-glow" : ""}`} style={s.avatar} data-onboarding-allow-profile-photo={onboardingPhotoRequired ? 'true' : undefined} onClick={() => avatarInputRef.current?.click()} role="button" aria-label="Change profile picture" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') avatarInputRef.current?.click(); }}>
             {avatarUrl ? <img src={avatarUrl} alt="" style={s.avatarImg} /> : <span>{initial}</span>}
           </div>

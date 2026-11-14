@@ -257,7 +257,7 @@ export async function signUp(email: string, password: string, captchaToken: stri
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email: normalizedEmail, password, captcha_token: captchaToken }),
+      body: JSON.stringify({ email: normalizedEmail, password, gotrue_meta_security: { captcha_token: captchaToken } }),
     });
     if (data.error) return { error: data.error };
     // Do not establish a session until the email OTP has been verified.
@@ -312,7 +312,7 @@ export async function signIn(email: string, password: string, captchaToken: stri
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password, captcha_token: captchaToken }),
+      body: JSON.stringify({ email, password, gotrue_meta_security: { captcha_token: captchaToken } }),
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
@@ -331,7 +331,7 @@ export async function signIn(email: string, password: string, captchaToken: stri
 
 export async function resetPassword(email: string, redirectTo: string | undefined, captchaToken: string): Promise<{ error?: string }> {
   try {
-    const body: any = { email, captcha_token: captchaToken };
+    const body: any = { email, gotrue_meta_security: { captcha_token: captchaToken } };
     if (redirectTo) body.redirect_to = redirectTo;
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/recover`, {
       method: 'POST',

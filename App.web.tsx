@@ -164,6 +164,7 @@ export default function WebApp() {
   const [onboardingTourActive, setOnboardingTourActive] = useState(false);
   const [onboardingTourStep, setOnboardingTourStep] = useState<OnboardingStep>('profile_photo');
   const [onboardingTourDone, setOnboardingTourDone] = useState<string[]>([]);
+  const [welcomeResume, setWelcomeResume] = useState<{ step: string; completed: string[]; completedAt: string | null } | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [liveUsers, setLiveUsers] = useState<{ id: string; user_id: string; name: string; avatar: string; bio: string }[]>([]);
   const [liveTs, setLiveTs] = useState(0);
@@ -243,14 +244,21 @@ export default function WebApp() {
     const { progress, error } = await getOnboardingProgress();
     if (getSession()?.id !== requestUserId) return;
     if (error) { setAuthMsg(error); return; }
-    if (!progress) {
-      // Existing profiles without an onboarding record still need to see the new welcome introduction once.
+    const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
+    if (!progress || progress.version < 2) {
+      // Version 2 introduces a one-time Welcome acknowledgement for existing accounts.
+      // Preserve any saved tour position so accepting Welcome resumes exactly where the user stopped.
+      setWelcomeResume(progress ? {
+        step: validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step : 'profile_photo',
+        completed: progress.completed_steps || [],
+        completedAt: progress.completed_at,
+      } : null);
       setOnboardingTourActive(false);
       setOnboardingStep('welcome');
       return;
     }
+    setWelcomeResume(null);
     if (progress.completed_at) { setOnboardingTourActive(false); return; }
-    const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
     const step = validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step as OnboardingStep : 'profile_photo';
     setOnboardingTourDone(progress.completed_steps || []);
     setOnboardingTourStep(step);
@@ -545,16 +553,19 @@ export default function WebApp() {
     if (onboardingStep === 'welcome') {
       if (!agreedToTerms) { setAuthMsg('You must agree to the terms to continue.'); return; }
       if (myProfile) {
-        // Returning profiles skip registration fields, but persist the welcome acknowledgement
-        // by creating their guided-tour progress before dismissing the introduction.
+        // Preserve an existing account's saved tour position while recording the Welcome acknowledgement.
+        const resumeStep = welcomeResume?.step || 'profile_photo';
+        const completed = welcomeResume?.completed || [];
+        const alreadyCompleted = Boolean(welcomeResume?.completedAt) || resumeStep === 'complete';
         setSubmitting(true);
-        const result = await saveOnboardingProgress('profile_photo', []);
+        const result = await saveOnboardingProgress(alreadyCompleted ? 'complete' : resumeStep, completed);
         setSubmitting(false);
         if (result.error) { setAuthMsg(result.error); return; }
-        setOnboardingTourDone([]);
-        setOnboardingTourStep('profile_photo');
+        setWelcomeResume(null);
+        setOnboardingTourDone(completed);
+        setOnboardingTourStep(alreadyCompleted ? 'complete' : resumeStep as OnboardingStep);
         setOnboardingStep(null);
-        setOnboardingTourActive(true);
+        setOnboardingTourActive(!alreadyCompleted);
         return;
       }
       setOnboardingStep('dob');

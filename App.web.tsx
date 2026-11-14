@@ -243,6 +243,15 @@ export default function WebApp() {
   async function resumeOnboardingIfNeeded() {
     const requestUserId = getSession()?.id;
     if (!requestUserId) return;
+    // Administrators must never be interrupted by first-time member onboarding.
+    const accountIsAdmin = await isAdmin();
+    if (getSession()?.id !== requestUserId) return;
+    if (accountIsAdmin) {
+      setOnboardingStep(null);
+      setOnboardingTourActive(false);
+      setShowOnboardingThankYou(false);
+      return;
+    }
     const { progress, error } = await getOnboardingProgress();
     if (getSession()?.id !== requestUserId) return;
     if (error) { setAuthMsg(error); return; }

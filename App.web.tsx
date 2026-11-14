@@ -1487,7 +1487,7 @@ export default function WebApp() {
                     <button type="submit" disabled={submitting || forgotCooldown > 0} style={{...mobileBtn, opacity: submitting || forgotCooldown > 0 ? 0.5 : 1}}>
                       {submitting ? 'Sending...' : forgotCooldown > 0 ? `Wait ${forgotCooldown}s` : 'Send Reset Link'}
                     </button>
-                    <TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} />
+                    <TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} viewport="mobile" />
                     {authMsg && <p style={{ color: authMsg.includes('error') || authMsg.includes('Error') ? '#f44336' : '#ff9800', fontSize: 13, marginTop: 12, textAlign: 'center', maxWidth: 320, wordBreak: 'break-word' }}>{authMsg}</p>}
                     <p style={{ color: '#666', fontSize: 13, marginTop: 16, cursor: 'pointer' }} onClick={() => { setShowForgot(false); setAuthMsg(''); }}>
                       ← Back to Sign In
@@ -1506,7 +1506,7 @@ export default function WebApp() {
                     <button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', color: '#aaa', padding: 8, cursor: 'pointer' }}>{showPassword ? 'Hide' : 'Show'}</button>
                   </div>
                   <button type="submit" disabled={submitting} style={{...mobileBtn, opacity: submitting ? 0.5 : 1}}>{submitting ? 'Please wait...' : authMode === 'login' ? 'Sign In' : 'Sign Up'}</button>
-                  <TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} />
+                  <TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} viewport="mobile" />
                 </form>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0', width: '100%', maxWidth: 360 }}>
                   <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.08)' }} />
@@ -1570,7 +1570,7 @@ export default function WebApp() {
                 onBackToSignIn={() => { setShowForgot(false); setForgotSent(false); setForgotEmail(''); setAuthMsg(''); }}
                 onGoogleSignIn={() => handleOAuthSignIn('google')}
                 onGitHubSignIn={() => handleOAuthSignIn('github')}
-                captchaWidget={<TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} />}
+                captchaWidget={<TurnstileCaptcha onToken={setCaptchaToken} resetKey={captchaResetKey} viewport="mobile" />}
               />
             </div>
             <Footer setPage={handleNav} />

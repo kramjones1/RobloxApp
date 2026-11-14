@@ -60,10 +60,17 @@ export default function OnboardingTour({ initialStep = 'profile_photo', complete
   // Highlight the active destination without allowing background actions while a prompt is visible.
   useEffect(() => {
     if (step === 'profile_photo' || step === 'complete') return;
-    const target = findTarget(current.target);
-    if (!target) return;
-    target.classList.add('livme-tour-step-target');
-    return () => target.classList.remove('livme-tour-step-target');
+    let target: HTMLElement | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      target = findTarget(current.target);
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      target.classList.add('livme-tour-step-target');
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      target?.classList.remove('livme-tour-step-target');
+    };
   }, [current, step]);
 
   useEffect(() => {

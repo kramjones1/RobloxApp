@@ -248,15 +248,12 @@ export default function WebApp() {
     if (error) { setAuthMsg(error); return; }
     const validSteps: OnboardingStep[] = ['profile_photo','discover','random_call','conversation','coins','safety','complete'];
     if (!progress || !progress.completed_steps?.includes(WELCOME_ACK_MARKER)) {
-      // Explicit Welcome acknowledgement is stored as its own marker, separate from tour version/progress.
-      // Preserve any saved tour position so accepting Welcome resumes exactly where the user stopped.
-      setWelcomeResume(progress ? {
-        step: validSteps.includes(progress.current_step as OnboardingStep) ? progress.current_step : 'profile_photo',
-        completed: progress.completed_steps || [],
-        completedAt: progress.completed_at,
-      } : null);
+      // This function is called only after an authenticated account's existing chat profile
+      // has been found. A missing onboarding row/Welcome marker must never reclassify an
+      // established account (including admins) as a new signup.
+      setWelcomeResume(null);
       setOnboardingTourActive(false);
-      setOnboardingStep('welcome');
+      setOnboardingStep(null);
       return;
     }
     setWelcomeResume(null);

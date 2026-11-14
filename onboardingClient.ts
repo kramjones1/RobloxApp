@@ -43,7 +43,7 @@ export async function saveOnboardingProgress(currentStep: string, completedSteps
       },
       body: JSON.stringify({
         user_id: user.id,
-        version: 1,
+        version: 2,
         current_step: currentStep,
         completed_steps: Array.from(new Set(completedSteps.filter(step => allowed.has(step)))),
         completed_at: currentStep === 'complete' ? new Date().toISOString() : null,

@@ -502,7 +502,10 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
   useEffect(() => {
     if (!myId) return;
     let active = true;
-    const partners = Array.from(new Set(presencePartnerIds)).filter(Boolean);
+    // Listen for calls from every user in the inbox directory, not only
+    // existing conversation partners, so first-time callers can reach users
+    // anywhere in the app.
+    const partners = presencePartnerKey.split('|').filter(Boolean);
     setCallSignalingReady(false);
     callSignalingRef.current?.close();
     callSignalingRef.current = null;
@@ -525,7 +528,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       callSignalingRef.current?.close();
       callSignalingRef.current = null;
     };
-  }, [myId, conversationPartnerKey]);
+  }, [myId, presencePartnerKey]);
 
   useEffect(() => {
     if (localCallVideoRef.current && localCallStream) localCallVideoRef.current.srcObject = localCallStream;

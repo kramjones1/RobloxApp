@@ -55,8 +55,10 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
     input: '#2a2a2a', inputText: '#ffffff', online: '#31d17c', dotBorder: '#161616',
     message: '#1f1f1f', timestamp: '#777777',
   };
-  const conversationPartnerKey = presencePartnerIds.slice().sort().join('|');
+  // Keep the global presence roster and call-signal roster independent. The former
+  // includes every directory user; the latter only includes inbox peers + selection.
   const presencePartnerKey = Array.from(new Set([...presencePartnerIds, ...directoryUsers.map(person => person.user_id)])).sort().join('|');
+  const callPartnerKey = Array.from(new Set([...presencePartnerIds, selectedId])).filter(Boolean).sort().join('|');
   const [onlinePartners, setOnlinePartners] = useState<Set<string>>(new Set());
   type CallSession = { callId: string; partnerId: string; media: 'audio' | 'video'; direction: 'incoming' | 'outgoing'; status: 'incoming' | 'outgoing' | 'connecting' | 'active' };
   const [callSession, setCallSession] = useState<CallSession | null>(null);
@@ -496,15 +498,17 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       return;
     }
     const partnerIds = presencePartnerKey.split('|').filter(Boolean);
+    // Rebuild subscriptions whenever the loaded directory/inbox roster changes,
+    // not only when a conversation is opened or the selected user changes.
     return watchUserPresence(myId, partnerIds, setOnlinePartners);
-  }, [myId, conversationPartnerKey, selectedId]);
+  }, [myId, presencePartnerKey]);
 
   useEffect(() => {
     if (!myId) return;
     let active = true;
     // Keep existing conversation listeners and also prepare the currently selected
     // directory user. A globally-online user may not yet be in the loaded inbox list.
-    const partners = Array.from(new Set([...presencePartnerIds, selectedId])).filter(Boolean);
+    const partners = callPartnerKey.split('|').filter(Boolean);
     setCallSignalingReady(false);
     callSignalingRef.current?.close();
     callSignalingRef.current = null;
@@ -527,7 +531,7 @@ export default function MessagesPage({ onNav, user, messagePartner, onViewProfil
       callSignalingRef.current?.close();
       callSignalingRef.current = null;
     };
-  }, [myId, presencePartnerKey]);
+  }, [myId, callPartnerKey]);
 
   useEffect(() => {
     if (localCallVideoRef.current && localCallStream) localCallVideoRef.current.srcObject = localCallStream;

@@ -5,8 +5,6 @@ interface FooterProps {
 }
 
 const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION || 'dev';
-const BUILD_ENV = process.env.EXPO_PUBLIC_BUILD_ENV || 'local';
-const BUILD_SHA = process.env.EXPO_PUBLIC_BUILD_SHA || 'unbuilt';
 
 const styles = {
   footer: {

@@ -345,7 +345,7 @@ export async function resetPassword(email: string, redirectTo?: string, captchaT
   }
 }
 
-export async function exchangeRecoveryCode(code: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
+export async function exchangeOAuthCode(code: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
   try {
     // Supabase PKCE redirects store the verifier in localStorage under the
     // project's auth storage key. Accept the standard key and compatible
@@ -360,18 +360,24 @@ export async function exchangeRecoveryCode(code: string): Promise<{ access_token
         if (stored) { verifier = stored.split('/')[0]; break; }
       }
     } catch {}
-    if (!verifier) return { error: 'This password reset link is missing its security verifier. Please request a new reset email.' };
+    if (!verifier) return { error: 'This sign-in link is missing its security verifier. Please start sign-in again.' };
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ auth_code: code, code_verifier: verifier }),
     });
     if (data.error) return { error: data.error };
-    if (!data.access_token) return { error: 'This password reset link is invalid or has expired. Request a new one.' };
+    if (!data.access_token) return { error: 'This sign-in link is invalid or has expired. Please start sign-in again.' };
     return { access_token: data.access_token, refresh_token: data.refresh_token || '' };
   } catch (e: any) {
-    return { error: e.message || 'Could not exchange password reset code.' };
+    return { error: e.message || 'Could not complete social sign-in.' };
   }
+}
+
+export async function exchangeRecoveryCode(code: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
+  const result = await exchangeOAuthCode(code);
+  if (result.error) return { ...result, error: result.error.replace('sign-in', 'password reset').replace('start sign-in again', 'request a new reset email') };
+  return result;
 }
 
 export async function verifyRecoveryToken(tokenHash: string): Promise<{ access_token?: string; refresh_token?: string; error?: string }> {
@@ -445,30 +451,52 @@ export async function signOut() {
   notify(null);
 }
 
-function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToken: string): string {
+function base64Url(bytes: Uint8Array): string {
+  let binary = '';
+  bytes.forEach(value => { binary += String.fromCharCode(value); });
+  return btoa(binary).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '');
+}
+
+async function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToken: string): Promise<string> {
+  const random = new Uint8Array(32);
+  crypto.getRandomValues(random);
+  const verifier = base64Url(random);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const challenge = base64Url(new Uint8Array(digest));
+  // Supabase's PKCE callback uses this verifier to exchange the returned code.
+  localStorage.setItem('sb-btkcubibosbtpxcronnd-auth-token-code-verifier', verifier + '/' + Date.now());
   const params = new URLSearchParams({
     provider,
     redirect_to: window.location.origin,
     captcha_token: captchaToken,
+    code_challenge: challenge,
+    code_challenge_method: 's256',
   });
   if (provider === 'google') params.set('prompt', 'select_account');
   return `${SUPABASE_URL}/auth/v1/authorize?${params.toString()}`;
 }
 
-export function signInWithGoogle(captchaToken: string) {
+function startOAuthSignIn(provider: 'google' | 'github', captchaToken: string): boolean {
   if (!captchaToken) return false;
-  const url = buildOAuthAuthorizeUrl('google', captchaToken);
-  const w = window.open(url, 'google-oauth', 'width=600,height=700,popup=1');
-  if (!w) { window.location.href = url; return true; }
+  // Open synchronously during the click to avoid popup blockers while PKCE is prepared.
+  try { sessionStorage.setItem('liveme-oauth-pending', '1'); } catch {}
+  const popup = window.open('about:blank', provider + '-oauth', 'width=600,height=700,popup=1');
+  void buildOAuthAuthorizeUrl(provider, captchaToken).then(url => {
+    if (popup && !popup.closed) popup.location.href = url;
+    else window.location.href = url;
+  }).catch(() => {
+    try { sessionStorage.removeItem('liveme-oauth-pending'); } catch {}
+    if (popup && !popup.closed) popup.close();
+  });
   return true;
 }
 
+export function signInWithGoogle(captchaToken: string) {
+  return startOAuthSignIn('google', captchaToken);
+}
+
 export function signInWithGitHub(captchaToken: string) {
-  if (!captchaToken) return false;
-  const url = buildOAuthAuthorizeUrl('github', captchaToken);
-  const w = window.open(url, 'github-oauth', 'width=600,height=700,popup=1');
-  if (!w) { window.location.href = url; return true; }
-  return true;
+  return startOAuthSignIn('github', captchaToken);
 }
 
 export function getSession(): SupabaseUser | null {

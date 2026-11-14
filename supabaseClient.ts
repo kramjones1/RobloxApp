@@ -445,18 +445,30 @@ export async function signOut() {
   notify(null);
 }
 
-export function signInWithGoogle() {
-  const redirectTo = window.location.origin;
-  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}&prompt=select_account`;
-  const w = window.open(url, 'google-oauth', 'width=600,height=700,popup=1');
-  if (!w) { window.location.href = url; return; }
+function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToken: string): string {
+  const params = new URLSearchParams({
+    provider,
+    redirect_to: window.location.origin,
+    captcha_token: captchaToken,
+  });
+  if (provider === 'google') params.set('prompt', 'select_account');
+  return `${SUPABASE_URL}/auth/v1/authorize?${params.toString()}`;
 }
 
-export function signInWithGitHub() {
-  const redirectTo = window.location.origin;
-  const url = `${SUPABASE_URL}/auth/v1/authorize?provider=github&redirect_to=${encodeURIComponent(redirectTo)}`;
+export function signInWithGoogle(captchaToken: string) {
+  if (!captchaToken) return false;
+  const url = buildOAuthAuthorizeUrl('google', captchaToken);
+  const w = window.open(url, 'google-oauth', 'width=600,height=700,popup=1');
+  if (!w) { window.location.href = url; return true; }
+  return true;
+}
+
+export function signInWithGitHub(captchaToken: string) {
+  if (!captchaToken) return false;
+  const url = buildOAuthAuthorizeUrl('github', captchaToken);
   const w = window.open(url, 'github-oauth', 'width=600,height=700,popup=1');
-  if (!w) { window.location.href = url; return; }
+  if (!w) { window.location.href = url; return true; }
+  return true;
 }
 
 export function getSession(): SupabaseUser | null {

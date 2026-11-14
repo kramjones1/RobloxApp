@@ -4,6 +4,10 @@ interface FooterProps {
   setPage: (p: string) => void;
 }
 
+const APP_VERSION = process.env.EXPO_PUBLIC_APP_VERSION || 'dev';
+const BUILD_ENV = process.env.EXPO_PUBLIC_BUILD_ENV || 'local';
+const BUILD_SHA = process.env.EXPO_PUBLIC_BUILD_SHA || 'unbuilt';
+
 const styles = {
   footer: {
     background: 'rgba(10,10,10,0.9)',
@@ -55,6 +59,7 @@ export default function Footer({ setPage }: FooterProps) {
         <button style={styles.link} onClick={() => setPage('terms')}>Terms</button>
       </div>
       <div style={styles.copyright}>&copy; {new Date().getFullYear()} LiveMe. All rights reserved.</div>
+      <div aria-label={`Build ${APP_VERSION}, ${BUILD_ENV}, commit ${BUILD_SHA}`} title={`Full commit: ${BUILD_SHA}`} style={{ color: '#666', fontSize: 10, letterSpacing: '.35px', marginTop: 8, fontFamily: 'ui-monospace, SFMono-Regular, monospace' }}>v{APP_VERSION} · {BUILD_ENV.toUpperCase()} · #{BUILD_SHA.slice(0, 7)}</div>
     </footer>
   );
 }

@@ -251,13 +251,13 @@ export async function setSessionToken(token: string | null, refreshToken?: strin
   return {};
 }
 
-export async function signUp(email: string, password: string, captchaToken?: string): Promise<{ error?: string }> {
+export async function signUp(email: string, password: string): Promise<{ error?: string }> {
   try {
     const normalizedEmail = email.trim().toLowerCase();
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email: normalizedEmail, password, ...(captchaToken ? { captcha_token: captchaToken } : {}) }),
+      body: JSON.stringify({ email: normalizedEmail, password }),
     });
     if (data.error) return { error: data.error };
     // Do not establish a session until the email OTP has been verified.
@@ -307,12 +307,12 @@ export async function resendSignupOtp(email: string): Promise<{ error?: string }
   }
 }
 
-export async function signIn(email: string, password: string, captchaToken?: string): Promise<{ error?: string }> {
+export async function signIn(email: string, password: string): Promise<{ error?: string }> {
   try {
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ email, password, ...(captchaToken ? { captcha_token: captchaToken } : {}) }),
+      body: JSON.stringify({ email, password }),
     });
     if (data.error) return { error: data.error };
     if (data.access_token) {
@@ -329,14 +329,9 @@ export async function signIn(email: string, password: string, captchaToken?: str
   }
 }
 
-export async function resetPassword(email: string, redirectTo?: string, captchaToken?: string): Promise<{ error?: string }> {
+export async function resetPassword(email: string, redirectTo?: string): Promise<{ error?: string }> {
   try {
-    const verifiedCaptchaToken = captchaToken?.trim();
-    // Never send a password-recovery request without the Turnstile response.
-    // Supabase rejects /recover when CAPTCHA protection is enabled and this
-    // field is absent.
-    if (!verifiedCaptchaToken) return { error: 'Security verification expired. Please complete the security check again.' };
-    const body: any = { email, captcha_token: verifiedCaptchaToken };
+    const body: any = { email };
     if (redirectTo) body.redirect_to = redirectTo;
     const data = await supabaseFetch(`${SUPABASE_URL}/auth/v1/recover`, {
       method: 'POST',
@@ -462,7 +457,7 @@ function base64Url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-async function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToken: string): Promise<string> {
+async function buildOAuthAuthorizeUrl(provider: 'google' | 'github'): Promise<string> {
   const random = new Uint8Array(32);
   crypto.getRandomValues(random);
   const verifier = base64Url(random);
@@ -473,7 +468,6 @@ async function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToke
   const params = new URLSearchParams({
     provider,
     redirect_to: `${window.location.origin}/?auth_flow=oauth`,
-    captcha_token: captchaToken,
     code_challenge: challenge,
     code_challenge_method: 's256',
   });
@@ -481,12 +475,11 @@ async function buildOAuthAuthorizeUrl(provider: 'google' | 'github', captchaToke
   return `${SUPABASE_URL}/auth/v1/authorize?${params.toString()}`;
 }
 
-function startOAuthSignIn(provider: 'google' | 'github', captchaToken: string): boolean {
-  if (!captchaToken) return false;
+function startOAuthSignIn(provider: 'google' | 'github'): boolean {
   // Open synchronously during the click to avoid popup blockers while PKCE is prepared.
   try { localStorage.setItem('liveme-oauth-pending', '1'); } catch {}
   const popup = window.open('about:blank', provider + '-oauth', 'width=600,height=700,popup=1');
-  void buildOAuthAuthorizeUrl(provider, captchaToken).then(url => {
+  void buildOAuthAuthorizeUrl(provider).then(url => {
     if (popup && !popup.closed) popup.location.href = url;
     else window.location.href = url;
   }).catch(() => {
@@ -496,12 +489,12 @@ function startOAuthSignIn(provider: 'google' | 'github', captchaToken: string): 
   return true;
 }
 
-export function signInWithGoogle(captchaToken: string) {
-  return startOAuthSignIn('google', captchaToken);
+export function signInWithGoogle() {
+  return startOAuthSignIn('google');
 }
 
-export function signInWithGitHub(captchaToken: string) {
-  return startOAuthSignIn('github', captchaToken);
+export function signInWithGitHub() {
+  return startOAuthSignIn('github');
 }
 
 export function getSession(): SupabaseUser | null {

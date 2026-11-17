@@ -270,7 +270,11 @@ export async function signUp(email: string, password: string, captchaToken: stri
     // an email that already belongs to an account. It may be a successful HTTP
     // response with no error, so checking only data.error incorrectly sends the
     // user to the verification screen even though no signup email was sent.
-    if (Array.isArray(data.user?.identities) && data.user.identities.length === 0) {
+    // The REST /auth/v1/signup endpoint returns the user object at the
+    // top level (unlike supabase-js, which wraps it as data.user). Support
+    // both shapes so the duplicate-email identities=[] signal is not missed.
+    const signupUser = data.user ?? data;
+    if (Array.isArray(signupUser?.identities) && signupUser.identities.length === 0) {
       return { error: 'This email may already be registered. Try signing in or resetting your password.' };
     }
     // Do not establish a session until the email OTP has been verified.

@@ -203,6 +203,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
               ...(admin ? [{ id: 'admin' as const, label: 'Operator' }] : []),
               { id: 'privacy', label: 'Privacy' },
               { id: 'terms', label: 'Terms' },
+              { id: 'donate', label: 'Donate' },
             ].map(t => (
               <button key={t.id} onClick={() => nav(t.id)} style={{
                 display: 'block', width: '100%', textAlign: 'left', padding: '10px 20px',
@@ -248,6 +249,7 @@ export default function Navbar({ page, setPage, user, onLogout, unreadCount = 0,
           {admin && <button style={{ ...(page === 'admin' ? styles.linkActive : styles.link), color: '#ff9800' }} onClick={() => setPage('admin')}>Operator</button>}
           <button style={page === 'privacy' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('privacy')}>Privacy</button>
           <button style={page === 'terms' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('terms')}>Terms</button>
+          <button style={page === 'donate' ? { ...styles.linkActive, color: lightMode ? '#20232a' : '#fff' } : { ...styles.link, color: lightMode ? '#626b7b' : '#999' }} onClick={() => setPage('donate')}>Donate</button>
         </div>
         {user && (
           <div style={styles.userSection}>

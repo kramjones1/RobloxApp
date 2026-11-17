@@ -61,7 +61,8 @@ export default function DonatePage({ user, admin = false }: Props) {
 
         <p style={{ color: '#777', fontSize: 11, textAlign: 'center', lineHeight: 1.6, margin: '22px 8px 0' }}>Donations are voluntary. Please only send an amount you are comfortable contributing.</p>
       </div>
-      <SupportChatWidget user={user} admin={admin} />
+      {/* The support widget must remain available to the site owner on this public contact/donation page. */}
+      <SupportChatWidget user={user} />
     </main>
   );
 }

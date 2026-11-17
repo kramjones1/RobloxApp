@@ -1212,6 +1212,20 @@ export default function WebApp() {
     boxShadow: '0 4px 20px rgba(108,99,255,0.3)',
   };
 
+  // Keep the user on a clear intermediate screen while Supabase checks the signup.
+  // The response is evaluated before the verification screen is ever enabled.
+  if (submitting && authMode === 'register' && !signupVerification && !showForgot) {
+    return (
+      <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+        <style>{'@keyframes livmeSignupCheckSpin { to { transform: rotate(360deg); } }'}</style>
+        <h1 style={{ fontSize: 40, fontWeight: 800, margin: '0 0 24px', background: 'linear-gradient(135deg, #6c63ff, #2a6eff, #00d4ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>LiveMe</h1>
+        <div role="status" aria-live="polite" style={{ width: 38, height: 38, border: '3px solid rgba(255,255,255,0.16)', borderTopColor: '#8b82ff', borderRadius: '50%', animation: 'livmeSignupCheckSpin 0.8s linear infinite' }} />
+        <h2 style={{ fontSize: 20, margin: '22px 0 8px' }}>Checking your email…</h2>
+        <p style={{ color: '#aaa', fontSize: 14, maxWidth: 320, lineHeight: 1.6, margin: 0 }}>Please wait while we check your signup details. We’ll only continue to email verification if signup is accepted.</p>
+      </div>
+    );
+  }
+
   if (signupVerification) {
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>

@@ -1214,7 +1214,7 @@ export default function WebApp() {
 
   // Keep the user on a clear intermediate screen while Supabase checks the signup.
   // The response is evaluated before the verification screen is ever enabled.
-  if (submitting && authMode === 'register' && !signupVerification) {
+  if (submitting && authMode === 'register' && !signupVerification && !showForgot) {
     return (
       <div style={{ width: '100vw', minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
         <style>{'@keyframes livmeSignupCheckSpin { to { transform: rotate(360deg); } }'}</style>

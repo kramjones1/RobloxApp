@@ -12,6 +12,7 @@ import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import SettingsPage from './pages/SettingsPage';
 import WalletPage from './pages/WalletPage';
+import DonatePage from './pages/DonatePage';
 import OnboardingTour, { type OnboardingStep } from './components/OnboardingTour';
 import { getOnboardingProgress, saveOnboardingProgress, acknowledgeWelcome, activateNewMemberBadge, WELCOME_ACK_MARKER } from './onboardingClient';
 
@@ -1468,6 +1469,15 @@ export default function WebApp() {
       )}
 
       {/* NON-CHAT PAGES - mutually exclusive groups (same priority as old early returns) */}
+      {/* Public donation information page */}
+      {page === 'donate' && (
+        <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
+          <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
+          <DonatePage user={user} admin={admin} />
+          <Footer setPage={handleNav} />
+        </div>
+      )}
+
       {page === 'privacy' && (
         <div className="page-content" style={{ width: '100%', height: '100%', background: '#0a0a0a', overflowY: 'auto' as const }}>
           <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
@@ -1491,7 +1501,7 @@ export default function WebApp() {
         </div>
       )}
 
-      {!user ? (
+      {!user && page !== 'donate' ? (
         <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
           <div className="mobile-auth" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', flexShrink: 0 }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>

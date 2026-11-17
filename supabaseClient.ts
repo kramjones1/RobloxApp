@@ -259,7 +259,20 @@ export async function signUp(email: string, password: string, captchaToken: stri
       headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ email: normalizedEmail, password, gotrue_meta_security: { captcha_token: captchaToken } }),
     });
-    if (data.error) return { error: data.error };
+    if (data.error) {
+      const message = String(data.error).toLowerCase();
+      if (message.includes('already registered') || message.includes('already been registered') || message.includes('user exists')) {
+        return { error: 'This email may already be registered. Try signing in or resetting your password.' };
+      }
+      return { error: data.error };
+    }
+    // Supabase intentionally returns an obfuscated user with no identities for
+    // an email that already belongs to an account. It may be a successful HTTP
+    // response with no error, so checking only data.error incorrectly sends the
+    // user to the verification screen even though no signup email was sent.
+    if (Array.isArray(data.user?.identities) && data.user.identities.length === 0) {
+      return { error: 'This email may already be registered. Try signing in or resetting your password.' };
+    }
     // Do not establish a session until the email OTP has been verified.
     if (data.access_token) {
       setStoredTokens(null);

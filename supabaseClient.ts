@@ -1650,6 +1650,103 @@ export async function adminDeletePhoto(path: string, reason: string): Promise<{ 
 }
 
 
+// ── Homepage background management ───────────────────────────────────────
+export interface HomepageBackground {
+  object_path: string | null;
+  url: string | null;
+}
+
+const HOMEPAGE_BACKGROUND_BUCKET = 'homepage-backgrounds';
+
+export async function getHomepageBackground(): Promise<HomepageBackground> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/homepage_background_settings?singleton=eq.true&select=object_path&limit=1`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!response.ok) return { object_path: null, url: null };
+    const rows = await response.json();
+    const path = Array.isArray(rows) ? rows[0]?.object_path || null : null;
+    return {
+      object_path: path,
+      url: path ? `${SUPABASE_URL}/storage/v1/object/public/${HOMEPAGE_BACKGROUND_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}` : null,
+    };
+  } catch {
+    return { object_path: null, url: null };
+  }
+}
+
+export async function adminSetHomepageBackground(file: File): Promise<{ error?: string; background?: HomepageBackground }> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return { error: 'Choose a JPG, PNG, or WebP image.' };
+  if (file.size > 5 * 1024 * 1024) return { error: 'Homepage backgrounds must be 5 MB or smaller.' };
+  const token = await getValidAccessToken();
+  if (!token) return { error: 'Your admin session has expired. Please sign in again.' };
+  const previousPath = (await getHomepageBackground()).object_path;
+  const extension = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp';
+  const path = `active/background-${Date.now()}.${extension}`;
+  try {
+    const upload = await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}/${path}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': file.type, 'x-upsert': 'true' },
+      body: file,
+    });
+    if (!upload.ok) {
+      const detail = await upload.json().catch(() => ({}));
+      return { error: detail.message || detail.error || `Upload failed (HTTP ${upload.status}).` };
+    }
+    const update = await fetch(`${SUPABASE_URL}/rest/v1/homepage_background_settings?singleton=eq.true`, {
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ object_path: path, updated_at: new Date().toISOString() }),
+    });
+    if (!update.ok) {
+      const detail = await update.json().catch(() => ({}));
+      await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
+        method: 'DELETE',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: [path] }),
+      }).catch(() => {});
+      return { error: detail.message || detail.error || `Could not activate the uploaded image (HTTP ${update.status}).` };
+    }
+    // The setting now points at the new file; remove the previous active file only afterward.
+    if (previousPath && previousPath !== path) {
+      await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
+        method: 'DELETE',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: [previousPath] }),
+      }).catch(() => {});
+    }
+    return { background: await getHomepageBackground() };
+  } catch (e: any) {
+    return { error: e?.message || 'Could not upload homepage background.' };
+  }
+}
+
+export async function adminRemoveHomepageBackground(): Promise<{ error?: string }> {
+  const token = await getValidAccessToken();
+  if (!token) return { error: 'Your admin session has expired. Please sign in again.' };
+  const current = await getHomepageBackground();
+  try {
+    const update = await fetch(`${SUPABASE_URL}/rest/v1/homepage_background_settings?singleton=eq.true`, {
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ object_path: null, updated_at: new Date().toISOString() }),
+    });
+    if (!update.ok) return { error: `Could not clear the active background (HTTP ${update.status}).` };
+    if (current.object_path) {
+      const removed = await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
+        method: 'DELETE',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: [current.object_path] }),
+      });
+      if (!removed.ok) return { error: 'The background was deactivated, but the old file could not be deleted.' };
+    }
+    return {};
+  } catch (e: any) {
+    return { error: e?.message || 'Could not remove homepage background.' };
+  }
+}
+
+
 // ── LivMe customer support ────────────────────────────────────────────────
 export interface SupportConversation {
   id: string;

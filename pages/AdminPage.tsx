@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AdminSupportInbox from './AdminSupportInbox';
 import { watchOperatorSessionCount } from '../chatPresence';
-import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins, adminGetPhotos, adminDeletePhoto } from '../supabaseClient';
+import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins, adminGetPhotos, adminDeletePhoto, getHomepageBackground, adminSetHomepageBackground, adminRemoveHomepageBackground } from '../supabaseClient';
 
 const s = {
   page: { background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', padding: 24, overflowY: 'auto' as const },
@@ -23,7 +23,7 @@ const s = {
   badge: { background: '#f44336', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700, marginLeft: 6 },
 };
 
-type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs' | 'photos' | 'support';
+type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs' | 'photos' | 'backgrounds' | 'support';
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>('dashboard');
@@ -49,6 +49,8 @@ export default function AdminPage() {
   const [reportSearch, setReportSearch] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [homepageBackground, setHomepageBackground] = useState<{ object_path: string | null; url: string | null }>({ object_path: null, url: null });
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [photoFilter, setPhotoFilter] = useState('all');
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [photoReason, setPhotoReason] = useState('Nudity or sexual content');
@@ -71,6 +73,7 @@ export default function AdminPage() {
     if (tab === 'reports') loadReports();
     if (tab === 'logs') loadLogs();
     if (tab === 'photos') loadPhotos();
+    if (tab === 'backgrounds') loadBackground();
   }, [tab, userPage]);
 
   async function loadStats() {
@@ -107,6 +110,40 @@ export default function AdminPage() {
       if (result.error) setError(result.error);
       else setPhotos(result.photos || []);
     } catch (e: any) { setError(e?.message || 'Unable to load stored photos.'); }
+    finally { setLoading(false); }
+  }
+
+  async function loadBackground() {
+    setLoading(true); setError('');
+    try { setHomepageBackground(await getHomepageBackground()); }
+    catch (e: any) { setError(e?.message || 'Unable to load homepage background.'); }
+    finally { setLoading(false); }
+  }
+
+  async function uploadHomepageBackground() {
+    if (!backgroundFile) { setError('Choose an image first.'); return; }
+    setLoading(true); setError(''); setNotice('');
+    try {
+      const result = await adminSetHomepageBackground(backgroundFile);
+      if (result.error) { setError(result.error); return; }
+      setHomepageBackground(result.background || await getHomepageBackground());
+      setBackgroundFile(null);
+      const picker = document.getElementById('homepage-background-file') as HTMLInputElement | null;
+      if (picker) picker.value = '';
+      setNotice('Homepage background updated. The public homepage will use the new image.');
+    } catch (e: any) { setError(e?.message || 'Could not update homepage background.'); }
+    finally { setLoading(false); }
+  }
+
+  async function removeHomepageBackground() {
+    if (!window.confirm('Remove the active homepage background and restore the default gradient?')) return;
+    setLoading(true); setError(''); setNotice('');
+    try {
+      const result = await adminRemoveHomepageBackground();
+      if (result.error) { setError(result.error); return; }
+      setHomepageBackground({ object_path: null, url: null });
+      setNotice('Homepage background removed. The default gradient is restored.');
+    } catch (e: any) { setError(e?.message || 'Could not remove homepage background.'); }
     finally { setLoading(false); }
   }
 
@@ -313,6 +350,7 @@ export default function AdminPage() {
       { id: 'bans', label: 'Bans' },
       { id: 'logs', label: 'Logs' },
       { id: 'photos', label: 'Photos' },
+      { id: 'backgrounds', label: 'Home Background' },
       { id: 'support', label: 'Support' },
     ];
     return <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)', overflowX: 'auto' as const }}>
@@ -665,6 +703,28 @@ export default function AdminPage() {
             )}
           </div>
         )}
+        {tab === 'backgrounds' && (
+          <div>
+            <div style={s.card}>
+              <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Homepage background</h2>
+              <p style={{ color: '#888', fontSize: 12, marginTop: 5, marginBottom: 14 }}>Upload a JPG, PNG, or WebP image up to 5 MB. The selected image appears behind the public homepage hero. Only admins can upload or remove it.</p>
+              {homepageBackground.url ? (
+                <div style={{ marginBottom: 14 }}>
+                  <img src={homepageBackground.url} alt="Current homepage background preview" style={{ width: '100%', maxHeight: 280, objectFit: 'cover', borderRadius: 10, background: '#111' }} />
+                  <p style={{ color: '#888', fontSize: 11, marginTop: 6, wordBreak: 'break-all' }}>Active file: {homepageBackground.object_path}</p>
+                </div>
+              ) : <div style={{ padding: 30, marginBottom: 14, borderRadius: 10, background: 'linear-gradient(135deg,#0a0a0a,#111128,#0a0a0a)', textAlign: 'center', color: '#aaa', fontSize: 13 }}>Default homepage gradient is active</div>}
+              <input id="homepage-background-file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={e => setBackgroundFile(e.target.files?.[0] || null)} style={{ ...s.input, marginBottom: 10 }} />
+              {backgroundFile && <p style={{ color: '#aaa', fontSize: 12, marginBottom: 10 }}>Selected: {backgroundFile.name} · {(backgroundFile.size / 1024 / 1024).toFixed(2)} MB</p>}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button style={s.btn} disabled={loading || !backgroundFile} onClick={uploadHomepageBackground}>{loading ? 'Saving…' : 'Upload and activate'}</button>
+                <button style={s.btn} disabled={loading} onClick={loadBackground}>Refresh</button>
+                {homepageBackground.url && <button style={s.btnDanger} disabled={loading} onClick={removeHomepageBackground}>Remove background</button>}
+              </div>
+            </div>
+          </div>
+        )}
+
         {tab === 'support' && <AdminSupportInbox />}
 
         {/* REPORTS */}

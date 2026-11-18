@@ -779,7 +779,7 @@ export default function AdminPage({ onHomepageBackgroundChanged }: { onHomepageB
               <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Homepage background</h2>
               <p style={{ color: '#888', fontSize: 12, marginTop: 5, lineHeight: 1.5 }}>Upload a JPG, PNG, or WebP image (maximum 5 MB). The new image replaces the current homepage background immediately. Only administrators can change it; visitors can view it.</p>
               <div style={{ marginTop: 14, borderRadius: 10, overflow: 'hidden', background: '#101018', border: '1px solid rgba(255,255,255,.1)' }}>
-                <img src={getHomepageBackgroundPublicUrl(backgroundPreviewVersion)} alt="Current homepage background preview" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }} />
+                <img key={backgroundPreviewVersion} src={getHomepageBackgroundPublicUrl(backgroundPreviewVersion)} alt="Current homepage background preview" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }} />
               </div>
               <label htmlFor="homepage-background-file" style={{ display: 'block', color: '#ccc', fontSize: 12, marginTop: 16, marginBottom: 6 }}>Choose replacement image</label>
               <input id="homepage-background-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setBackgroundFile(e.target.files?.[0] || null)} style={{ ...s.input, padding: 10 }} />

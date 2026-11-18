@@ -49,7 +49,8 @@ export default function AdminPage() {
   const [reportSearch, setReportSearch] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
-  const [homepageBackground, setHomepageBackground] = useState<{ object_path: string | null; url: string | null }>({ object_path: null, url: null });\n  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [homepageBackground, setHomepageBackground] = useState<{ object_path: string | null; url: string | null }>({ object_path: null, url: null });
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [photoFilter, setPhotoFilter] = useState('all');
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [photoReason, setPhotoReason] = useState('Nudity or sexual content');
@@ -71,7 +72,8 @@ export default function AdminPage() {
     if (tab === 'bans') loadBans();
     if (tab === 'reports') loadReports();
     if (tab === 'logs') loadLogs();
-    if (tab === 'photos') loadPhotos();\n    if (tab === 'backgrounds') loadBackground();
+    if (tab === 'photos') loadPhotos();
+    if (tab === 'backgrounds') loadBackground();
   }, [tab, userPage]);
 
   async function loadStats() {

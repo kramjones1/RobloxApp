@@ -1761,3 +1761,54 @@ export async function adminUpdateSupportStatus(conversationId: string, status: '
     return result?.error ? { error: result.error } : {};
   } catch (e: any) { return { error: e.message || 'Could not update support status.' }; }
 }
+
+
+// Homepage background management. The public bucket serves the active image;
+// all listing, replacement, and deletion operations require an admin JWT.
+const HOMEPAGE_BACKGROUND_BUCKET = 'home-backgrounds';
+const HOMEPAGE_BACKGROUND_PATH = 'homepage/current';
+
+export function getHomepageBackgroundPublicUrl(version = 0): string {
+  const base = `${SUPABASE_URL}/storage/v1/object/public/${HOMEPAGE_BACKGROUND_BUCKET}/${HOMEPAGE_BACKGROUND_PATH}`;
+  return version ? `${base}?v=${encodeURIComponent(String(version))}` : base;
+}
+
+export async function uploadHomepageBackground(file: File): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Please sign in as an administrator.' };
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return { error: 'Choose a JPG, PNG, or WebP image.' };
+  if (file.size > 5 * 1024 * 1024) return { error: 'The image must be 5 MB or smaller.' };
+  try {
+    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}/${HOMEPAGE_BACKGROUND_PATH}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': file.type, 'x-upsert': 'true', 'cache-control': '60' },
+      body: file,
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      let message = body;
+      try { const parsed = JSON.parse(body); message = parsed.message || parsed.error || body; } catch {}
+      return { error: message || `Upload failed (HTTP ${response.status}).` };
+    }
+    return {};
+  } catch (e: any) { return { error: e?.message || 'Could not upload the homepage background.' }; }
+}
+
+export async function removeHomepageBackground(): Promise<{ error?: string }> {
+  const token = getStoredSession();
+  if (!token) return { error: 'Please sign in as an administrator.' };
+  try {
+    const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefixes: [HOMEPAGE_BACKGROUND_PATH] }),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      let message = body;
+      try { const parsed = JSON.parse(body); message = parsed.message || parsed.error || body; } catch {}
+      return { error: message || `Removal failed (HTTP ${response.status}).` };
+    }
+    return {};
+  } catch (e: any) { return { error: e?.message || 'Could not remove the homepage background.' }; }
+}

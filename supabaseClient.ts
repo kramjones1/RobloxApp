@@ -1650,6 +1650,91 @@ export async function adminDeletePhoto(path: string, reason: string): Promise<{ 
 }
 
 
+// ── Homepage background management ───────────────────────────────────────
+export interface HomepageBackground {
+  object_path: string | null;
+  url: string | null;
+}
+
+const HOMEPAGE_BACKGROUND_BUCKET = 'homepage-backgrounds';
+
+export async function getHomepageBackground(): Promise<HomepageBackground> {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/homepage_background_settings?singleton=eq.true&select=object_path&limit=1`, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` },
+    });
+    if (!response.ok) return { object_path: null, url: null };
+    const rows = await response.json();
+    const path = Array.isArray(rows) ? rows[0]?.object_path || null : null;
+    return {
+      object_path: path,
+      url: path ? `${SUPABASE_URL}/storage/v1/object/public/${HOMEPAGE_BACKGROUND_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}` : null,
+    };
+  } catch {
+    return { object_path: null, url: null };
+  }
+}
+
+export async function adminSetHomepageBackground(file: File): Promise<{ error?: string; background?: HomepageBackground }> {
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return { error: 'Choose a JPG, PNG, or WebP image.' };
+  if (file.size > 5 * 1024 * 1024) return { error: 'Homepage backgrounds must be 5 MB or smaller.' };
+  const token = await getValidAccessToken();
+  if (!token) return { error: 'Your admin session has expired. Please sign in again.' };
+
+  try {
+    // Send the file to a CORS-enabled Edge Function instead of calling Storage directly
+    // from the browser. This avoids the failing direct Storage preflight on mobile browsers.
+    const form = new FormData();
+    form.append('file', file, file.name || 'homepage-background');
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-homepage-background-upload`, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { error: result.error || result.message || `Upload failed (HTTP ${response.status}).` };
+    }
+    if (!result.background?.object_path || !result.background?.url) {
+      return { error: 'The upload completed but the server did not return the active background. Refresh and check the homepage.' };
+    }
+    return { background: result.background };
+  } catch (e: any) {
+    return { error: e?.message === 'Failed to fetch'
+      ? 'The secure upload service could not be reached. Check your connection and try again.'
+      : e?.message || 'Could not upload homepage background.' };
+  }
+}
+
+export async function adminRemoveHomepageBackground(): Promise<{ error?: string }> {
+  const token = await getValidAccessToken();
+  if (!token) return { error: 'Your admin session has expired. Please sign in again.' };
+  const current = await getHomepageBackground();
+  try {
+    const update = await fetch(`${SUPABASE_URL}/rest/v1/homepage_background_settings?singleton=eq.true`, {
+      method: 'PATCH',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ object_path: null, updated_at: new Date().toISOString() }),
+    });
+    if (!update.ok) return { error: `Could not clear the active background (HTTP ${update.status}).` };
+    if (current.object_path) {
+      const removed = await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
+        method: 'DELETE',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: [current.object_path] }),
+      });
+      if (!removed.ok) return { error: 'The background was deactivated, but the old file could not be deleted.' };
+    }
+    return {};
+  } catch (e: any) {
+    return { error: e?.message || 'Could not remove homepage background.' };
+  }
+}
+
+
 // ── LivMe customer support ────────────────────────────────────────────────
 export interface SupportConversation {
   id: string;

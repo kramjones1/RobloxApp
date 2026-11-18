@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { getHomepageBackground } from '../supabaseClient';
 type Page = 'home' | 'privacy' | 'terms' | 'profile' | 'messages';
 
 const s = {
@@ -155,9 +156,11 @@ export default function LandingPage({
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
   onGoogleSignIn, onGitHubSignIn, captchaWidget, captchaVerified,
 }: Props) {
+  const [homepageBackground, setHomepageBackground] = useState<string | null>(null);
+  useEffect(() => { let active = true; getHomepageBackground().then(result => { if (active) setHomepageBackground(result.url); }); return () => { active = false; }; }, []);
   const showAuth = !!onSubmit;
   return (
-    <section style={{ ...s.section, ...s.hero }}>
+    <section style={{ ...s.section, ...s.hero, ...(homepageBackground ? { backgroundImage: `linear-gradient(rgba(10,10,10,.72), rgba(10,10,10,.72)), url("${homepageBackground}")`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}) }}>
       <div style={s.row}>
         <div style={s.left}>
           <h1 data-onboarding-target="discover" style={s.heroTitle}>LiveMe</h1>

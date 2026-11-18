@@ -1706,6 +1706,15 @@ export async function adminSetHomepageBackground(file: File): Promise<{ error?: 
       }).catch(() => {});
       return { error: detail.message || detail.error || `Could not activate the uploaded image (HTTP ${update.status}).` };
     }
+    const previousPath = (await getHomepageBackground()).object_path;
+    // The setting now points at the new file; remove the previous active file only afterward.
+    if (previousPath && previousPath !== path) {
+      await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
+        method: 'DELETE',
+        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefixes: [previousPath] }),
+      }).catch(() => {});
+    }
     return { background: await getHomepageBackground() };
   } catch (e: any) {
     return { error: e?.message || 'Could not upload homepage background.' };

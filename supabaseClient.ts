@@ -1680,44 +1680,32 @@ export async function adminSetHomepageBackground(file: File): Promise<{ error?: 
   if (file.size > 5 * 1024 * 1024) return { error: 'Homepage backgrounds must be 5 MB or smaller.' };
   const token = await getValidAccessToken();
   if (!token) return { error: 'Your admin session has expired. Please sign in again.' };
-  const previousPath = (await getHomepageBackground()).object_path;
-  const extension = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp';
-  const path = `active/background-${Date.now()}.${extension}`;
+
   try {
-    const upload = await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}/${path}`, {
+    // Send the file to a CORS-enabled Edge Function instead of calling Storage directly
+    // from the browser. This avoids the failing direct Storage preflight on mobile browsers.
+    const form = new FormData();
+    form.append('file', file, file.name || 'homepage-background');
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/admin-homepage-background-upload`, {
       method: 'POST',
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': file.type, 'x-upsert': 'true' },
-      body: file,
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${token}`,
+      },
+      body: form,
     });
-    if (!upload.ok) {
-      const detail = await upload.json().catch(() => ({}));
-      return { error: detail.message || detail.error || `Upload failed (HTTP ${upload.status}).` };
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      return { error: result.error || result.message || `Upload failed (HTTP ${response.status}).` };
     }
-    const update = await fetch(`${SUPABASE_URL}/rest/v1/homepage_background_settings?singleton=eq.true`, {
-      method: 'PATCH',
-      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ object_path: path, updated_at: new Date().toISOString() }),
-    });
-    if (!update.ok) {
-      const detail = await update.json().catch(() => ({}));
-      await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
-        method: 'DELETE',
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prefixes: [path] }),
-      }).catch(() => {});
-      return { error: detail.message || detail.error || `Could not activate the uploaded image (HTTP ${update.status}).` };
+    if (!result.background?.object_path || !result.background?.url) {
+      return { error: 'The upload completed but the server did not return the active background. Refresh and check the homepage.' };
     }
-    // The setting now points at the new file; remove the previous active file only afterward.
-    if (previousPath && previousPath !== path) {
-      await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {
-        method: 'DELETE',
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prefixes: [previousPath] }),
-      }).catch(() => {});
-    }
-    return { background: await getHomepageBackground() };
+    return { background: result.background };
   } catch (e: any) {
-    return { error: e?.message || 'Could not upload homepage background.' };
+    return { error: e?.message === 'Failed to fetch'
+      ? 'The secure upload service could not be reached. Check your connection and try again.'
+      : e?.message || 'Could not upload homepage background.' };
   }
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import TurnstileCaptcha from './components/TurnstileCaptcha';
-import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, exchangeRecoveryCode, exchangeOAuthCode, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken } from './supabaseClient';
+import { signUp, verifySignupOtp, resendSignupOtp, signIn, signOut, resetPassword, updatePassword, verifyRecoveryToken, exchangeRecoveryCode, exchangeOAuthCode, setSessionToken, getSession, onAuthChange, getChatProfile, upsertChatProfile, signInWithGoogle, signInWithGitHub, getUserProfile, getConversations, saveRecentLive, isAdmin, checkIsBanned, getBanReason, getValidAccessToken, refreshAccessToken, getHomepageBackgroundPublicUrl } from './supabaseClient';
 import MessagesPage from './pages/MessagesPage';
 import { startUserPresence, startOperatorSessionPresence } from './chatPresence';
 import Navbar from './components/Navbar';
@@ -140,6 +140,7 @@ function isValidSignupPassword(value: string): boolean {
 
 export default function WebApp() {
   const [page, setPage] = useState('home');
+  const [homepageBackgroundVersion, setHomepageBackgroundVersion] = useState(() => Date.now());
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -1497,7 +1498,7 @@ export default function WebApp() {
       {page === 'admin' && admin && (
         <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
-          <AdminPage />
+          <AdminPage onHomepageBackgroundChanged={() => setHomepageBackgroundVersion(Date.now())} />
         </div>
       )}
 
@@ -1586,6 +1587,7 @@ export default function WebApp() {
             <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
               <LandingPage
+                backgroundUrl={getHomepageBackgroundPublicUrl(homepageBackgroundVersion)}
                 onNav={handleNav}
                 onStart={() => {}}
                 authMode={authMode}

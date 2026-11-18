@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import AdminSupportInbox from './AdminSupportInbox';
 import { watchOperatorSessionCount } from '../chatPresence';
-import { getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins, adminGetPhotos, adminDeletePhoto } from '../supabaseClient';
+import { uploadHomepageBackground, removeHomepageBackground, getHomepageBackgroundPublicUrl, getAdminStats, adminListUsers, adminGetUserMessages, adminFlagUser, adminUnflagUser, adminBanUser, adminUnbanUser, adminGetBannedUsers, adminGetReportedMessages, adminDismissReport, adminGetLogs, getAllMessagesForDownload, adminGetCoinWallet, adminAddLivmeCoins, adminDeductLivmeCoins, adminGetPhotos, adminDeletePhoto } from '../supabaseClient';
 
 const s = {
   page: { background: '#161616', flex: 1, minHeight: 0, fontFamily: 'system-ui, sans-serif', padding: 24, overflowY: 'auto' as const },
@@ -23,9 +23,9 @@ const s = {
   badge: { background: '#f44336', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 10, fontWeight: 700, marginLeft: 6 },
 };
 
-type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs' | 'photos' | 'support';
+type Tab = 'dashboard' | 'users' | 'reports' | 'bans' | 'logs' | 'photos' | 'backgrounds' | 'support';
 
-export default function AdminPage() {
+export default function AdminPage({ onHomepageBackgroundChanged }: { onHomepageBackgroundChanged?: () => void } = {}) {
   const [tab, setTab] = useState<Tab>('dashboard');
   const [stats, setStats] = useState<any>(null);
   const [statsUpdatedAt, setStatsUpdatedAt] = useState<Date | null>(null);
@@ -49,6 +49,8 @@ export default function AdminPage() {
   const [reportSearch, setReportSearch] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [backgroundPreviewVersion, setBackgroundPreviewVersion] = useState(Date.now());
+  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [photoFilter, setPhotoFilter] = useState('all');
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [photoReason, setPhotoReason] = useState('Nudity or sexual content');
@@ -313,6 +315,7 @@ export default function AdminPage() {
       { id: 'bans', label: 'Bans' },
       { id: 'logs', label: 'Logs' },
       { id: 'photos', label: 'Photos' },
+      { id: 'backgrounds', label: 'Home Background' },
       { id: 'support', label: 'Support' },
     ];
     return <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)', overflowX: 'auto' as const }}>
@@ -766,6 +769,52 @@ export default function AdminPage() {
                 </div>
               ))}
             </div>}
+          </div>
+        )}
+
+        {/* HOMEPAGE BACKGROUND MANAGER */}
+        {tab === 'backgrounds' && (
+          <div>
+            <div style={s.card}>
+              <h2 style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Homepage background</h2>
+              <p style={{ color: '#888', fontSize: 12, marginTop: 5, lineHeight: 1.5 }}>Upload a JPG, PNG, or WebP image (maximum 5 MB). The new image replaces the current homepage background immediately. Only administrators can change it; visitors can view it.</p>
+              <div style={{ marginTop: 14, borderRadius: 10, overflow: 'hidden', background: '#101018', border: '1px solid rgba(255,255,255,.1)' }}>
+                <img key={backgroundPreviewVersion} src={getHomepageBackgroundPublicUrl(backgroundPreviewVersion)} alt="Current homepage background preview" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} style={{ display: 'block', width: '100%', maxHeight: 280, objectFit: 'cover' }} />
+              </div>
+              <label htmlFor="homepage-background-file" style={{ display: 'block', color: '#ccc', fontSize: 12, marginTop: 16, marginBottom: 6 }}>Choose replacement image</label>
+              <input id="homepage-background-file" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setBackgroundFile(e.target.files?.[0] || null)} style={{ ...s.input, padding: 10 }} />
+              {backgroundFile && <p style={{ color: '#aaa', fontSize: 11, marginTop: 6 }}>{backgroundFile.name} · {(backgroundFile.size / 1024 / 1024).toFixed(2)} MB</p>}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+                <button style={s.btn} disabled={loading || !backgroundFile} onClick={async () => {
+                  if (!backgroundFile) return;
+                  setLoading(true); setError(''); setNotice('');
+                  try {
+                    const result = await uploadHomepageBackground(backgroundFile);
+                    if (result.error) { setError(result.error); return; }
+                    setBackgroundFile(null);
+                    setBackgroundPreviewVersion(Date.now());
+                    onHomepageBackgroundChanged?.();
+                    setNotice('Homepage background updated successfully.');
+                    const input = document.getElementById('homepage-background-file') as HTMLInputElement | null;
+                    if (input) input.value = '';
+                  } catch (e: any) { setError(e?.message || 'Could not update the homepage background.'); }
+                  finally { setLoading(false); }
+                }}>{loading ? 'Uploading…' : 'Upload and apply'}</button>
+                <button style={{ ...s.btnDanger, padding: '6px 14px' }} disabled={loading} onClick={async () => {
+                  if (!window.confirm('Remove the current homepage background and restore the default gradient?')) return;
+                  setLoading(true); setError(''); setNotice('');
+                  try {
+                    const result = await removeHomepageBackground();
+                    if (result.error) { setError(result.error); return; }
+                    setBackgroundPreviewVersion(Date.now());
+                    onHomepageBackgroundChanged?.();
+                    setNotice('Homepage background removed. The default gradient is restored.');
+                  } catch (e: any) { setError(e?.message || 'Could not remove the homepage background.'); }
+                  finally { setLoading(false); }
+                }}>Remove background</button>
+              </div>
+              <p style={{ color: '#777', fontSize: 11, marginTop: 12 }}>Storage location: home-backgrounds / homepage / current. Existing user photos, accounts, and other files are not modified.</p>
+            </div>
           </div>
         )}
 

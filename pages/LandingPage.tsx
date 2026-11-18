@@ -146,6 +146,7 @@ interface Props {
   onGitHubSignIn?: () => void;
   captchaWidget?: React.ReactNode;
   captchaVerified?: boolean;
+  backgroundUrl?: string;
 }
 
 export default function LandingPage({
@@ -153,11 +154,11 @@ export default function LandingPage({
   onEmailChange, onPasswordChange, showPassword, onTogglePassword, onSubmit, onToggleAuth,
   showForgot, forgotSent, forgotEmail, forgotCooldown,
   onForgotEmailChange, onForgotSubmit, onShowForgot, onBackToSignIn,
-  onGoogleSignIn, onGitHubSignIn, captchaWidget, captchaVerified,
+  onGoogleSignIn, onGitHubSignIn, captchaWidget, captchaVerified, backgroundUrl,
 }: Props) {
   const showAuth = !!onSubmit;
   return (
-    <section style={{ ...s.section, ...s.hero }}>
+    <section style={{ ...s.section, ...s.hero, backgroundImage: backgroundUrl ? `linear-gradient(rgba(5,5,12,.70), rgba(5,5,12,.78)), url(${JSON.stringify(backgroundUrl)})` : s.hero.background, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
       <div style={s.row}>
         <div style={s.left}>
           <h1 data-onboarding-target="discover" style={s.heroTitle}>LiveMe</h1>

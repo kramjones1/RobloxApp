@@ -48,7 +48,8 @@ export default function AdminPage() {
   const [reports, setReports] = useState<any[]>([]);
   const [reportSearch, setReportSearch] = useState('');
   const [logs, setLogs] = useState<any[]>([]);
-  const [photos, setPhotos] = useState<any[]>([]);\n  const [homepageBackground, setHomepageBackground] = useState<{ object_path: string | null; url: string | null }>({ object_path: null, url: null });\n  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
+  const [photos, setPhotos] = useState<any[]>([]);
+  const [homepageBackground, setHomepageBackground] = useState<{ object_path: string | null; url: string | null }>({ object_path: null, url: null });\n  const [backgroundFile, setBackgroundFile] = useState<File | null>(null);
   const [photoFilter, setPhotoFilter] = useState('all');
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [photoReason, setPhotoReason] = useState('Nudity or sexual content');
@@ -346,7 +347,8 @@ export default function AdminPage() {
       { id: 'reports', label: `Reports${reports.filter(r => !r.dismissed).length > 0 ? ` (${reports.filter(r => !r.dismissed).length})` : ''}` },
       { id: 'bans', label: 'Bans' },
       { id: 'logs', label: 'Logs' },
-      { id: 'photos', label: 'Photos' },\n      { id: 'backgrounds', label: 'Home Background' },
+      { id: 'photos', label: 'Photos' },
+      { id: 'backgrounds', label: 'Home Background' },
       { id: 'support', label: 'Support' },
     ];
     return <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid rgba(255,255,255,0.06)', overflowX: 'auto' as const }}>

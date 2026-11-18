@@ -1503,7 +1503,7 @@ export default function WebApp() {
       )}
 
       {!user && page !== 'donate' ? (
-        <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
+        <div style={{ width: '100%', height: '100vh', background: '#0a0a0a', backgroundImage: `linear-gradient(rgba(5,5,12,.70), rgba(5,5,12,.78)), url(${JSON.stringify(getHomepageBackgroundPublicUrl(homepageBackgroundVersion))})`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', fontFamily: 'system-ui, sans-serif', display: 'flex', flexDirection: 'column', overflowY: 'auto' as const }}>
           <div className="mobile-auth" style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', flexShrink: 0 }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             {showForgot ? (

@@ -1680,6 +1680,7 @@ export async function adminSetHomepageBackground(file: File): Promise<{ error?: 
   if (file.size > 5 * 1024 * 1024) return { error: 'Homepage backgrounds must be 5 MB or smaller.' };
   const token = await getValidAccessToken();
   if (!token) return { error: 'Your admin session has expired. Please sign in again.' };
+  const previousPath = (await getHomepageBackground()).object_path;
   const extension = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/png' ? 'png' : 'webp';
   const path = `active/background-${Date.now()}.${extension}`;
   try {
@@ -1706,7 +1707,6 @@ export async function adminSetHomepageBackground(file: File): Promise<{ error?: 
       }).catch(() => {});
       return { error: detail.message || detail.error || `Could not activate the uploaded image (HTTP ${update.status}).` };
     }
-    const previousPath = (await getHomepageBackground()).object_path;
     // The setting now points at the new file; remove the previous active file only afterward.
     if (previousPath && previousPath !== path) {
       await fetch(`${SUPABASE_URL}/storage/v1/object/${HOMEPAGE_BACKGROUND_BUCKET}`, {

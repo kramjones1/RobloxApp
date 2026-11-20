@@ -269,38 +269,41 @@ hoverStyles.textContent = `
   .profile-tabs { position: sticky; top: 60px; z-index: 35; display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; white-space: nowrap; touch-action: pan-x; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
   .profile-tabs::-webkit-scrollbar { display: none; }
   @media (min-width: 700px) {
-    /* Keep the profile shell and navigation fixed in the available page
-       viewport. Only the selected tab's content gets vertical scrolling. */
-    .profile-page-shell > .profile-page-root { flex: 1 1 auto; min-height: 0; }
-    .profile-page-root { height: 100% !important; min-height: 0 !important; overflow: hidden !important; }
-    .profile-page-root > .profile-wrap { height: 100%; min-height: 0; overflow: hidden; padding-bottom: 0; }
-    .profile-main { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
-    .profile-main-content {
-      display: block;
-      flex: 1 1 auto;
-      height: 0;
-      min-height: 0;
-      max-height: none !important;
+    /* Desktop profile uses one natural document scroll area. The previous
+       nested fixed-height/overflow-hidden containers clipped the profile
+       feed and pushed its footer outside the reachable viewport. */
+    .profile-page-shell {
+      box-sizing: border-box !important;
+      height: calc(100vh - 60px) !important;
+      min-height: 0 !important;
       overflow-x: hidden !important;
       overflow-y: auto !important;
       overscroll-behavior-y: contain;
-      scrollbar-gutter: stable;
       scrollbar-width: thin;
-      -webkit-overflow-scrolling: touch;
     }
-    .profile-main-content::-webkit-scrollbar { width: 8px; }
-    .profile-main-content::-webkit-scrollbar-thumb { background: rgba(145,145,160,.42); border-radius: 8px; }
-    .profile-tabs { position: relative; top: auto; flex: 0 0 auto; overflow-x: auto; overflow-y: hidden; }
+    .profile-page-shell::-webkit-scrollbar { width: 8px; }
+    .profile-page-shell::-webkit-scrollbar-thumb { background: rgba(145,145,160,.42); border-radius: 8px; }
+    .profile-page-root { flex: 0 0 auto; height: auto !important; min-height: 0 !important; overflow: visible !important; }
+    .profile-page-root > .profile-wrap { height: auto; min-height: 0; overflow: visible; padding-bottom: 40px; }
+    .profile-main { display: flex; flex-direction: column; height: auto; min-height: 0; overflow: visible; }
+    .profile-main-content {
+      display: block;
+      flex: none;
+      height: auto;
+      min-height: 0;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    .profile-tabs { position: sticky; top: 0; z-index: 35; overflow-x: auto; overflow-y: hidden; }
     .profile-sidebar { position: static; max-height: none; overflow: visible; }
-    /* Compact the profile's top identity area so the tab feed has useful
-       viewport space on common laptop displays. */
+    /* Keep the desktop identity area compact without constraining page height. */
     .cover-wrap { height: clamp(180px, 26vh, 230px) !important; aspect-ratio: auto !important; }
     .profile-avatar-wrap { margin-top: -54px !important; }
     .profile-avatar { width: 112px !important; height: 112px !important; }
     .profile-name-section { padding: 6px 24px 10px !important; }
     .profile-page-root > .profile-wrap > section[aria-label="Recent Live"] { padding: 8px 24px 4px !important; }
     .profile-page-root > .profile-wrap > section[aria-label="Recent Live"] h2 { margin-bottom: 7px !important; }
-    .profile-content-area { flex: 1 1 auto; height: 0; min-height: 180px; overflow: hidden; align-items: stretch; }
+    .profile-content-area { height: auto; min-height: 0; overflow: visible; align-items: start; }
   }
   @media (max-width: 699px) {
     /* Mobile keeps natural document scrolling and its original layout. */

@@ -1495,9 +1495,10 @@ export default function WebApp() {
       )}
 
       {page === 'admin' && admin && (
-        <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
           <AdminPage />
+          <Footer setPage={handleNav} />
         </div>
       )}
 

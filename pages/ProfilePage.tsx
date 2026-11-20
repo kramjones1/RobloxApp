@@ -274,7 +274,7 @@ hoverStyles.textContent = `
        feed and pushed its footer outside the reachable viewport. */
     .profile-page-shell {
       box-sizing: border-box !important;
-      height: calc(100vh - 60px) !important;
+      height: 100vh !important;
       min-height: 0 !important;
       overflow-x: hidden !important;
       overflow-y: auto !important;
@@ -283,6 +283,7 @@ hoverStyles.textContent = `
     }
     .profile-page-shell::-webkit-scrollbar { width: 8px; }
     .profile-page-shell::-webkit-scrollbar-thumb { background: rgba(145,145,160,.42); border-radius: 8px; }
+    .profile-page-shell > footer { flex: 0 0 auto; }
     .profile-page-root { flex: 0 0 auto; height: auto !important; min-height: 0 !important; overflow: visible !important; }
     .profile-page-root > .profile-wrap { height: auto; min-height: 0; overflow: visible; padding-bottom: 40px; }
     .profile-main { display: flex; flex-direction: column; height: auto; min-height: 0; overflow: visible; }

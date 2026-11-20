@@ -1495,9 +1495,10 @@ export default function WebApp() {
       )}
 
       {page === 'admin' && admin && (
-        <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="page-content" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
           <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} avatar={myProfile?.avatar} />
           <AdminPage />
+          <Footer setPage={handleNav} />
         </div>
       )}
 
@@ -1582,7 +1583,7 @@ export default function WebApp() {
             </div>
             <Footer setPage={handleNav} />
           </div>
-          <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
             <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
               <LandingPage

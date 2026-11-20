@@ -1582,7 +1582,7 @@ export default function WebApp() {
             </div>
             <Footer setPage={handleNav} />
           </div>
-          <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className="desktop-layout" style={{ background: '#0a0a0a', flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
             <Navbar page={page} setPage={handleNav} user={user} onLogout={handleLogout} unreadCount={unreadCount} callActive={callActive} admin={admin} />
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingTop: 60 }}>
               <LandingPage
